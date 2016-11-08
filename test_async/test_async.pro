@@ -5,7 +5,7 @@ CONFIG -= qt
 
 QMAKE_CXXFLAGS += -std=c++11 #-stdlib=libc++
 
-INCLUDEPATH += /home/tigran/data/prog.projects/include
+INCLUDEPATH += /home/tigran/data/prog.projects/work/include
 
 LIBS += -lpthread
 #LIBS += -lc++ -lpthread

@@ -1,7 +1,7 @@
 #ifndef ASYNC_MULTITHREADING_H
 #define ASYNC_MULTITHREADING_H
 
-#include "async.h"
+#include "processor.h"
 
 #include <list>
 #include <unordered_set>
