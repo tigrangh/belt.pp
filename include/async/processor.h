@@ -1,5 +1,5 @@
-#ifndef ASYNC_H
-#define ASYNC_H
+#ifndef ASYNC_PROCESSOR_H
+#define ASYNC_PROCESSOR_H
 #include "async_decl.h"
 
 #include <thread>
@@ -160,4 +160,4 @@ inline void run(size_t id, processor& host) noexcept
 
 }
 
-#endif // ASYNC_H
+#endif // ASYNC_PROCESSOR_H

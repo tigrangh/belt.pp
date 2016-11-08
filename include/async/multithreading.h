@@ -1,5 +1,5 @@
-#ifndef ASYNC_MULTITHREADED_H
-#define ASYNC_MULTITHREADED_H
+#ifndef ASYNC_MULTITHREADING_H
+#define ASYNC_MULTITHREADING_H
 
 #include "async.h"
 
@@ -231,4 +231,4 @@ void thread_task(thread* pth)
 
 }
 
-#endif // ASYNC_MULTITHREADED_H
+#endif // ASYNC_MULTITHREADING_H
