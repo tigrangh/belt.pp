@@ -89,11 +89,10 @@ class thread final
 {
     friend void thread_task(thread*);
 public:
-    thread(thread_pool& host)
-        : m_phost(&host) {}
+    explicit thread(thread_pool&);
     thread() = delete;
     thread(thread const&) = delete;
-    thread(thread&&) = default;
+    thread(thread&&) = delete;
     inline ~thread();
 
     thread& operator = (thread const&) = delete;
@@ -116,6 +115,10 @@ private:
     cv m_cv;
     std::exception_ptr m_ptr_exception;
 };
+
+thread::thread(thread_pool& host)
+    : m_phost(&host)
+{}
 
 thread::~thread()
 {

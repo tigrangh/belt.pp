@@ -28,9 +28,9 @@ public:
     inline processor(size_t count)
         : m_policy(pending_policy::allow_new)
         , m_thread_count(count)
+        , m_busy_count(0)
     {
         setCoreCount(count);
-        //wait();
     }
     processor(processor const&) = delete;
     processor(processor&&) = delete;
@@ -45,7 +45,7 @@ public:
 
     inline void setCoreCount(size_t count);
     inline size_t getCoreCount();
-    inline void add(task& th);
+    inline void add(task const& th);
     inline void wait();
 private:
     using threads = std::list<std::thread>;
@@ -55,9 +55,11 @@ private:
     //
     pending_policy m_policy;
     size_t m_thread_count;
+    size_t m_busy_count;
     threads m_threads;
     mutex m_mutex;
     cv m_cv_add_exit__run;
+    cv m_cv_run__wait;
     queue m_queue;
 };
 
@@ -67,32 +69,6 @@ void processor::setCoreCount(size_t count)
         std::lock_guard<mutex> lock(m_mutex);
         m_thread_count = count;
     }
-    wait();
-}
-
-size_t processor::getCoreCount()
-{
-    std::lock_guard<mutex> lock(m_mutex);
-    return m_threads.size();
-}
-
-void processor::add(processor::task& obtask)
-{
-    bool bNotify = false;
-    {
-        std::lock_guard<mutex> lock(m_mutex);
-        if (m_policy == pending_policy::allow_new)
-        {
-            m_queue.push(obtask);
-            bNotify = true;
-        }
-    }
-    if (bNotify)
-        m_cv_add_exit__run.notify_one();  //  notify one run() to wake up from empty wait
-}
-
-void processor::wait()
-{
     size_t current_thread_count = 0;
     size_t desired_thread_count = 0;
     {
@@ -113,6 +89,39 @@ void processor::wait()
         m_threads.pop_back();
         --current_thread_count;
     }
+}
+
+size_t processor::getCoreCount()
+{
+    std::lock_guard<mutex> lock(m_mutex);
+    return m_threads.size();
+}
+
+void processor::add(processor::task const& obtask)
+{
+    bool bNotify = false;
+    {
+        std::lock_guard<mutex> lock(m_mutex);
+        if (m_policy == pending_policy::allow_new)
+        {
+            m_queue.push(obtask);
+            bNotify = true;
+        }
+    }
+    if (bNotify)
+        m_cv_add_exit__run.notify_one();  //  notify one run() to wake up from empty wait
+}
+
+void processor::wait()
+{
+    std::unique_lock<std::mutex> lock(m_mutex);
+
+    auto& qu = m_queue;
+    auto& busy_count = m_busy_count;
+    m_cv_run__wait.wait(lock, [&qu, &busy_count]
+    {
+        return (qu.empty() && 0 == busy_count);
+    });
 }
 
 inline void run(size_t id, processor& host) noexcept
@@ -145,6 +154,7 @@ inline void run(size_t id, processor& host) noexcept
         {
             auto obtask = host.m_queue.front();
             host.m_queue.pop();
+            ++host.m_busy_count;
 
             lock.unlock();
 
@@ -154,6 +164,15 @@ inline void run(size_t id, processor& host) noexcept
                     obtask();
             }
             catch (...){}
+
+            lock.lock();
+            --host.m_busy_count;
+            if (host.m_queue.empty() &&
+                0 == host.m_busy_count)
+            {
+                host.m_cv_run__wait.notify_one();
+            }
+            lock.unlock();
         }
     }
 }
