@@ -11,3 +11,6 @@ LIBS += -lpthread
 #LIBS += -lc++ -lpthread
 
 SOURCES += main.cpp
+
+HEADERS += \
+    delegate.h

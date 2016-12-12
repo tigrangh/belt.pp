@@ -2,13 +2,38 @@
 #include <chrono>
 
 #include <async/multithreading.h>
-
+#include <delegate.h>
 
 void task(int i)
 {
     if (i > 0)
         std::this_thread::sleep_for(std::chrono::milliseconds(i));
+    /*volatile int count = i;
+    for (int a = 0; a < count; ++a)
+    {
+        ++a;
+    }*/
 }
+
+class ctask
+{
+public:
+    void mem() const
+    {
+        task(i);
+    }
+
+    void operator()() const
+    {
+        task(i);
+    }
+
+    int i;
+};
+
+//using task_t = std::function<void()>;
+//using task_t = delegate<void>;
+using task_t = ctask;
 
 void test_async_processor(size_t count,
                           size_t threads,
@@ -32,16 +57,21 @@ void test_async_processor(size_t count,
     time_point tp_wait;
     time_point tp_destruct;
     {
-        async::processor proc(threads);
+        async::processor<task_t> proc(threads);
+
+        ctask ttob;
+        ttob.i = unitWeight;
+        task_t tt;
+        //tt.bind_cmfptr<ctask, &ctask::mem>(ttob);
+        tt = ttob;
 
         for (size_t i = 0; i < count; ++i)
         {
-            proc.add([unitWeight]
-            {
-                task(unitWeight);
-            });
+            //proc.run([unitWeight]{task(unitWeight);});
+            proc.run(tt);
 
-            if (bUseWaits)
+            if (bUseWaits &&
+                0 == i % threads)
             {
                 proc.wait();
             }
@@ -64,7 +94,7 @@ void test_async_processor(size_t count,
 
 int main()
 {
-    int const sleep = 0;
+    int const sleep = -1;
     size_t count = 1e6;
     long ms_wait, ms_destruct;
 
@@ -76,14 +106,14 @@ int main()
                              false,
                              ms_wait,
                              ms_destruct);
-        std::cout << ms_wait << '\t' << ms_destruct << std::endl;
-        /*test_async_processor(count,
+        std::cout << ms_wait << '\t';// << ms_destruct << std::endl;
+        test_async_processor(count,
                              threads,
                              sleep,
                              true,
                              ms_wait,
                              ms_destruct);
-        std::cout << ms_wait << '\t' << ms_destruct << std::endl;*/
+        std::cout << ms_wait << /*'\t' << ms_destruct << */std::endl;
     }
 
     return 0;

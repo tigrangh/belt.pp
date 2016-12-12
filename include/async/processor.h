@@ -1,29 +1,30 @@
 #ifndef ASYNC_PROCESSOR_H
 #define ASYNC_PROCESSOR_H
-//#include "async_decl.h"
 
 #include <thread>
 #include <queue>
 #include <mutex>
 #include <condition_variable>
-//#include <memory>
 #include <exception>
-#include <functional>
 #include <list>
 #include <assert.h>
 
 namespace async
 {
+template <typename task_t>
 class processor;
-void run(size_t id, processor& host) noexcept;
 
+template <typename task_t>
+void thread_run(size_t id, processor<task_t>& host) noexcept;
+
+template <typename task_t>
 class processor final
 {
 public:
     enum class pending_policy { allow_new, prevent_new, empty_queue };
-    friend void run(size_t id, processor &host) noexcept;
-    friend class thread;
-    using task = std::function<void()>;
+    template <typename task_tt>
+    friend void thread_run(size_t id, processor<task_tt> &host) noexcept;
+    using task = task_t;
 
     inline processor(size_t count)
         : m_policy(pending_policy::allow_new)
@@ -36,7 +37,7 @@ public:
     processor(processor&&) = delete;
     inline ~processor()
     {
-        //  make sure this does not throw
+        //  make sure we do not throw here
         setCoreCount(0);
     }
 
@@ -45,25 +46,26 @@ public:
 
     inline void setCoreCount(size_t count);
     inline size_t getCoreCount();
-    inline void add(task const& th);
+    inline void run(task_t const& th);  // add
     inline void wait();
 private:
     using threads = std::list<std::thread>;
     using mutex = std::mutex;
     using cv = std::condition_variable;
-    using queue = std::queue<task>;
+    using queue = std::queue<task_t>;
     //
     pending_policy m_policy;
     size_t m_thread_count;
     size_t m_busy_count;
     threads m_threads;
     mutex m_mutex;
-    cv m_cv_add_exit__run;
-    cv m_cv_run__wait;
+    cv m_cv_add_exit__thrun;
+    cv m_cv_thrun__wait;
     queue m_queue;
 };
 
-void processor::setCoreCount(size_t count)
+template <typename task_t>
+void processor<task_t>::setCoreCount(size_t count)
 {
     {
         std::lock_guard<mutex> lock(m_mutex);
@@ -78,11 +80,13 @@ void processor::setCoreCount(size_t count)
     }
     while (current_thread_count < desired_thread_count)
     {
-        m_threads.push_back(std::thread(&run, current_thread_count, std::ref(*this)));
+        void (*fptrthrun)(size_t, processor<task_t>&);
+        fptrthrun = &thread_run;
+        m_threads.push_back(std::thread(fptrthrun, current_thread_count, std::ref(*this)));
         ++current_thread_count;
     }
     if (current_thread_count > desired_thread_count)
-        m_cv_add_exit__run.notify_all();  //  notify all run() to wake up from empty state sleep
+        m_cv_add_exit__thrun.notify_all();  //  notify all thread_run() to wake up from empty state sleep
     while (current_thread_count > desired_thread_count)
     {
         m_threads.back().join();
@@ -90,14 +94,15 @@ void processor::setCoreCount(size_t count)
         --current_thread_count;
     }
 }
-
-size_t processor::getCoreCount()
+template <typename task_t>
+size_t processor<task_t>::getCoreCount()
 {
     std::lock_guard<mutex> lock(m_mutex);
     return m_threads.size();
 }
 
-void processor::add(processor::task const& obtask)
+template <typename task_t>
+void processor<task_t>::run(processor<task_t>::task const& obtask)  //  add
 {
     bool bNotify = false;
     {
@@ -109,22 +114,24 @@ void processor::add(processor::task const& obtask)
         }
     }
     if (bNotify)
-        m_cv_add_exit__run.notify_one();  //  notify one run() to wake up from empty wait
+        m_cv_add_exit__thrun.notify_one();  //  notify one thread_run() to wake up from empty wait
 }
 
-void processor::wait()
+template <typename task_t>
+void processor<task_t>::wait()
 {
     std::unique_lock<std::mutex> lock(m_mutex);
 
     auto& qu = m_queue;
     auto& busy_count = m_busy_count;
-    m_cv_run__wait.wait(lock, [&qu, &busy_count]
+    m_cv_thrun__wait.wait(lock, [&qu, &busy_count]
     {
         return (qu.empty() && 0 == busy_count);
     });
 }
 
-inline void run(size_t id, processor& host) noexcept
+template <typename task_t>
+inline void thread_run(size_t id, processor<task_t>& host) noexcept
 {
     while (true)
     {
@@ -139,7 +146,7 @@ inline void run(size_t id, processor& host) noexcept
                 auto const& qu = host.m_queue;
                 auto const& thread_count = host.m_thread_count;
 
-                host.m_cv_add_exit__run.wait(lock,
+                host.m_cv_add_exit__thrun.wait(lock,
                                              [&qu,
                                              &thread_count,
                                              id]
@@ -160,7 +167,7 @@ inline void run(size_t id, processor& host) noexcept
 
             try
             {
-                if (processor::pending_policy::empty_queue != host.m_policy)
+                if (processor<task_t>::pending_policy::empty_queue != host.m_policy)
                     obtask();
             }
             catch (...){}
@@ -170,7 +177,7 @@ inline void run(size_t id, processor& host) noexcept
             if (host.m_queue.empty() &&
                 0 == host.m_busy_count)
             {
-                host.m_cv_run__wait.notify_one();
+                host.m_cv_thrun__wait.notify_one();
             }
             lock.unlock();
         }

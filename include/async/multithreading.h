@@ -15,13 +15,14 @@ namespace async
 {
 
 class thread;
+using task = std::function<void()>;
 
 class thread_pool final
 {
     friend class thread;
     friend void thread_task(thread*);
 public:
-    thread_pool(processor& host)
+    thread_pool(processor<task>& host)
         : m_phost(&host) {}
     thread_pool() = delete;
     thread_pool(thread_pool const&) = delete;
@@ -38,7 +39,7 @@ public:
     enum efor {all, any};
     threadset wait(efor option);
 private:
-    processor* m_phost;
+    processor<task>* m_phost;
     mutex m_mutex;
     threadset m_pending_threads;
     threadset m_done_threads;
@@ -99,10 +100,10 @@ public:
     thread& operator = (thread&&) = delete;
 
 public:
-    inline void run(processor::task const& obtask);
+    inline void run(processor<task>::task const& obtask);
     inline void wait(bool bThrow = true);
 private:
-    using tasks = std::list<processor::task>;
+    using tasks = std::list<processor<task>::task>;
     inline void notify();
     inline void get(tasks::iterator& first, tasks::iterator& last);
 private:
@@ -125,7 +126,7 @@ thread::~thread()
     wait(false);
 }
 
-void thread::run(processor::task const& obtask)
+void thread::run(processor<task>::task const& obtask)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     bool bAddToHost = m_tasks.empty();
@@ -134,7 +135,7 @@ void thread::run(processor::task const& obtask)
     if (bAddToHost)
     {
         std::function<void()> proc_task([this]{thread_task(this);});
-        m_phost->m_phost->add(proc_task);
+        m_phost->m_phost->run(proc_task);
 
         std::unique_lock<mutex> lock(m_phost->m_mutex);
         m_phost->m_pending_threads.insert(this);
@@ -217,7 +218,7 @@ void thread_task(thread* pth)
         if (false == pth->m_tasks.empty())
         {
             std::function<void()> proc_task([pth]{thread_task(pth);});
-            pth->m_phost->m_phost->add(proc_task);
+            pth->m_phost->m_phost->run(proc_task);
         }
         else
         {
