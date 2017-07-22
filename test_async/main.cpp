@@ -1,39 +1,14 @@
 ﻿#include <iostream>
 #include <chrono>
+#include <thread>
 
-#include <async/multithreading.h>
-#include <delegate.h>
-
-void task(int i)
-{
-    if (i > 0)
-        std::this_thread::sleep_for(std::chrono::milliseconds(i));
-    /*volatile int count = i;
-    for (int a = 0; a < count; ++a)
-    {
-        ++a;
-    }*/
-}
-
-class ctask
-{
-public:
-    void mem() const
-    {
-        task(i);
-    }
-
-    void operator()() const
-    {
-        task(i);
-    }
-
-    int i;
-};
+//#include <async/multithreading.h>
+#include <processor.hpp>
+//#include "delegate.hpp"
 
 //using task_t = std::function<void()>;
 //using task_t = delegate<void>;
-using task_t = ctask;
+using task_t = beltpp::ctask;
 
 void test_async_processor(size_t count,
                           size_t threads,
@@ -43,6 +18,14 @@ void test_async_processor(size_t count,
                           long& msdestruct)
 {
     /*
+     * test with 10 mln tasks and 10 mln waits takes 35-36 seconds
+     * test with 100 mln tasks takes 29-34 seconds
+     * test with 100 mln tasks and 10 mln waits takes 39 seconds
+     * test with 100 mln tasks and 20 mln waits takes 75 seconds
+     * qt test 10 mln signal-slot <=> signal-slot takes 49 seconds
+     *
+     * /
+    /* below is old observation and seems something is wrong with it
      * test with 100 mln tasks and 100 mln waits
      * takes 59-63 seconds
      * without waits its about 54 seconds
@@ -57,9 +40,9 @@ void test_async_processor(size_t count,
     time_point tp_wait;
     time_point tp_destruct;
     {
-        async::processor<task_t> proc(threads);
+        beltpp::processor<task_t> proc(threads);
 
-        ctask ttob;
+        beltpp::ctask ttob;
         ttob.i = unitWeight;
         task_t tt;
         //tt.bind_cmfptr<ctask, &ctask::mem>(ttob);
@@ -70,9 +53,10 @@ void test_async_processor(size_t count,
             //proc.run([unitWeight]{task(unitWeight);});
             proc.run(tt);
 
-            if (bUseWaits &&
-                0 == i % threads)
+            if ((bUseWaits &&
+                0 == i % threads))
             {
+                std::this_thread::sleep_for(std::chrono::milliseconds(0));
                 proc.wait();
             }
         }
@@ -95,10 +79,10 @@ void test_async_processor(size_t count,
 int main()
 {
     int const sleep = -1;
-    size_t count = 1e6;
+    size_t count = 1e7;
     long ms_wait, ms_destruct;
 
-    for (size_t threads = 1; threads <= 10; ++threads)
+    for (size_t threads = 1; threads <= 1; ++threads)
     {
         test_async_processor(count,
                              threads,
