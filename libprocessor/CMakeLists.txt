@@ -3,6 +3,8 @@ set( CMAKE_CXX_STANDARD_REQUIRED YES )
 add_definitions(-DPROCESSOR_LIBRARY)
 
 add_library(processor SHARED
+    global.hpp
     processor.cpp
-    processor.hpp
-    global.hpp)
+    processor.hpp)
+
+target_link_libraries(processor include)

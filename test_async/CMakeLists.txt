@@ -6,4 +6,4 @@ add_executable(test_async
     main.cpp
     delegate.hpp)
 
-target_link_libraries(test_async processor)
+target_link_libraries(test_async processor include)
