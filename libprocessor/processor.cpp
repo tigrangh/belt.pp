@@ -188,3 +188,5 @@ inline void thread_run(size_t id, processor<task_t>& host) noexcept
 }
 
 template class beltpp::processor<beltpp::ctask>;
+template class beltpp::processor<std::function<void()>>;
+
