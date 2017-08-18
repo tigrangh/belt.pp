@@ -17,22 +17,6 @@ void test_async_processor(size_t count,
                           long& mswait,
                           long& msdestruct)
 {
-    /*
-     * test with 10 mln tasks and 10 mln waits takes 35-36 seconds
-     * test with 100 mln tasks takes 29-34 seconds
-     * test with 100 mln tasks and 10 mln waits takes 39 seconds
-     * test with 100 mln tasks and 20 mln waits takes 75 seconds
-     * qt test 10 mln signal-slot <=> signal-slot takes 49 seconds
-     *
-     * /
-    /* below is old observation and seems something is wrong with it
-     * test with 100 mln tasks and 100 mln waits
-     * takes 59-63 seconds
-     * without waits its about 54 seconds
-     *
-     * a similar test on qt with 10 mln signal-slot <=> signal-slot takes 49 seconds
-     *
-     */
     namespace chrono = std::chrono;
     using steady_clock = chrono::steady_clock;
     using time_point = steady_clock::time_point;
@@ -56,7 +40,7 @@ void test_async_processor(size_t count,
             if ((bUseWaits &&
                 0 == i % threads))
             {
-                std::this_thread::sleep_for(std::chrono::milliseconds(0));
+                //std::this_thread::sleep_for(std::chrono::milliseconds(0));
                 proc.wait();
             }
         }
@@ -75,7 +59,16 @@ void test_async_processor(size_t count,
         msdestruct = ms_elapsed.count();
     }
 }
-
+/*  testing with 40 attempts    */
+/*                                  avg     median  stdev   min     max
+ * 10 mln tasks and 10 mln waits    36.47   36.56   0.74    35.09   37.81
+ * 100 mln tasks                    24.66   24.66   2.42    19.62   29.67
+ * 100 mln tasks and 10 mln waits   39.42   39.26   0.6     38.41   40.98
+ * 100 mln tasks and 20 mln waits   75.74   75.58   1.23    73.61   78.34
+ *
+ * qt test 10 mln signal-slot <=> signal-slot takes 49 seconds
+ *
+ */
 int main()
 {
     int const sleep = -1;

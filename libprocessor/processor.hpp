@@ -41,7 +41,7 @@ class processor;
 namespace detail
 {
 template <typename task_t>
-void thread_run(size_t id, processor<task_t>& host) noexcept;
+void loop(size_t id, processor<task_t>& host) noexcept;
 
 template <typename task_t>
 class internals;
@@ -52,7 +52,7 @@ class PROCESSORSHARED_EXPORT processor : public iprocessor<task_t>
 {
 public:
     template <typename task_tt>
-    friend void detail::thread_run(size_t id, processor<task_tt> &host) noexcept;
+    friend void detail::loop(size_t id, processor<task_tt> &host) noexcept;
     using task = task_t;
 
     processor(size_t count);
@@ -66,7 +66,7 @@ public:
     void setCoreCount(size_t count) override;
     size_t getCoreCount() override;
     void run(task_t const& th) override;  // add
-    void wait() override;
+    void wait(size_t i_task_count = 0) override;
 private:
     std::unique_ptr<detail::internals<task_t>> m_pimpl;
 };

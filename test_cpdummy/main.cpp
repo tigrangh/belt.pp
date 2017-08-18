@@ -1,63 +1,89 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <memory>
+
 #include <processor.hpp>
 
 using task_t = std::function<void()>;
-void reader(size_t index,
-            size_t count,
-            beltpp::iprocessor<task_t>& processor_copier);
-void writer(size_t index,
-            size_t count,
-            beltpp::iprocessor<task_t>& processor_copier);
-
-void reader(size_t index,
-            size_t count,
-            beltpp::iprocessor<task_t>& processor_copier)
+struct bobo
 {
-    if (index < count)
-    {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-        ++index;
+    size_t index;
+    size_t count;
+    beltpp::iprocessor<task_t>* processor_producer;
+    beltpp::iprocessor<task_t>* processor_consumer;
+    beltpp::iprocessor<task_t>* processor_finisher;
+};
+void producer(bobo object);
+void consumer(bobo object);
 
-        processor_copier.run([index,
-                             count,
-                             &processor_copier]
+void producer(bobo object)
+{
+    if (object.index < object.count)
+    {
+        //std::this_thread::sleep_for(std::chrono::seconds(1));
+        ++object.index;
+        //std::cout << index << "\t";
+
+        object.processor_consumer->run([object]
         {
-            writer(index, count, processor_copier);
+            consumer(object);
         });
     }
+    else
+        object.processor_finisher->run([]{});
 }
-void writer(size_t index,
-            size_t count,
-            beltpp::iprocessor<task_t>& processor_copier)
+void consumer(bobo object)
 {
-    processor_copier.run([index, count, &processor_copier]
+    object.processor_producer->run([object]
     {
-        reader(index, count, processor_copier);
+        producer(object);
     });
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    /*std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::cout << index << "\n";*/
 }
-
+/*  testing with 40 attempts    */
+/*                          avg     median  stdev   min     max
+ * 10 mln tasks bouncing    40.66   40.62   0.455   39.65   41.65
+ *
+ */
 int main(int argc, char** argv)
 {
+    namespace chrono = std::chrono;
+    using steady_clock = chrono::steady_clock;
+    using time_point = steady_clock::time_point;
+    time_point tp_start = steady_clock::now();
+    time_point tp_wait;
+
     try
     {
-        beltpp::iprocessor<task_t>* ptr_copier(new beltpp::processor<task_t>(2));
+        using iprocessorptr = std::unique_ptr<beltpp::iprocessor<task_t>>;
 
-        beltpp::iprocessor<task_t>& processor_copier = *ptr_copier;
+        iprocessorptr ptr_producer(new beltpp::processor<task_t>(1));
+        iprocessorptr ptr_consumer(new beltpp::processor<task_t>(1));
+        iprocessorptr ptr_finisher(new beltpp::processor<task_t>(1));
 
-        size_t count = 10, index = 0;
+        /*beltpp::iprocessor<task_t>& processor_producer = *ptr_producer;
+        beltpp::iprocessor<task_t>& processor_consumer = *ptr_consumer;
+        beltpp::iprocessor<task_t>& processor_finisher = *ptr_finisher;*/
 
-        processor_copier.run([index,
-                             count,
-                             &processor_copier]
+        bobo object;
+        object.count = 1e7;
+        object.index = 0;
+        object.processor_consumer = ptr_consumer.get();
+        object.processor_producer = ptr_producer.get();
+        object.processor_finisher = ptr_finisher.get();
+
+        object.processor_producer->run([object]
         {
-            reader(index, count, processor_copier);
+            producer(object);
         });
 
-        processor_copier.wait();
+        object.processor_finisher->wait(1);
+        object.processor_producer->wait();
+        object.processor_consumer->wait();
+        object.processor_finisher->wait();
     }
     catch(std::exception const& ex)
     {
@@ -67,6 +93,13 @@ int main(int argc, char** argv)
     {
         std::cout << "apparently something has happened" << std::endl;
     }
+
+    tp_wait = steady_clock::now();
+    steady_clock::duration elapsed = tp_wait - tp_start;
+    chrono::milliseconds ms_elapsed = chrono::duration_cast<chrono::milliseconds>(elapsed);
+    long mswait = ms_elapsed.count();
+
+    std::cout << mswait << std::endl;
 
     return 0;
 }
