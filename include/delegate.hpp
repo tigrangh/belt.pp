@@ -6,6 +6,29 @@
 
 namespace beltpp
 {
+
+namespace detail
+{
+template <typename t_type>
+class hide_void
+{
+public:
+    typedef t_type type;
+};
+
+template <>
+class hide_void<void>
+{
+    class internal;
+public:
+    typedef internal type;
+};
+}
+/*
+ *
+ *  delegate
+ *
+ */
 template <typename ret_t, typename... types>
 class delegate
 {
@@ -13,7 +36,7 @@ class delegate
     typedef ret_t(*mfptr_wr_t)(void*, types...);
     typedef ret_t(*cmfptr_wr_t)(void const*, types...);
 
-    using noref_ret_t = typename std::remove_reference<ret_t>::type;
+    using noref_ret_t = typename detail::hide_void<typename std::remove_reference<ret_t>::type>::type;
 
     typedef ret_t(*fptr_t)(types...);
 
@@ -71,7 +94,9 @@ private:
         return (pob->*mptr);
     }
 public:
-    template <typename class_t, mptr_t<class_t> mptr>
+    template <typename class_t, mptr_t<class_t> mptr,
+              typename ret_t_dup = ret_t,
+              typename std::enable_if<!std::is_same<ret_t_dup, void>::value, char>::type = 0>
     void bind_mptr(class_t& ob)
     {
         init();
