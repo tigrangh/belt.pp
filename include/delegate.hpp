@@ -1,13 +1,29 @@
 #ifndef DELEGATE_H
 #define DELEGATE_H
 
+#include <exception>
+#include <type_traits>
+
+namespace beltpp
+{
 template <typename ret_t, typename... types>
 class delegate
 {
-    typedef ret_t(*fptr_t)(types...);
     typedef ret_t(*fptr_wr_t)(types...);
     typedef ret_t(*mfptr_wr_t)(void*, types...);
     typedef ret_t(*cmfptr_wr_t)(void const*, types...);
+
+    using noref_ret_t = typename std::remove_reference<ret_t>::type;
+
+    typedef ret_t(*fptr_t)(types...);
+
+    template <typename class_t>
+    using mfptr_t = ret_t(class_t::*)(types...);
+    template <typename class_t>
+    using cmfptr_t = ret_t(class_t::*)(types...) const;
+    template <typename class_t>
+    using mptr_t = noref_ret_t (class_t::*);
+
 public:
     void init()
     {
@@ -17,11 +33,13 @@ public:
         m_cmfptr = nullptr;
     }
 
+private:
     template <fptr_t fptr>
     static ret_t fptr_wrapper(types... args)
     {
         return fptr(args...);
     }
+public:
     template <fptr_t fptr>
     void bind_fptr()
     {
@@ -29,12 +47,14 @@ public:
         m_fptr = &delegate<ret_t, types...>::fptr_wrapper<fptr>;
     }
 
-    template <typename class_t, ret_t(class_t::*mfptr)(types...)>
+private:
+    template <typename class_t, mfptr_t<class_t> mfptr>
     static ret_t mfptr_wrapper(class_t* pob, types... args)
     {
         return (pob->*mfptr)(args...);
     }
-    template <typename class_t, ret_t(class_t::*mfptr)(types...)>
+public:
+    template <typename class_t, mfptr_t<class_t> mfptr>
     void bind_mfptr(class_t& ob)
     {
         init();
@@ -44,12 +64,31 @@ public:
         m_pob = &ob;
     }
 
-    template <typename class_t, ret_t(class_t::*cmfptr)(types...) const>
+private:
+    template <typename class_t, mptr_t<class_t> mptr>
+    static ret_t mptr_wrapper(class_t* pob, types... /*args*/)
+    {
+        return (pob->*mptr);
+    }
+public:
+    template <typename class_t, mptr_t<class_t> mptr>
+    void bind_mptr(class_t& ob)
+    {
+        init();
+        ret_t(*p_mptr_wr)(class_t*);
+        p_mptr_wr = &delegate<ret_t, types...>::mptr_wrapper<class_t, mptr>;
+        m_mfptr = reinterpret_cast<mfptr_wr_t>(p_mptr_wr);
+        m_pob = &ob;
+    }
+
+private:
+    template <typename class_t, cmfptr_t<class_t> cmfptr>
     static ret_t cmfptr_wrapper(class_t const* pob, types... args)
     {
         return (pob->*cmfptr)(args...);
     }
-    template <typename class_t, ret_t(class_t::*cmfptr)(types...) const>
+public:
+    template <typename class_t, cmfptr_t<class_t> cmfptr>
     void bind_cmfptr(class_t const& ob)
     {
         init();
@@ -59,6 +98,7 @@ public:
         m_pob = &ob;
     }
 
+public:
     ret_t operator() (types... args)
     {
         if (m_fptr)
@@ -67,7 +107,8 @@ public:
             return m_mfptr(const_cast<void*>(m_pob), args...);
         else if (m_cmfptr)
             return m_cmfptr(m_pob, args...);
-        return ret_t();
+
+        throw std::logic_error("uninitialized delegate");
     }
 
 private:
@@ -76,5 +117,7 @@ private:
     mfptr_wr_t m_mfptr;
     cmfptr_wr_t m_cmfptr;
 };
+
+}
 
 #endif // DELEGATE_H
