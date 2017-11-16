@@ -44,7 +44,7 @@ template <typename task_t>
 void loop(size_t id, processor<task_t>& host) noexcept;
 
 template <typename task_t>
-class internals;
+class processor_internals;
 }
 
 template <typename task_t>
@@ -68,7 +68,7 @@ public:
     void run(task_t const& th) override;  // add
     void wait(size_t i_task_count = 0) override;
 private:
-    std::unique_ptr<detail::internals<task_t>> m_pimpl;
+    std::unique_ptr<detail::processor_internals<task_t>> m_pimpl;
 };
 
 }

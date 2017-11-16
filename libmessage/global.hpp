@@ -1,0 +1,12 @@
+#ifndef BELT_MESSAGE_GLOBAL_H
+#define BELT_MESSAGE_GLOBAL_H
+
+#include <global.hpp>
+
+#if defined(MESSAGE_LIBRARY)
+#define MESSAGESHARED_EXPORT BELT_EXPORT
+#else
+#define MESSAGESHARED_EXPORT BELT_IMPORT
+#endif
+
+#endif// BELT_MESSAGE_GLOBAL_H

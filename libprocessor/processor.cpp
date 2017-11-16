@@ -1,12 +1,14 @@
 #include "processor.hpp"
 
+#include <queue.hpp>
+
 #include <thread>
 #include <vector>
 #include <mutex>
 #include <condition_variable>
 #include <exception>
 #include <list>
-#include <assert.h>
+#include <cassert>
 
 namespace beltpp
 {
@@ -16,113 +18,37 @@ using mutex = std::mutex;
 using cv = std::condition_variable;
 enum class pending_policy { allow_new, prevent_new, empty_queue };
 /*
- * internals
+ * processor_internals
  */
 namespace detail
 {
 template <typename task_t>
-class internals
+class processor_internals
 {
 public:
-    using queue = std::vector<task_t>;
-    internals(size_t count)
+    processor_internals(size_t count)
         : m_policy(pending_policy::allow_new)
         , m_thread_count(count)
         , m_busy_count(0)
-        , m_i_start(0)
-        , m_i_size(0)
         , m_i_task_count(0)
     {}
 
-    internals(internals const&) = delete;
-    internals(internals&&) = delete;
-    internals() = delete;
+    processor_internals(processor_internals const&) = delete;
+    processor_internals(processor_internals&&) = delete;
+    processor_internals() = delete;
 
-    internals const& operator = (internals const&) = delete;
-    internals const& operator = (internals&&) = delete;
-
-    void push_to_queue(task_t const& task)
-    {
-        if (m_i_size == m_vec_queue.size())
-        {
-            size_t newsize = m_i_size;
-            if (0 == newsize)
-                newsize = 16;
-            newsize *= 2;
-
-            queue vec_queue(newsize);
-            for (size_t index = 0; index < m_i_size; ++index)
-            {
-                size_t old_index = index + m_i_start;
-                if (old_index >= m_i_size)
-                    old_index -= m_i_size;
-
-                assert(old_index < m_i_size);
-                assert(old_index >= 0);
-
-                vec_queue[index] = m_vec_queue[old_index];
-            }
-
-            m_vec_queue.swap(vec_queue);
-            m_i_start = 0;
-        }
-
-        size_t i_end = m_i_start + m_i_size;
-        if (i_end >= m_vec_queue.size())
-            i_end -= m_vec_queue.size();
-        assert(i_end < m_vec_queue.size());
-
-        m_vec_queue[i_end] = task;
-        ++m_i_size;
-        ++m_i_task_count;
-    }
-
-    inline void pop_from_queue() noexcept
-    {
-        if (0 == m_i_size)
-            //  this will terminate
-            throw std::runtime_error("pop_from_queue on empty queue");
-
-        --m_i_size;
-        ++m_i_start;
-        if (m_i_start == m_vec_queue.size())
-            m_i_start = 0;
-    }
-
-    inline bool empty_queue() const
-    {
-        return 0 == m_i_size;
-    }
-
-    inline task_t& front_queue() noexcept
-    {
-        if (0 == m_i_size)
-            //  this will terminate
-            throw std::runtime_error("front_queue on empty queue");
-
-        return m_vec_queue[m_i_start];
-    }
-
-    inline task_t const& front_queue() const noexcept
-    {
-        if (0 == m_i_size)
-            //  this will terminate
-            throw std::runtime_error("front_queue on empty queue");
-
-        return m_vec_queue[m_i_start];
-    }
+    processor_internals const& operator = (processor_internals const&) = delete;
+    processor_internals const& operator = (processor_internals&&) = delete;
 
     pending_policy m_policy;
     size_t m_thread_count;
     size_t m_busy_count;
-    size_t m_i_start;
-    size_t m_i_size;
     size_t m_i_task_count;
     threads m_threads;
     mutex m_mutex;
     cv m_cv_run_exit__loop;
     cv m_cv_loop__wait;
-    queue m_vec_queue;
+    beltpp::queue<task_t> m_vec_queue;
 };
 }
 /*
@@ -130,7 +56,7 @@ public:
  */
 template <typename task_t>
 processor<task_t>::processor(size_t count)
-    : m_pimpl(new detail::internals<task_t>(count))
+    : m_pimpl(new detail::processor_internals<task_t>(count))
 {
     setCoreCount(count);
 }
@@ -194,7 +120,8 @@ void processor<task_t>::run(processor<task_t>::task const& obtask)
         std::lock_guard<mutex> lock(m_pimpl->m_mutex);
         if (m_pimpl->m_policy == pending_policy::allow_new)
         {
-            m_pimpl->push_to_queue(obtask); //  may throw, that's ok
+            m_pimpl->m_vec_queue.push(obtask); //  may throw, that's ok
+            ++m_pimpl->m_i_task_count;
             bNotify = true;
         }
     }
@@ -210,7 +137,7 @@ void processor<task_t>::wait(size_t i_task_count/* = 0*/)
     auto const& pimpl = m_pimpl;
     m_pimpl->m_cv_loop__wait.wait(lock, [&pimpl, i_task_count]
     {
-        if (pimpl->empty_queue() &&
+        if (pimpl->m_vec_queue.empty() &&
             0 == pimpl->m_busy_count &&
             pimpl->m_i_task_count >= i_task_count)
         {
@@ -230,7 +157,7 @@ inline void loop(size_t id, processor<task_t>& host) noexcept
     {
         std::unique_lock<std::mutex> lock(host.m_pimpl->m_mutex);
 
-        if (host.m_pimpl->empty_queue())
+        if (host.m_pimpl->m_vec_queue.empty())
         {
             if (host.m_pimpl->m_thread_count < id + 1)
                 return;
@@ -241,16 +168,16 @@ inline void loop(size_t id, processor<task_t>& host) noexcept
                                                        [&pimpl,
                                                        id]
                 {
-                    return (false == pimpl->empty_queue() ||    //  one wait for processor::add
-                            pimpl->m_thread_count < id + 1);    //  all wait for processor::exit
+                    return (false == pimpl->m_vec_queue.empty() ||  //  one wait for processor::add
+                            pimpl->m_thread_count < id + 1);        //  all wait for processor::exit
                 });
             }
         }
 
-        if (false == host.m_pimpl->empty_queue())
+        if (false == host.m_pimpl->m_vec_queue.empty())
         {
-            auto obtask = host.m_pimpl->front_queue();
-            host.m_pimpl->pop_from_queue();
+            auto obtask = host.m_pimpl->m_vec_queue.front();
+            host.m_pimpl->m_vec_queue.pop();
             ++host.m_pimpl->m_busy_count;
 
             lock.unlock();
@@ -264,7 +191,7 @@ inline void loop(size_t id, processor<task_t>& host) noexcept
 
             lock.lock();
             --host.m_pimpl->m_busy_count;
-            if (host.m_pimpl->empty_queue() &&
+            if (host.m_pimpl->m_vec_queue.empty() &&
                 0 == host.m_pimpl->m_busy_count)
             {
                 host.m_pimpl->m_cv_loop__wait.notify_one();

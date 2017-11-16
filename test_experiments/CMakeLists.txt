@@ -5,4 +5,4 @@ set( CMAKE_CXX_STANDARD_REQUIRED YES )
 add_executable(test_experiments
     main.cpp)
 
-target_link_libraries(test_experiments processor include)
+target_link_libraries(test_experiments socket processor message include)
