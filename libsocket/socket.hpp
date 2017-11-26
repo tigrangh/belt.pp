@@ -16,32 +16,36 @@ namespace detail
     class socket_internals;
 }
 
+class SOCKETSHARED_EXPORT address
+{
+public:
+    std::string m_address;
+    unsigned short m_port;
+};
+
 class SOCKETSHARED_EXPORT socket : public beltpp::isocket
 {
 public:
     using socketv = isocket::socketv;
     using peer_id = isocket::peer_id;
     using peer_ids = std::list<peer_id>;
+    using messages = isocket::messages;
 
     socket();
     virtual ~socket();
 
-    peer_ids listen(std::string const& str_local_address,
-                    unsigned short local_port,
-                    socketv version,
+    peer_ids listen(address const& local_address,
+                    socketv version = socketv::any,
                     int backlog = 100);
 
-    peer_ids open(std::string const& str_local_address,
-                  unsigned short local_port,
-                  std::string const& str_remote_address,
-                  unsigned short remote_port,
-                  socketv version);
+    peer_ids open(address const& local_address,
+                  address const& remote_address,
+                  socketv version = socketv::any);
 
-    bool read(peer_id& peer,
-              imessage& msg) override;
+    messages read(peer_id& peer) override;
 
     void write(peer_id const& peer,
-               imessage const& msg) override;
+               message const& msg) override;
 
     std::string dump() const override;
 

@@ -5,12 +5,15 @@
 #include <vector>
 #include <delegate.hpp>
 #include <processor.hpp>
+#include <message.hpp>
+#include <messagecodes.hpp>
+#include <p2psocket.hpp>
 #include <type_traits>
 #include <socket.hpp>
 #include <message.hpp>
 #include <queue.hpp>
 
-#define VERSION 1
+#define VERSION 2
 
 int main(int argc, char** argv)
 {
@@ -19,15 +22,61 @@ int main(int argc, char** argv)
 #if (VERSION == 1)
         beltpp::socket sk;
 
-        sk.listen("localhost", 3558, beltpp::socket::socketv::any);
-        //sk.open("", 45544, "", 3558, beltpp::socket::socketv::any);
-        //sk.listen("::1", 3557, beltpp::socket::socketv::ipv6);
-        //sk.open("192.168.0.18", 3030, "", 3557, beltpp::socket::socketv::ipv4);
-        //sk.open("", 3030, "", 3558, beltpp::socket::socketv::ipv6);
-        //sk.open("", 3030, "", 3558, beltpp::socket::socketv::ipv4);
-        //sk.open("", 3033, "", 3033, beltpp::socket::socketv::any);
+        sk.listen({"", 3558});
+        sk.listen({"", 3559});
+        sk.listen({"", 3559});
+        sk.open({"", 3559}, {"", 3559});
+        //sk.listen({"::1", 3557}, beltpp::socket::socketv::ipv6);
+        //sk.open({"192.168.0.18", 3030}, {"", 3557}, beltpp::socket::socketv::ipv4);
+        //sk.open({"", 3030}, {"", 3558}, beltpp::socket::socketv::ipv6);
+        //sk.open({"", 3030}, {"", 3558}, beltpp::socket::socketv::ipv4);
+        //sk.open({"", 3033}, {"", 3033}, beltpp::socket::socketv::any);
 
         std::cout << sk.dump() << std::endl;
+#elif (VERSION == 2)
+        if (1 == argc)
+        {
+            beltpp::socket sk;
+            sk.listen({"localhost", 9999});
+            beltpp::message msg1, msg2;
+            beltpp::message msg;
+            beltpp::p2psocket::peer_id peer1, peer2;
+            while (true)
+            {
+                std::cout << "reading...\n";
+                beltpp::socket::messages msgs = sk.read(peer1);
+                for (beltpp::message const& msg : msgs)
+                {
+                    if (msg.type() == beltpp::message_code_hello::rtt)
+                    {
+                        beltpp::message_code_hello msg_code;
+                        msg.get(msg_code);
+                        std::cout << msg_code.m_message << std::endl;
+                    }
+                    else if (msg.type() == beltpp::message_code_error::rtt)
+                    {
+                        std::cout << "shdada" << std::endl;
+                    }
+                }
+            }
+        }
+        else if (2 == argc)
+        {
+            beltpp::socket sk;
+            auto peers = sk.open({"", 0}, {"localhost", 9999});
+            beltpp::message msg;
+            beltpp::message_code_hello msg_code;
+            msg_code.m_message = "hello there!";
+
+            msg.set(msg_code);
+            sk.write(peers.front(), msg);
+
+            for (int i = 0; i < 100; ++i)
+                msg_code.m_message += "!";
+
+            msg.set(msg_code);
+            sk.write(peers.front(), msg);
+        }
 #else
         else if (1 == argc)
         {

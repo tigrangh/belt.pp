@@ -3,6 +3,8 @@
 
 #include <vector>
 #include <cassert>
+#include <memory>
+#include <iterator>
 
 namespace beltpp
 {
@@ -91,6 +93,11 @@ public:
         return const_iterator(this, begin_index());
     }
 
+    inline const_iterator cbegin() const
+    {
+        return begin();
+    }
+
     inline iterator end()
     {
         return iterator(this, end_index());
@@ -99,6 +106,11 @@ public:
     inline const_iterator end() const
     {
         return const_iterator(this, end_index());
+    }
+
+    inline const_iterator cend() const
+    {
+        return end();
     }
 
     inline bool valid_index(size_t index) const noexcept
@@ -213,12 +225,13 @@ public:
         size = 0;
 
         if (m_i_size == m_vec_queue.size())
-            throw std::runtime_error("get_free_range");
+            throw std::runtime_error("queue<>::get_free_range()");
 
         size_t i_free_buffer_start = m_i_start + m_i_size;
         if (i_free_buffer_start >= m_vec_queue.size())
         {
             i_free_buffer_start -= m_vec_queue.size();
+            p_begin = &m_vec_queue[i_free_buffer_start];
             size = m_i_start - i_free_buffer_start;
         }
         else
@@ -234,7 +247,7 @@ public:
         assert(valid_index(index));
 
         if (false == valid_index(index))
-            throw std::runtime_error("operator[]");
+            throw std::runtime_error("queue<>::operator[]");
 
         return m_vec_queue[index % m_vec_queue.size()];
     }
@@ -244,7 +257,7 @@ public:
         assert(valid_index(index));
 
         if (false == valid_index(index))
-            throw std::runtime_error("operator[]");
+            throw std::runtime_error("queue<>::operator[]");
 
         return m_vec_queue[index % m_vec_queue.size()];
     }
@@ -260,7 +273,8 @@ private:
     //
 public:
     template <bool CONST>
-    class iterator_template
+    class iterator_template :
+            public std::iterator<std::bidirectional_iterator_tag, T>
     {
         using parent_ptr =
             typename detail::iterator_helper<T, CONST>::parent_ptr;

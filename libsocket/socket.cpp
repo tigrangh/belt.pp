@@ -2,7 +2,8 @@
 
 #include <scope_helper.hpp>
 #include <queue.hpp>
-#include <imessage.hpp>
+#include <message.hpp>
+#include <messagecodes.hpp>
 
 #include <sys/epoll.h>
 #include <netdb.h>
@@ -28,6 +29,8 @@
 //
 using string = std::string;
 using sockets = std::vector<std::pair<int, addrinfo*>>;
+using peer_ids = beltpp::socket::peer_ids;
+using messages = beltpp::socket::messages;
 
 namespace beltpp
 {
@@ -199,10 +202,9 @@ socket::~socket()
     }
 }
 
-socket::peer_ids socket::listen(std::string const& str_local_address,
-                                unsigned short local_port,
-                                socketv version,
-                                int backlog)
+peer_ids socket::listen(address const& local_address,
+                        socketv version/* = socketv::any*/,
+                        int backlog/* = 100*/)
 {
     socket::peer_ids peers;
     string error_message;
@@ -212,8 +214,8 @@ socket::peer_ids socket::listen(std::string const& str_local_address,
 
     detail::getaddressinfo(servinfo,
                            version,
-                           str_local_address,
-                           local_port,
+                           local_address.m_address,
+                           local_address.m_port,
                            servinfo_cleaner);
 
     sockets arr_sockets = detail::socket(servinfo,
@@ -253,11 +255,9 @@ socket::peer_ids socket::listen(std::string const& str_local_address,
     return peers;
 }
 
-socket::peer_ids socket::open(std::string const& str_local_address,
-                              unsigned short local_port,
-                              std::string const& str_remote_address,
-                              unsigned short remote_port,
-                              socketv version)
+peer_ids socket::open(address const& local_address,
+                      address const& remote_address,
+                      socketv version/* = socketv::any*/)
 {
     socket::peer_ids peers;
     string error_message;
@@ -265,12 +265,12 @@ socket::peer_ids socket::open(std::string const& str_local_address,
     addrinfo* localinfo = nullptr;
     beltpp::scope_helper localinfo_cleaner;
 
-    bool bind = (0 != local_port);
+    bool bind = (0 != local_address.m_port);
 
     detail::getaddressinfo(localinfo,
                            version,
-                           str_local_address,
-                           local_port,
+                           local_address.m_address,
+                           local_address.m_port,
                            localinfo_cleaner);
 
     sockets arr_sockets = detail::socket(localinfo,
@@ -286,8 +286,8 @@ socket::peer_ids socket::open(std::string const& str_local_address,
         beltpp::scope_helper remoteinfo_cleaner;
         detail::getaddressinfo(remoteinfo,
                                socket_info.second->ai_family,
-                               str_remote_address,
-                               remote_port,
+                               remote_address.m_address,
+                               remote_address.m_port,
                                remoteinfo_cleaner);
 
         assert(remoteinfo);
@@ -323,10 +323,10 @@ socket::peer_ids socket::open(std::string const& str_local_address,
     return peers;
 }
 
-bool socket::read(peer_id& peer,
-                  imessage& msg)
+messages socket::read(peer_id& peer)
 {
-    msg.clean();
+    messages result;
+
     peer = peer_id();
 
     std::unordered_set<uint64_t> set_ids =
@@ -358,9 +358,11 @@ bool socket::read(peer_id& peer,
                                        joined_socket_descriptor,
                                        detail::channel::type::streaming);
 
-            msg.set(beltpp::imessage::message_type::joined);
+            message msg;
+            msg.set(message_code_join());
 
-            return true;
+            result.push_back(std::move(msg));
+            break;
         }
         else// if(current_channel.m_type == detail::channel::type::streaming)
         {
@@ -385,30 +387,101 @@ bool socket::read(peer_id& peer,
             {
                 peer = detail::construct_peer_id(current_id,
                                                  socket_descriptor);
-                msg.set(beltpp::imessage::message_type::dropped);
+                message msg;
+                msg.set(message_code_drop());
 
                 detail::delete_channel(m_pimpl.get(), current_id);
 
-                return true;
+                result.push_back(std::move(msg));
+                break;
             }
             else
             {
+                //  actually the stream here already has all new
+                //  data read from socket. only need to push, to
+                //  let the container know about it
                 for (int index = 0; index < res; ++index)
                     current_channel.m_stream.push(p_buffer[index]);
+
+                while (true &&
+                       false == current_channel.m_stream.empty())
+                {
+                    size_t clean_count = 0;
+                    auto pmsgall = message_list_load(current_channel.m_stream.cbegin(),
+                                                      current_channel.m_stream.cend(),
+                                                      clean_count);
+
+                    while (false == current_channel.m_stream.empty() &&
+                           clean_count > 0)
+                    {
+                        --clean_count;
+                        current_channel.m_stream.pop();
+                    }
+
+                    if (pmsgall.pmsg)
+                    {
+                        message msg;
+                        msg.set(pmsgall.rtt,
+                                std::move(pmsgall.pmsg),
+                                pmsgall.fsaver);
+
+                        result.push_back(std::move(msg));
+                    }
+                    else
+                        break;
+                }
+
+                if (false == result.empty())
+                    break;
             }
         }
     }
 
-    return false;
+    return result;
 }
 
 void socket::write(peer_id const& peer,
-                   imessage const& msg)
+                   message const& msg)
 {
-    if (msg.get_type() == beltpp::imessage::message_type::drop)
+    uint64_t current_id = detail::parse_peer_id(peer);
+    if (msg.type() == message_code_drop::rtt)
     {
-        uint64_t id = detail::parse_peer_id(peer);
-        detail::delete_channel(m_pimpl.get(), id);
+        detail::delete_channel(m_pimpl.get(), current_id);
+    }
+    else
+    {
+        detail::channel& current_channel =
+                detail::get_channel(m_pimpl.get(),
+                                    current_id);
+
+        if (current_channel.m_type != detail::channel::type::streaming)
+            throw std::runtime_error("send message on non streaming channel");
+        {
+            std::vector<char> message_stream = msg.save();
+            if (message_stream.empty())
+                throw std::runtime_error("send empty message");
+
+            auto socket_descriptor = current_channel.m_socket_descriptor;
+            size_t message_len = message_stream.size();
+            size_t sent = 0;
+            while (sent < message_len)
+            {
+                int res = send(socket_descriptor,
+                               &message_stream[sent],
+                               message_stream.size() - sent,
+                               0/*MSG_NOSIGNAL*/);
+                //  need to test when sending to socket closed by the peer
+
+                if (-1 == res)
+                {
+                    string send_error = strerror(errno);
+                    throw std::runtime_error("send(): " +
+                                             send_error);
+                }
+                else
+                    sent += res;
+            }
+        }
     }
 }
 
@@ -572,7 +645,7 @@ void getaddressinfo(addrinfo* &servinfo,
     if (nullptr == servinfo)
         throw std::runtime_error("assert(servinfo);");
 
-    servinfo_cleaner = std::move(beltpp::scope_helper([]{}, [&servinfo]{freeaddrinfo(servinfo);}));
+    servinfo_cleaner = beltpp::scope_helper([]{}, [&servinfo]{freeaddrinfo(servinfo);});
 }
 
 sockets socket(addrinfo* servinfo,
@@ -598,12 +671,27 @@ sockets socket(addrinfo* servinfo,
 
         string str_temp_address = detail::dump(*p->ai_addr);
 
-        if (reuse)
-        {
+        {   //  reuse address always makes sense for linux
             int yes = 1;
             int res = ::setsockopt(socket_descriptor,
                                    SOL_SOCKET,
                                    SO_REUSEADDR,
+                                   &yes,
+                                   sizeof(int));
+            if (-1 == res)
+            {
+                string setsockopt_error = strerror(errno);
+                throw std::runtime_error("setsockopt(): " + setsockopt_error);
+            }
+        }
+
+        if (reuse)
+        {   //  for windows this should actually be reuse address
+            //  for windows exclusive flags should make sense otherwise
+            int yes = 1;
+            int res = ::setsockopt(socket_descriptor,
+                                   SOL_SOCKET,
+                                   SO_REUSEPORT,
                                    &yes,
                                    sizeof(int));
             if (-1 == res)
@@ -730,6 +818,7 @@ void delete_channel(detail::socket_internals* pimpl,
     }
 
     //  this will terminate
+    //      not sure why this is not noexcept considering the above comment
     assert(false);
     throw std::runtime_error("delete_channel");
 }

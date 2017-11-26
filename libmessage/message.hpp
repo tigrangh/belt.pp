@@ -2,9 +2,10 @@
 #define BELT_MESSAGE_H
 
 #include "global.hpp"
-#include <imessage.hpp>
 
 #include <memory>
+#include <vector>
+#include <cassert>
 
 namespace beltpp
 {
@@ -14,25 +15,63 @@ namespace detail
     class message_internals;
 }
 
-class MESSAGESHARED_EXPORT message : public beltpp::imessage
+class MESSAGESHARED_EXPORT message
 {
 public:
-    using message_type = beltpp::imessage::message_type;
+    using fptr_deleter = void(*)(void*&);
+    using fptr_saver = std::vector<char>(*)(void*);
+    using ptr_msg = std::unique_ptr<void, fptr_deleter>;
+
     message();
+    message(message&& other);
     virtual ~message();
 
-    void clean() override;
-    message_type get_type() const override;
-    void get_buffer(char const* &p_buffer,
-                    size_t& size) const override;
-    void set(message::message_type type,
-             char const* buffer = nullptr,
-             size_t size = 0) override;
-    size_t scan(std::vector<char const*, size_t> const& arr_buffer) const override;
+    size_t type() const;
+    void clean();
+    std::vector<char> save() const;
+    void set(size_t rtt,
+             ptr_msg pmsg,
+             fptr_saver fsaver);
 
-private:
+    template <typename MessageValue>
+    void set(MessageValue const& msg);
+
+    template <typename MessageValue>
+    void get(MessageValue& msg) const;
+
+protected:
+    void const* _get_internal() const noexcept;
+    void _set_internal(size_t rtt,
+                       ptr_msg pmsg,
+                       fptr_saver fsaver) noexcept;
+
     std::unique_ptr<detail::message_internals> m_pimpl;
 };
+
+template <typename MessageValue>
+void message::set(MessageValue const& msg)
+{
+    ptr_msg pmsg(MessageValue::creator());
+    void* pv = pmsg.get();
+    MessageValue* pmv = static_cast<MessageValue*>(pv);
+    MessageValue& ref = *pmv;
+    ref = msg;
+    set(MessageValue::rtt,
+        std::move(pmsg),
+        &MessageValue::saver);
+}
+
+template <typename MessageValue>
+void message::get(MessageValue& msg) const
+{
+    auto rtt = type();
+    if (rtt == MessageValue::rtt)
+    {
+        msg = *reinterpret_cast<MessageValue const*>(_get_internal());
+    }
+    /*else
+        msg = MessageValue::convert(_get_internal());*/
+}
 
 }
 

@@ -2,10 +2,13 @@
 
 #include <vector>
 #include <cstring>
+#include <memory>
 
 namespace beltpp
 {
 using vector_buffer = std::vector<char>;
+using ptr_msg = message::ptr_msg;
+using fptr_saver = message::fptr_saver;
 /*
  * internals
  */
@@ -16,11 +19,18 @@ class message_internals
 {
 public:
     message_internals()
-        : m_type(message::message_type::empty)
+        : m_rtt(-1)
+        , m_ptr_message_code(nullptr, [](void*&){})
+        , m_fsaver(nullptr)
     {}
+    ~message_internals() noexcept
+    {
+        m_ptr_message_code.reset();
+    }
 
-    message::message_type m_type;
-    vector_buffer m_buffer;
+    size_t m_rtt;
+    ptr_msg m_ptr_message_code;
+    fptr_saver m_fsaver;
 };
 
 }
@@ -32,50 +42,56 @@ message::message()
 {
 }
 
+message::message(message&& other)
+    : m_pimpl(std::move(other.m_pimpl))
+{
+}
+
 message::~message()
 {
 }
 
+size_t message::type() const
+{
+    return m_pimpl->m_rtt;
+    return 0;
+}
+
 void message::clean()
 {
-    m_pimpl->m_type = message_type::empty;
-    m_pimpl->m_buffer.resize(0);
+    m_pimpl.reset(new detail::message_internals());
 }
 
-message::message_type message::get_type() const
+std::vector<char> message::save() const
 {
-    return m_pimpl->m_type;
+    fptr_saver& fsaver = m_pimpl->m_fsaver;
+    if (nullptr == fsaver)
+        throw std::runtime_error("message::save() on empty message");
+
+    return fsaver(m_pimpl->m_ptr_message_code.get());
 }
 
-void message::get_buffer(char const* &p_buffer,
-                         size_t& size) const
+void message::set(size_t rtt,
+                  ptr_msg pmsg,
+                  fptr_saver fsaver)
 {
-    size = m_pimpl->m_buffer.size();
-
-    if (size)
-        p_buffer = &m_pimpl->m_buffer[0];
-    else
-        p_buffer = nullptr;
+    _set_internal(rtt,
+                  std::move(pmsg),
+                  fsaver);
 }
 
-void message::set(message::message_type type,
-                  char const* buffer/* = nullptr*/,
-                  size_t size/* = 0*/)
+void const* message::_get_internal() const noexcept
 {
-    m_pimpl->m_type = type;
-
-    if (buffer && size)
-    {
-        m_pimpl->m_buffer.resize(size);
-        std::memcpy(&m_pimpl->m_buffer[0], buffer, size);
-    }
-    else
-        m_pimpl->m_buffer.resize(0);
+    return m_pimpl->m_ptr_message_code.get();
 }
 
-size_t message::scan(std::vector<char const*, size_t> const& arr_buffer) const
+void message::_set_internal(size_t rtt,
+                            ptr_msg pmsg,
+                            fptr_saver fsaver) noexcept
 {
-    return 0;
+    m_pimpl->m_ptr_message_code = std::move(pmsg);
+    m_pimpl->m_rtt = rtt;
+    m_pimpl->m_fsaver = fsaver;
 }
 
 namespace detail

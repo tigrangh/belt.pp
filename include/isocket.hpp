@@ -2,26 +2,27 @@
 #define BELT_ISOCKET_H
 
 #include <string>
+#include <list>
 
 namespace beltpp
 {
 
-class imessage;
+class message;
 
 class isocket
 {
 public:
     enum class socketv {any, ipv4, ipv6};
     using peer_id = std::string;
+    using messages = std::list<message>;
 
     isocket() {};
     virtual ~isocket() {};
 
-    virtual bool read(peer_id& peer,
-                      imessage& msg) = 0;
+    virtual messages read(peer_id& peer) = 0;
 
     virtual void write(peer_id const& peer,
-                       imessage const& msg) = 0;
+                       message const& msg) = 0;
 
     virtual std::string dump() const = 0;
 };
