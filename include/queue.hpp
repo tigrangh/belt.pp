@@ -29,7 +29,7 @@ public:
         : m_i_start(0)
         , m_i_size(size)
         , m_i_loops(0)
-        , m_vec_queue(detail::capacity2pow(capacity))
+        , m_vec_queue(static_cast<size_t>(detail::capacity2pow(capacity)))
     {
         assert(size <= capacity);
         if (size > capacity)
