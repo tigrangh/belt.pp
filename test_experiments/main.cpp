@@ -44,7 +44,7 @@ int main(int argc, char** argv)
 
         std::cout << sk.dump() << std::endl;
 #elif (VERSION == 2)
-        auto sv = beltpp::socket::socketv::ipv6;
+        auto sv = beltpp::socket::socketv::ipv4;
 
         if (1 == argc)
         {
