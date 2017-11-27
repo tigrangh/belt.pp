@@ -11,7 +11,7 @@ namespace beltpp
 
 namespace detail
 {
-    uint64_t capacity2pow(uint64_t& capacity);
+    uint64_t capacity2pow(uint64_t capacity);
     template <typename T, bool _CONST>
     class iterator_helper;
 }
@@ -29,8 +29,9 @@ public:
         : m_i_start(0)
         , m_i_size(size)
         , m_i_loops(0)
-        , m_vec_queue(static_cast<size_t>(detail::capacity2pow(capacity)))
+        , m_vec_queue(detail::capacity2pow(capacity))
     {
+        capacity = m_vec_queue.size();
         assert(size <= capacity);
         if (size > capacity)
             throw std::runtime_error("queue()");
@@ -372,7 +373,7 @@ namespace detail
         return p2;
     }
 
-    uint64_t capacity2pow(uint64_t& capacity)
+    uint64_t capacity2pow(uint64_t capacity)
     {
         if (0 != capacity)
             capacity = next2pow(capacity);
