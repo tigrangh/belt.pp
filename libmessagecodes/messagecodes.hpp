@@ -12,6 +12,7 @@
 #include <iterator>
 #include <algorithm>
 #include <type_traits>
+#include <string>
 
 namespace beltpp
 {
