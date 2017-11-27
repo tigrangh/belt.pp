@@ -23,8 +23,6 @@ public:
 
     virtual void write(peer_id const& peer,
                        message const& msg) = 0;
-
-    virtual std::string dump() const = 0;
 };
 
 }

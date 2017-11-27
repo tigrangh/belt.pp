@@ -3,7 +3,6 @@
 #include <scope_helper.hpp>
 #include <queue.hpp>
 #include <message.hpp>
-#include <messagecodes.hpp>
 
 #include <sys/epoll.h>
 #include <netdb.h>
@@ -34,7 +33,14 @@ using messages = beltpp::socket::messages;
 
 namespace beltpp
 {
-
+address::address(std::string const& aaddress, unsigned short port)
+    : m_address(aaddress)
+    , m_port(port)
+{}
+bool address::empty() const noexcept
+{
+    return (0 == m_port) && m_address.empty();
+}
 /*
  * internals
  */
@@ -153,8 +159,29 @@ public:
 class socket_internals
 {
 public:
-    socket_internals(){}
+    socket_internals(size_t rtt_join,
+                     size_t rtt_drop,
+                     detail::fptr_creator fcreator_join,
+                     detail::fptr_creator fcreator_drop,
+                     detail::fptr_saver fsaver_join,
+                     detail::fptr_saver fsaver_drop,
+                     detail::fptr_message_loader fmessage_loader)
+        : m_rtt_join(rtt_join)
+        , m_rtt_drop(rtt_drop)
+        , m_fcreator_join(fcreator_join)
+        , m_fcreator_drop(fcreator_drop)
+        , m_fsaver_join(fsaver_join)
+        , m_fsaver_drop(fsaver_drop)
+        , m_fmessage_loader(fmessage_loader)
+    {}
 
+    size_t m_rtt_join;
+    size_t m_rtt_drop;
+    detail::fptr_creator m_fcreator_join;
+    detail::fptr_creator m_fcreator_drop;
+    detail::fptr_saver m_fsaver_join;
+    detail::fptr_saver m_fsaver_drop;
+    detail::fptr_message_loader m_fmessage_loader;
     std::list<channels> m_lst_channels;
     poll_master m_poll_master;
     std::mutex m_mutex;
@@ -183,15 +210,32 @@ detail::channel& get_channel(detail::socket_internals* pimpl,
                              uint64_t id);
 void delete_channel(detail::socket_internals* pimpl,
                     uint64_t current_id);
+beltpp::socket::peer_info info(int socket_descriptor);
 
 }
 /*
  * socket
  */
-socket::socket()
-    : m_pimpl(new detail::socket_internals())
+socket::socket(size_t _rtt_join,
+               size_t _rtt_drop,
+               detail::fptr_creator _fcreator_join,
+               detail::fptr_creator _fcreator_drop,
+               detail::fptr_saver _fsaver_join,
+               detail::fptr_saver _fsaver_drop,
+               detail::fptr_message_loader _fmessage_loader)
+    : isocket()
+    , m_pimpl(new detail::socket_internals(_rtt_join,
+                                           _rtt_drop,
+                                           _fcreator_join,
+                                           _fcreator_drop,
+                                           _fsaver_join,
+                                           _fsaver_drop,
+                                           _fmessage_loader))
 {
+
 }
+
+socket::socket(socket&&) = default;
 
 socket::~socket()
 {
@@ -301,6 +345,10 @@ peer_ids socket::open(address const& local_address,
             {
                 string connect_error = strerror(errno);
                 ::close(socket_info.first);
+
+                if (errno == ECONNREFUSED)
+                    continue;
+
                 if (false == error_message.empty())
                     error_message += "; ";
                 error_message += str_temp_address +
@@ -359,7 +407,10 @@ messages socket::read(peer_id& peer)
                                        detail::channel::type::streaming);
 
             message msg;
-            msg.set(message_code_join());
+
+            msg.set(m_pimpl->m_rtt_join,
+                    m_pimpl->m_fcreator_join(),
+                    m_pimpl->m_fsaver_join);
 
             result.push_back(std::move(msg));
             break;
@@ -388,7 +439,9 @@ messages socket::read(peer_id& peer)
                 peer = detail::construct_peer_id(current_id,
                                                  socket_descriptor);
                 message msg;
-                msg.set(message_code_drop());
+                msg.set(m_pimpl->m_rtt_drop,
+                        m_pimpl->m_fcreator_drop(),
+                        m_pimpl->m_fsaver_drop);
 
                 detail::delete_channel(m_pimpl.get(), current_id);
 
@@ -407,9 +460,10 @@ messages socket::read(peer_id& peer)
                        false == current_channel.m_stream.empty())
                 {
                     size_t clean_count = 0;
-                    auto pmsgall = message_list_load(current_channel.m_stream.cbegin(),
-                                                      current_channel.m_stream.cend(),
-                                                      clean_count);
+                    auto const& stm = current_channel.m_stream;
+                    auto pmsgall = m_pimpl->m_fmessage_loader(stm.cbegin(),
+                                                              stm.cend(),
+                                                              clean_count);
 
                     while (false == current_channel.m_stream.empty() &&
                            clean_count > 0)
@@ -432,7 +486,11 @@ messages socket::read(peer_id& peer)
                 }
 
                 if (false == result.empty())
+                {
+                    peer = detail::construct_peer_id(current_id,
+                                                     socket_descriptor);
                     break;
+                }
             }
         }
     }
@@ -444,7 +502,7 @@ void socket::write(peer_id const& peer,
                    message const& msg)
 {
     uint64_t current_id = detail::parse_peer_id(peer);
-    if (msg.type() == message_code_drop::rtt)
+    if (msg.type() == m_pimpl->m_rtt_drop)
     {
         detail::delete_channel(m_pimpl.get(), current_id);
     }
@@ -485,6 +543,16 @@ void socket::write(peer_id const& peer,
     }
 }
 
+socket::peer_info socket::info(peer_id const& peer) const
+{
+    uint64_t current_id = detail::parse_peer_id(peer);
+    detail::channel& current_channel =
+            detail::get_channel(m_pimpl.get(),
+                                current_id);
+
+    return detail::info(current_channel.m_socket_descriptor);
+}
+
 string socket::dump() const
 {
     string result;
@@ -509,10 +577,12 @@ string socket::dump() const
 
 namespace detail
 {
-string construct_peer_id(uint64_t id,
-                         int socket_descriptor)
+beltpp::address dumpaddr(sockaddr &address);
+string dump(beltpp::address const& addr);
+
+beltpp::socket::peer_info info(int socket_descriptor)
 {
-    string result(std::to_string(id));
+    beltpp::socket::peer_info result;
 
     sockaddr_storage address;
     socklen_t size = sizeof(sockaddr_storage);
@@ -527,19 +597,33 @@ string construct_peer_id(uint64_t id,
             throw std::runtime_error("getsockname(): " + gpn_error);
         }
     }
-
-    result += "<=>";
-    result += detail::dump(reinterpret_cast<sockaddr&>(address));
+    result.local = detail::dumpaddr(reinterpret_cast<sockaddr&>(address));
 
     {
         int res = ::getpeername(socket_descriptor,
                                 reinterpret_cast<sockaddr*>(&address),
                                 &size);
         if (0 == res)
-        {
-            result += "<=>";
-            result += detail::dump(reinterpret_cast<sockaddr&>(address));
-        }
+            result.remote = detail::dumpaddr(reinterpret_cast<sockaddr&>(address));
+    }
+
+    return result;
+}
+
+string construct_peer_id(uint64_t id,
+                         int socket_descriptor)
+{
+    string result(std::to_string(id));
+
+    beltpp::socket::peer_info pi = info(socket_descriptor);
+
+    result += "<=>";
+    result += dump(pi.local);
+
+    if (false == pi.remote.empty())
+    {
+        result += "<=>";
+        result += dump(pi.remote);
     }
 
     return result;
@@ -560,10 +644,9 @@ uint64_t parse_peer_id(string const& peer_id)
     return id;
 }
 
-string dump(sockaddr& address)
+beltpp::address dumpaddr(sockaddr &address)
 {
-    string result;
-    unsigned short port;
+    beltpp::address addr;
 
     if (address.sa_family == AF_INET)
     {
@@ -571,8 +654,9 @@ string dump(sockaddr& address)
         char ipstr[INET_ADDRSTRLEN];
 
         inet_ntop(AF_INET, &(addressv4->sin_addr), ipstr, INET_ADDRSTRLEN);
-        port = ntohs(addressv4->sin_port);
-        result = string(ipstr) + ":" + std::to_string(port);
+
+        addr.m_port = ntohs(addressv4->sin_port);
+        addr.m_address = ipstr;
     }
     else if (address.sa_family == AF_INET6)
     {
@@ -580,13 +664,32 @@ string dump(sockaddr& address)
         char ipstr[INET6_ADDRSTRLEN];
 
         inet_ntop(AF_INET6, &(addressv6->sin6_addr), ipstr, INET6_ADDRSTRLEN);
-        unsigned short port = ntohs(addressv6->sin6_port);
-        result = "[" + string(ipstr) + "]:" + std::to_string(port);
+
+        addr.m_port = ntohs(addressv6->sin6_port);
+        addr.m_address = ipstr;
     }
     else
-        result += "[houston we have a problem]";
+    {
+        assert(false);
+        throw std::runtime_error("beltpp::address dump(sockaddr &address) "
+                                 "not implemented");
+    }
 
-    return result;
+    return addr;
+}
+
+string dump(sockaddr& address)
+{
+    beltpp::address addr = dumpaddr(address);
+    return dump(addr);
+}
+
+string dump(beltpp::address const& addr)
+{
+    if (string::npos != addr.m_address.find(':'))
+        return "[" + addr.m_address + "]:" + std::to_string(addr.m_port);
+    else
+        return addr.m_address + ":" + std::to_string(addr.m_port);
 }
 
 void getaddressinfo(addrinfo* &servinfo,

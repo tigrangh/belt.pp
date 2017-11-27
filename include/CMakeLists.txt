@@ -6,6 +6,7 @@ add_custom_target(include_ide SOURCES
     isocket.hpp
     iterator_wrapper.hpp
     message.hpp
+    message_global.hpp
     messagecodes.hpp
     p2psocket.hpp
     processor.hpp

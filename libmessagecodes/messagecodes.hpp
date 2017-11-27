@@ -4,6 +4,7 @@
 #include "global.hpp"
 
 #include <iterator_wrapper.hpp>
+#include <message_global.hpp>
 
 #include <memory>
 #include <utility>
@@ -64,32 +65,6 @@ public:
 
 namespace detail
 {
-using fptr_deleter = void(*)(void*&);
-using ptr_msg = std::unique_ptr<void, fptr_deleter>;
-using fptr_creator = ptr_msg(*)();
-enum class e_scan_result {success, attempt, error};
-using scan_result = std::pair<e_scan_result, size_t>;
-using fptr_scanner = scan_result(*)(void*,
-                                    beltpp::iterator_wrapper<char const> const&,
-                                    beltpp::iterator_wrapper<char const> const&);
-using fptr_saver = std::vector<char>(*)(void*);
-
-class pmsg_all
-{
-public:
-    pmsg_all(size_t a_rtt,
-             ptr_msg a_pmsg,
-             fptr_saver a_fsaver)
-        : rtt(a_rtt)
-        , pmsg(std::move(a_pmsg))
-        , fsaver(a_fsaver)
-    {}
-
-    size_t rtt;
-    ptr_msg pmsg;
-    fptr_saver fsaver;
-};
-
 std::string read(std::string const& before,
                  beltpp::iterator_wrapper<char const> const& iter_scan_begin,
                  beltpp::iterator_wrapper<char const> const& iter_scan_end,
@@ -141,7 +116,8 @@ public:
 using message_list = detail_typelist::type_list<class message_code_error,
                                                 class message_code_join,
                                                 class message_code_drop,
-                                                class message_code_hello>;
+                                                class message_code_hello,
+                                                class message_code_peer_info>;
 
 namespace detail
 {
@@ -301,6 +277,90 @@ public:
     }
 public:
     std::string m_message;
+};
+
+class MESSAGECODESSHARED_EXPORT message_code_peer_info : public message_code<message_code_peer_info>
+{
+public:
+
+    std::string message_saver() const
+    {
+        return m_address + "\n" +
+                std::to_string(m_port) + "\n" +
+                (m_online ? "1" : "0") + "\n";
+    }
+
+    detail::scan_result message_scanner(beltpp::iterator_wrapper<char const> const& iter_scan_begin,
+                                        beltpp::iterator_wrapper<char const> const& iter_scan_end)
+    {
+        detail::scan_result result;
+        result.first = detail::e_scan_result::success;
+        result.second = 0;
+
+        bool whole = false;
+        auto iter_begin = iter_scan_begin;
+        std::string message =
+                detail::read("\n", iter_begin, iter_scan_end, whole);
+
+        if (whole)
+        {
+            m_address = message;
+
+            for (size_t index = 0; index != m_address.length() + 1; ++index)
+                ++iter_begin;
+
+            message = detail::read("\n", iter_begin, iter_scan_end, whole);
+
+            if (whole)
+            {
+                size_t ilen;
+                m_port = std::stoi(message, &ilen);
+                if (ilen == message.length())
+                {
+                    for (size_t index = 0; index != ilen + 1; ++index)
+                        ++iter_begin;
+
+                    message = detail::read("\n", iter_begin, iter_scan_end, whole);
+                    if (whole)
+                    {
+                        if (message == "1")
+                        {
+                            m_online = true;
+                            result.second = m_address.length() + ilen + 4;
+                        }
+                        else if (message == "0")
+                        {
+                            m_online = false;
+                            result.second = m_address.length() + ilen + 4;
+                        }
+                        else
+                        {
+                            result.first = detail::e_scan_result::error;
+                            result.second = -1;
+                        }
+                    }
+                }
+                else
+                {
+                    result.first = detail::e_scan_result::error;
+                    result.second = -1;
+                }
+            }
+        }
+
+        if (false == whole)
+        {
+            result.first = detail::e_scan_result::attempt;
+            result.second = -1;
+        }
+
+
+        return result;
+    }
+
+    bool m_online;
+    unsigned short m_port;
+    std::string m_address;
 };
 
 static_assert(detail_inspection::has_message_saver<message_code_hello>::value == 1, "test");

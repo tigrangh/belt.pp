@@ -3,6 +3,7 @@
 #include <chrono>
 #include <memory>
 #include <vector>
+#include <map>
 #include <delegate.hpp>
 #include <processor.hpp>
 #include <message.hpp>
@@ -12,6 +13,15 @@
 #include <socket.hpp>
 #include <message.hpp>
 #include <queue.hpp>
+
+using sf = beltpp::socket_family_t<beltpp::message_code_join::rtt,
+beltpp::message_code_drop::rtt,
+&beltpp::message_code_join::creator,
+&beltpp::message_code_drop::creator,
+&beltpp::message_code_join::saver,
+&beltpp::message_code_drop::saver,
+&beltpp::message_list_load
+>;
 
 #define VERSION 2
 
@@ -34,48 +44,124 @@ int main(int argc, char** argv)
 
         std::cout << sk.dump() << std::endl;
 #elif (VERSION == 2)
+        auto sv = beltpp::socket::socketv::ipv6;
+
         if (1 == argc)
         {
-            beltpp::socket sk;
-            sk.listen({"localhost", 9999});
-            beltpp::message msg1, msg2;
+            std::map<std::string, beltpp::address> addresses;
+            beltpp::socket sk = beltpp::getsocket<sf>();
+            sk.listen({"localhost", 9999}, sv);
+
             beltpp::message msg;
-            beltpp::p2psocket::peer_id peer1, peer2;
+            beltpp::p2psocket::peer_id peer;
             while (true)
             {
                 std::cout << "reading...\n";
-                beltpp::socket::messages msgs = sk.read(peer1);
+                beltpp::socket::messages msgs = sk.read(peer);
                 for (beltpp::message const& msg : msgs)
                 {
-                    if (msg.type() == beltpp::message_code_hello::rtt)
+                    switch (msg.type())
                     {
+                    case beltpp::message_code_join::rtt:
+                    {
+                        beltpp::message msgpi;
+                        beltpp::message_code_peer_info mpi;
+                        mpi.m_address = sk.info(peer).remote.m_address;
+                        mpi.m_port = sk.info(peer).remote.m_port;
+                        mpi.m_online = true;
+                        msgpi.set(mpi);
+
+                        for (auto const& item : addresses)
+                            sk.write(item.first, msgpi);
+                        for (auto const& item : addresses)
+                        {
+                            mpi.m_address = item.second.m_address;
+                            mpi.m_port = item.second.m_port;
+                            mpi.m_online = true;
+                            msgpi.set(mpi);
+                            sk.write(peer, msgpi);
+                        }
+
+                        addresses.insert(std::make_pair(peer, sk.info(peer).remote));
+                    }
+                        break;
+                    case beltpp::message_code_drop::rtt:
+                    {
+                        auto it = addresses.find(peer);
+                        assert(it != addresses.end());
+
+                        beltpp::message msgpi;
+                        beltpp::message_code_peer_info mpi;
+                        mpi.m_address = it->second.m_address;
+                        mpi.m_port = it->second.m_port;
+                        mpi.m_online = false;
+                        msgpi.set(mpi);
+
+                        addresses.erase(it);
+
+                        for (auto const& item : addresses)
+                            sk.write(item.first, msgpi);
+                    }
+                        break;
+                    case beltpp::message_code_hello::rtt:
+                    {
+                        auto pi = sk.info(peer);
+                        std::cout << pi.local.m_address << ' '
+                                  << pi.local.m_port << " <=> "
+                                  << pi.remote.m_address << ' '
+                                  << pi.remote.m_port << std::endl;
+
                         beltpp::message_code_hello msg_code;
                         msg.get(msg_code);
                         std::cout << msg_code.m_message << std::endl;
                     }
-                    else if (msg.type() == beltpp::message_code_error::rtt)
-                    {
-                        std::cout << "shdada" << std::endl;
+                    break;
+                    case beltpp::message_code_error::rtt:
+                        throw std::runtime_error("error");
+                    break;
+                    default:
+                        break;
                     }
                 }
             }
         }
         else if (2 == argc)
         {
-            beltpp::socket sk;
-            auto peers = sk.open({"", 0}, {"localhost", 9999});
+            beltpp::socket sk = beltpp::getsocket<sf>();
+            auto peers = sk.open({"", 0}, {"localhost", 9999}, sv);
             beltpp::message msg;
-            beltpp::message_code_hello msg_code;
-            msg_code.m_message = "hello there!";
+            beltpp::socket::peer_id peer;
+            beltpp::socket::messages message_list;
 
-            msg.set(msg_code);
-            sk.write(peers.front(), msg);
+            while (true)
+            {
+                message_list = sk.read(peer);
+                for (auto const& msg : message_list)
+                {
+                    if (msg.type() == beltpp::message_code_peer_info::rtt)
+                    {
+                        beltpp::message_code_peer_info msg_peer_info;
+                        msg.get(msg_peer_info);
 
-            for (int i = 0; i < 100; ++i)
-                msg_code.m_message += "!";
+                        std::cout << msg_peer_info.m_address << ' '
+                                  << msg_peer_info.m_port << ' '
+                                  << msg_peer_info.m_online << std::endl;
 
-            msg.set(msg_code);
-            sk.write(peers.front(), msg);
+                        beltpp::socket::peer_ids peers;
+
+                        for (size_t index = 0; index < 100; ++index)
+                        {
+                            peers = sk.open(sk.info(peer).local,
+                                    {msg_peer_info.m_address, msg_peer_info.m_port});
+                            if (false == peers.empty())
+                                break;
+                        }
+
+                        if (false == peers.empty())
+                            std::cout << "connected\n";
+                    }
+                }
+            }
         }
 #else
         else if (1 == argc)

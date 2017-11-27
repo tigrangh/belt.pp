@@ -8,4 +8,4 @@ add_library(socket SHARED
     socket.cpp
     socket.hpp)
 
-target_link_libraries(socket include messagecodes)
+target_link_libraries(socket include)

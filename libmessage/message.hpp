@@ -3,6 +3,8 @@
 
 #include "global.hpp"
 
+#include <message_global.hpp>
+
 #include <memory>
 #include <vector>
 #include <cassert>
@@ -18,9 +20,9 @@ namespace detail
 class MESSAGESHARED_EXPORT message
 {
 public:
-    using fptr_deleter = void(*)(void*&);
-    using fptr_saver = std::vector<char>(*)(void*);
-    using ptr_msg = std::unique_ptr<void, fptr_deleter>;
+    using fptr_deleter = detail::fptr_deleter;
+    using fptr_saver = detail::fptr_saver;
+    using ptr_msg = detail::ptr_msg;
 
     message();
     message(message&& other);

@@ -8,4 +8,4 @@ add_library(p2psocket SHARED
     p2psocket.cpp
     p2psocket.hpp)
 
-target_link_libraries(p2psocket include socket processor)
+target_link_libraries(p2psocket include socket)
