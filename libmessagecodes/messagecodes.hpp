@@ -166,9 +166,10 @@ protected:
               typename TEST = typename std::enable_if<
                   detail_inspection::has_message_scanner<T>::value == 1, bool
                   >::type>
-    static detail::scan_result message_scanner(T* pmc,
+    static detail::scan_result message_scanner(
                                        beltpp::iterator_wrapper<char const> const& b,
-                                       beltpp::iterator_wrapper<char const> const& e)
+                                       beltpp::iterator_wrapper<char const> const& e,
+                                       T* pmc)
     {
         return pmc->message_scanner(b, e);
     }
@@ -176,7 +177,10 @@ protected:
               typename TEST = typename std::enable_if<
                   detail_inspection::has_message_scanner<T>::value == 0, char
                   >::type>
-    static detail::scan_result message_scanner(...)
+    static detail::scan_result message_scanner(
+            beltpp::iterator_wrapper<char const> const&,
+            beltpp::iterator_wrapper<char const> const&,
+            ...)
     {
         detail::scan_result result;
         result.first = detail::e_scan_result::success;
@@ -204,7 +208,7 @@ public:
                                        beltpp::iterator_wrapper<char const> const& iter_scan_end)
     {
         MessageCode* pmc = static_cast<MessageCode*>(p);
-        return message_scanner(pmc, iter_scan_begin, iter_scan_end);
+        return message_scanner(iter_scan_begin, iter_scan_end, pmc);
     }
 
     static std::vector<char> saver(void* p)
