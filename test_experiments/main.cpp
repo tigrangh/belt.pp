@@ -128,7 +128,7 @@ int main(int argc, char** argv)
         else if (2 == argc)
         {
             beltpp::socket sk = beltpp::getsocket<sf>();
-            auto peers = sk.open({"", 0}, {"localhost", 9999}, sv);
+            auto peers = sk.open({"", 0}, {"141.136.71.42", 9999}, sv);
             beltpp::message msg;
             beltpp::socket::peer_id peer;
             beltpp::socket::messages message_list;
