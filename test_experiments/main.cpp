@@ -50,7 +50,7 @@ int main(int argc, char** argv)
         {
             std::map<std::string, beltpp::address> addresses;
             beltpp::socket sk = beltpp::getsocket<sf>();
-            sk.listen({"localhost", 9999}, sv);
+            sk.listen({"192.168.0.18", 3450}, sv);
 
             beltpp::message msg;
             beltpp::p2psocket::peer_id peer;
@@ -128,12 +128,12 @@ int main(int argc, char** argv)
         else if (2 == argc)
         {
             beltpp::socket sk = beltpp::getsocket<sf>();
-            auto peers = sk.open({"", 0}, {"141.136.71.42", 9999}, sv);
+            auto server_peers = sk.open({"", 0}, {"141.136.71.42", 3450}, sv);
             beltpp::message msg;
             beltpp::socket::peer_id peer;
             beltpp::socket::messages message_list;
 
-            while (true)
+            while (server_peers.size())
             {
                 message_list = sk.read(peer);
                 for (auto const& msg : message_list)
