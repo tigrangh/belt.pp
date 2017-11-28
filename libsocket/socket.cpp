@@ -562,6 +562,12 @@ messages socket::read(peer_id& peer)
                     m_pimpl->m_poll_master.mod(socket_descriptor,
                                                current_id,
                                                false);
+                else
+                {
+                    m_pimpl->m_poll_master.add(socket_descriptor,
+                                               current_id,
+                                               false);
+                }
                 message msg;
 
                 msg.set(m_pimpl->m_rtt_join,
