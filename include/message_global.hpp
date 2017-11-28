@@ -1,6 +1,7 @@
 #ifndef MESSAGE_GLOBAL_HPP
 #define MESSAGE_GLOBAL_HPP
 
+#include "global.hpp"
 #include <iterator_wrapper.hpp>
 #include <vector>
 
@@ -11,7 +12,8 @@ namespace detail
 using fptr_deleter = void(*)(void*&);
 using ptr_msg = std::unique_ptr<void, fptr_deleter>;
 using fptr_creator = ptr_msg(*)();
-enum class e_scan_result {success, attempt, error};
+//enum class e_scan_result {success, attempt, error};
+using e_scan_result = e_three_state_result;
 using scan_result = std::pair<e_scan_result, size_t>;
 using fptr_scanner = scan_result(*)(void*,
                                     beltpp::iterator_wrapper<char const> const&,

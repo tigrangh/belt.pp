@@ -18,21 +18,6 @@ namespace detail
     class socket_internals;
 }
 
-class SOCKETSHARED_EXPORT address
-{
-public:
-    enum class addressv {ipv4, ipv6};
-
-    address(std::string const& aaddress = std::string(),
-            unsigned short port = 0,
-            addressv version = addressv::ipv4);
-    bool empty() const noexcept;
-
-    addressv m_version;
-    unsigned short m_port;
-    std::string m_address;
-};
-
 template <size_t _rtt_join,
           size_t _rtt_drop,
           detail::fptr_creator _fcreator_join,
@@ -55,7 +40,6 @@ public:
 class SOCKETSHARED_EXPORT socket : public beltpp::isocket
 {
 public:
-    using socketv = isocket::socketv;
     using peer_id = isocket::peer_id;
     using peer_ids = std::list<peer_id>;
     using messages = isocket::messages;
@@ -70,27 +54,19 @@ public:
     socket(socket&& other);
     virtual ~socket();
 
-    peer_ids listen(address const& local_address,
-                    socketv version = socketv::any,
+    peer_ids listen(ip_address const& address,
                     int backlog = 100);
 
-    void open(address const& local_address,
-              address const& remote_address,
-              socketv version = socketv::any,
-              size_t attempts = 0);
+    void open(ip_address address,
+              size_t attempts = 0,
+              bool nonblocking = true);
 
     messages read(peer_id& peer) override;
 
     void write(peer_id const& peer,
                message const& msg) override;
 
-    class peer_info
-    {
-    public:
-        address local;
-        address remote;
-    };
-    peer_info info(peer_id const& peer) const;
+    ip_address info(peer_id const& peer) const;
 
     std::string dump() const;
 

@@ -15,4 +15,9 @@
 #define BELT_IMPORT
 #endif
 
+namespace beltpp
+{
+enum class e_three_state_result {success, attempt, error};
+}
+
 #endif// BELT_GLOBAL

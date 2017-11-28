@@ -5,6 +5,7 @@
 
 #include <iterator_wrapper.hpp>
 #include <message_global.hpp>
+#include <isocket.hpp>
 
 #include <memory>
 #include <utility>
@@ -290,9 +291,25 @@ public:
 
     std::string message_saver() const
     {
-        return m_address + "\n" +
-                std::to_string(m_port) + "\n" +
-                (m_online ? "1" : "0") + "\n";
+        std::string type;
+        switch (address.type)
+        {
+        case ip_address::e_type::any:
+            type = "any";
+            break;
+        case ip_address::e_type::ipv4:
+            type = "ip4";
+            break;
+        case ip_address::e_type::ipv6:
+            type = "ip6";
+            break;
+        default:
+            break;
+        }
+        return address.local.address + "\n" +
+                std::to_string(address.local.port) + "\n" +
+                type + "\n" +
+                (online ? "1" : "0") + "\n";
     }
 
     detail::scan_result message_scanner(beltpp::iterator_wrapper<char const> const& iter_scan_begin,
@@ -302,70 +319,87 @@ public:
         result.first = detail::e_scan_result::success;
         result.second = 0;
 
-        bool whole = false;
+        bool whole = true;
         auto iter_begin = iter_scan_begin;
-        std::string message =
-                detail::read("\n", iter_begin, iter_scan_end, whole);
+        std::string message;
 
-        if (whole)
+        address = ip_address();
+        size_t len = 0;
+
+        auto forward = [&len, &iter_begin](size_t number)
         {
-            m_address = message;
-
-            for (size_t index = 0; index != m_address.length() + 1; ++index)
-                ++iter_begin;
-
-            message = detail::read("\n", iter_begin, iter_scan_end, whole);
-
-            if (whole)
+            for (size_t index = 0; index != number; ++index)
             {
-                size_t ilen;
-                m_port = std::stoi(message, &ilen);
-                if (ilen == message.length())
-                {
-                    for (size_t index = 0; index != ilen + 1; ++index)
-                        ++iter_begin;
-
-                    message = detail::read("\n", iter_begin, iter_scan_end, whole);
-                    if (whole)
-                    {
-                        if (message == "1")
-                        {
-                            m_online = true;
-                            result.second = m_address.length() + ilen + 4;
-                        }
-                        else if (message == "0")
-                        {
-                            m_online = false;
-                            result.second = m_address.length() + ilen + 4;
-                        }
-                        else
-                        {
-                            result.first = detail::e_scan_result::error;
-                            result.second = -1;
-                        }
-                    }
-                }
-                else
-                {
-                    result.first = detail::e_scan_result::error;
-                    result.second = -1;
-                }
+                ++iter_begin;
+                ++len;
             }
+        };
+        auto read = [&message, &iter_begin, &iter_scan_end, &whole, &forward]()
+        {
+            message = detail::read("\n", iter_begin, iter_scan_end, whole);
+            forward(message.length() + 1);
+        };
+
+        bool error = false;
+
+        if (whole && !error)
+        {
+            read();
+            address.local.address = message;
         }
 
-        if (false == whole)
+        if (whole && !error)
+        {
+            read();
+            size_t ilen;
+            address.local.port = std::stoi(message, &ilen);
+
+            if (ilen != message.length())
+                error = true;
+        }
+
+        if (whole && !error)
+        {
+            read();
+            if (message == "ip4")
+                address.type = ip_address::e_type::ipv4;
+            else if (message == "ip6")
+                address.type = ip_address::e_type::ipv6;
+            else if (message == "any")
+                address.type = ip_address::e_type::any;
+            else
+                error = true;
+        }
+
+        if (whole && !error)
+        {
+            read();
+            if (message == "1")
+                online = true;
+            else if (message == "0")
+                online = false;
+            else
+                error = true;
+        }
+
+        if (whole && !error)
+            result.second = len;
+        if (error)
+        {
+            result.first = detail::e_scan_result::error;
+            result.second = -1;
+        }
+        else if (false == whole)
         {
             result.first = detail::e_scan_result::attempt;
             result.second = -1;
         }
 
-
         return result;
     }
 
-    bool m_online;
-    unsigned short m_port;
-    std::string m_address;
+    bool online;
+    ip_address address;
 };
 
 static_assert(detail_inspection::has_message_saver<message_code_hello>::value == 1, "test");
