@@ -43,6 +43,43 @@ int main(int argc, char** argv)
         //sk.open({"", 3033}, {"", 3033}, beltpp::socket::socketv::any);
 
         std::cout << sk.dump() << std::endl;
+#elif (VERSION == 10)
+        auto sv = beltpp::socket::socketv::ipv4;
+
+        beltpp::socket sk = beltpp::getsocket<sf>();
+        if (argc == 1)
+            sk.open({"127.0.0.1", 3333}, {"127.0.0.1", 4444}, sv);
+        else
+            sk.open({"127.0.0.1", 4444}, {"127.0.0.1", 3333}, sv);
+        beltpp::message msg, msg2;
+        beltpp::socket::peer_id peer;
+        beltpp::socket::messages message_list;
+        beltpp::message_code_hello hello;
+
+        while (true)
+        {
+            std::cout << "reading...\n";
+            message_list = sk.read(peer);
+            for (auto const& msg : message_list)
+            {
+                if (msg.type() == beltpp::message_code_join::rtt)
+                {
+                    std::cout << "connected\n";
+                    hello.m_message = sk.info(peer).local.m_address;
+                    msg2.set(hello);
+                    sk.write(peer, msg2);
+                }
+                else if (msg.type() == beltpp::message_code_drop::rtt)
+                {
+                    std::cout << "disconnected\n";
+                }
+                else if (msg.type() == beltpp::message_code_hello::rtt)
+                {
+                    msg.get(hello);
+                    std::cout << hello.m_message << std::endl;
+                }
+            }
+        }
 #elif (VERSION == 2)
         auto sv = beltpp::socket::socketv::ipv4;
 
@@ -50,13 +87,13 @@ int main(int argc, char** argv)
         {
             std::map<std::string, beltpp::address> addresses;
             beltpp::socket sk = beltpp::getsocket<sf>();
-            sk.listen({"192.168.0.18", 3450}, sv);
+            sk.listen({"127.0.0.1", 3450}, sv);
 
             beltpp::message msg;
             beltpp::p2psocket::peer_id peer;
             while (true)
             {
-                std::cout << "reading...\n";
+                std::cout << "server reading...\n";
                 beltpp::socket::messages msgs = sk.read(peer);
                 for (beltpp::message const& msg : msgs)
                 {
@@ -64,6 +101,7 @@ int main(int argc, char** argv)
                     {
                     case beltpp::message_code_join::rtt:
                     {
+                        std::cout << "connected\n";
                         beltpp::message msgpi;
                         beltpp::message_code_peer_info mpi;
                         mpi.m_address = sk.info(peer).remote.m_address;
@@ -87,6 +125,7 @@ int main(int argc, char** argv)
                         break;
                     case beltpp::message_code_drop::rtt:
                     {
+                        std::cout << "disconnected\n";
                         auto it = addresses.find(peer);
                         assert(it != addresses.end());
 
@@ -128,13 +167,14 @@ int main(int argc, char** argv)
         else if (2 == argc)
         {
             beltpp::socket sk = beltpp::getsocket<sf>();
-            auto server_peers = sk.open({"", 0}, {"141.136.71.42", 3450}, sv);
+            sk.open({"", 0}, {"127.0.0.1", 3450}, sv);
             beltpp::message msg;
             beltpp::socket::peer_id peer;
             beltpp::socket::messages message_list;
 
-            while (server_peers.size())
+            while (true)
             {
+                std::cout << "client reading...\n";
                 message_list = sk.read(peer);
                 for (auto const& msg : message_list)
                 {
@@ -147,27 +187,23 @@ int main(int argc, char** argv)
                                   << msg_peer_info.m_port << ' '
                                   << msg_peer_info.m_online << std::endl;
 
-                        /*beltpp::socket::peer_ids peers;
-
-                        for (size_t index = 0;
-                             msg_peer_info.m_online && index < 100;
-                             ++index)
+                        if (msg_peer_info.m_online)
                         {
-                            peers = sk.open(sk.info(peer).local,
-                                    {msg_peer_info.m_address, msg_peer_info.m_port});
-                            if (false == peers.empty())
-                                break;
+                            std::cout << "local is "
+                                      << sk.info(peer).local.m_address << ' '
+                                      << sk.info(peer).local.m_port
+                                      << std::endl;
+                            std::cout << "remote is "
+                                      << msg_peer_info.m_address << ' '
+                                      << msg_peer_info.m_port
+                                      << std::endl;
+                            //sk.listen(sk.info(peer).local, sv);
+
+                            sk.open(sk.info(peer).local,
+                                    {msg_peer_info.m_address,
+                                     msg_peer_info.m_port}, sv, 100);
+                            //sk.open({"", 0}, {"google.com", 80}, sv);
                         }
-
-                        if (false == peers.empty())
-                        {
-                            std::cout << "connected\n";
-                            beltpp::message msh_send;
-                            beltpp::message_code_hello msg_hello;
-                            msg_hello.m_message = sk.info(peers.front()).remote.m_address;
-                            msh_send.set(msg_hello);
-                            sk.write(peers.front(), msh_send);
-                        }*/
                     }
                     else if (msg.type() == beltpp::message_code_hello::rtt)
                     {
@@ -176,6 +212,14 @@ int main(int argc, char** argv)
 
                         std::cout << msg_hello.m_message << std::endl;
 
+                    }
+                    else if (msg.type() == beltpp::message_code_join::rtt)
+                    {
+                        std::cout << "connected\n";
+                    }
+                    else if (msg.type() == beltpp::message_code_drop::rtt)
+                    {
+                        std::cout << "disconnected\n";
                     }
                 }
             }

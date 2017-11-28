@@ -21,12 +21,16 @@ namespace detail
 class SOCKETSHARED_EXPORT address
 {
 public:
+    enum class addressv {ipv4, ipv6};
+
     address(std::string const& aaddress = std::string(),
-            unsigned short port = 0);
+            unsigned short port = 0,
+            addressv version = addressv::ipv4);
     bool empty() const noexcept;
 
-    std::string m_address;
+    addressv m_version;
     unsigned short m_port;
+    std::string m_address;
 };
 
 template <size_t _rtt_join,
@@ -70,9 +74,10 @@ public:
                     socketv version = socketv::any,
                     int backlog = 100);
 
-    peer_ids open(address const& local_address,
-                  address const& remote_address,
-                  socketv version = socketv::any);
+    void open(address const& local_address,
+              address const& remote_address,
+              socketv version = socketv::any,
+              size_t attempts = 0);
 
     messages read(peer_id& peer) override;
 
