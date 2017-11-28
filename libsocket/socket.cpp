@@ -428,6 +428,9 @@ messages socket::read(peer_id& peer)
                            size_buffer,
                            0);
 
+            if (-1 == res && errno == ECONNRESET)
+                res = 0;
+
             if (-1 == res)
             {
                 string recv_error = strerror(errno);
@@ -620,11 +623,14 @@ string construct_peer_id(uint64_t id,
     result += "<=>";
     result += dump(pi.local);
 
-    if (false == pi.remote.empty())
+    //  making remote a part of peer id is problematic
+    //  when ECONNRESET the getpeername will not get the result
+    //  leading to incorrect peer id information on the reset socket
+    /*if (false == pi.remote.empty())
     {
         result += "<=>";
         result += dump(pi.remote);
-    }
+    }*/
 
     return result;
 }

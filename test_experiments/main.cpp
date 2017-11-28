@@ -147,9 +147,11 @@ int main(int argc, char** argv)
                                   << msg_peer_info.m_port << ' '
                                   << msg_peer_info.m_online << std::endl;
 
-                        beltpp::socket::peer_ids peers;
+                        /*beltpp::socket::peer_ids peers;
 
-                        for (size_t index = 0; index < 100; ++index)
+                        for (size_t index = 0;
+                             msg_peer_info.m_online && index < 100;
+                             ++index)
                         {
                             peers = sk.open(sk.info(peer).local,
                                     {msg_peer_info.m_address, msg_peer_info.m_port});
@@ -158,7 +160,22 @@ int main(int argc, char** argv)
                         }
 
                         if (false == peers.empty())
+                        {
                             std::cout << "connected\n";
+                            beltpp::message msh_send;
+                            beltpp::message_code_hello msg_hello;
+                            msg_hello.m_message = sk.info(peers.front()).remote.m_address;
+                            msh_send.set(msg_hello);
+                            sk.write(peers.front(), msh_send);
+                        }*/
+                    }
+                    else if (msg.type() == beltpp::message_code_hello::rtt)
+                    {
+                        beltpp::message_code_hello msg_hello;
+                        msg.get(msg_hello);
+
+                        std::cout << msg_hello.m_message << std::endl;
+
                     }
                 }
             }
