@@ -213,7 +213,6 @@ int main(int argc, char** argv)
                         msg.get(msg_hello);
 
                         std::cout << msg_hello.m_message << std::endl;
-
                     }
                     else if (msg.type() == beltpp::message_code_join::rtt)
                     {
@@ -221,6 +220,7 @@ int main(int argc, char** argv)
                         std::cout << sk.info(peer).to_string() << std::endl;
 
                         beltpp::message_code_hello msg_hello;
+                        msg_hello.m_message = argv[1];
                         msg2.set(msg_hello);
                         sk.write(peer, msg2);
                     }
