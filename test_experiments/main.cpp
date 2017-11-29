@@ -170,7 +170,7 @@ int main(int argc, char** argv)
             beltpp::socket sk = beltpp::getsocket<sf>();
             sk.open({"141.136.71.42", 3450, sv});
             //sk.open({"127.0.0.1", 3450, sv});
-            beltpp::message msg;
+            beltpp::message msg, msg2;
             beltpp::socket::peer_id peer;
             beltpp::socket::messages message_list;
 
@@ -219,6 +219,10 @@ int main(int argc, char** argv)
                     {
                         std::cout << "connected\n";
                         std::cout << sk.info(peer).to_string() << std::endl;
+
+                        beltpp::message_code_hello msg_hello;
+                        msg2.set(msg_hello);
+                        sk.write(peer, msg2);
                     }
                     else if (msg.type() == beltpp::message_code_drop::rtt)
                     {
