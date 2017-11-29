@@ -568,6 +568,8 @@ messages socket::read(peer_id& peer)
                                                current_id,
                                                false);
                 }
+
+                current_channel.m_attempts = 0;
                 message msg;
 
                 msg.set(m_pimpl->m_rtt_join,
