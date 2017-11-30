@@ -1,7 +1,7 @@
 #ifndef BELT_PROCESSOR_H
 #define BELT_PROCESSOR_H
 
-#include "iprocessor.hpp"
+#include <iprocessor.hpp>
 #include "global.hpp"
 
 #include <memory>

@@ -13,3 +13,5 @@ add_custom_target(include_ide SOURCES
     queue.hpp
     scope_helper.hpp
     socket.hpp)
+
+target_include_directories(include INTERFACE .)
