@@ -1,6 +1,3 @@
-set( CMAKE_CXX_STANDARD 11 )
-set( CMAKE_CXX_STANDARD_REQUIRED YES )
-
 add_definitions(-DSOCKET_LIBRARY)
 
 add_library(socket SHARED

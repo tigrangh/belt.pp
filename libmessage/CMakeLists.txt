@@ -1,6 +1,3 @@
-set( CMAKE_CXX_STANDARD 11 )
-set( CMAKE_CXX_STANDARD_REQUIRED YES )
-
 add_definitions(-DMESSAGE_LIBRARY)
 
 add_library(message SHARED
