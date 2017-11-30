@@ -7,4 +7,4 @@ add_library(processor SHARED
     processor.cpp
     processor.hpp)
 
-target_link_libraries(processor include)
+target_link_libraries(processor belt.pp)

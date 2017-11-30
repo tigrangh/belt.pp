@@ -2,7 +2,7 @@
 #define MESSAGE_GLOBAL_HPP
 
 #include "global.hpp"
-#include <iterator_wrapper.hpp>
+#include <belt.pp/iterator_wrapper.hpp>
 #include <vector>
 
 namespace beltpp

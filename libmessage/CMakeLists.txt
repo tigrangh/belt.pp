@@ -5,4 +5,4 @@ add_library(message SHARED
     message.cpp
     message.hpp)
 
-target_link_libraries(message include)
+target_link_libraries(message belt.pp)

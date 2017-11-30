@@ -1,6 +1,6 @@
 #include "processor.hpp"
 
-#include <queue.hpp>
+#include <belt.pp/queue.hpp>
 
 #include <thread>
 #include <vector>

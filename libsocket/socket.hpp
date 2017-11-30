@@ -2,8 +2,8 @@
 #define BELT_SOCKET_H
 
 #include "global.hpp"
-#include <isocket.hpp>
-#include <message_global.hpp>
+#include <belt.pp/isocket.hpp>
+#include <belt.pp/message_global.hpp>
 
 #include <memory>
 #include <string>

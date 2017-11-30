@@ -3,9 +3,9 @@
 
 #include "global.hpp"
 
-#include <iterator_wrapper.hpp>
-#include <message_global.hpp>
-#include <isocket.hpp>
+#include <belt.pp/iterator_wrapper.hpp>
+#include <belt.pp/message_global.hpp>
+#include <belt.pp/isocket.hpp>
 
 #include <memory>
 #include <utility>

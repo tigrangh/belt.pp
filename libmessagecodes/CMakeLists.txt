@@ -6,4 +6,4 @@ add_library(messagecodes SHARED
     messagecodes.cpp
     messagecodes.hpp)
 
-target_link_libraries(messagecodes include)
+target_link_libraries(messagecodes belt.pp)

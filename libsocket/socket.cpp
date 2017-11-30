@@ -1,8 +1,8 @@
 #include "socket.hpp"
 
-#include <scope_helper.hpp>
-#include <queue.hpp>
-#include <message.hpp>
+#include <belt.pp/scope_helper.hpp>
+#include <belt.pp/queue.hpp>
+#include <belt.pp/message.hpp>
 
 #include <sys/epoll.h>
 #include <netdb.h>

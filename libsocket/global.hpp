@@ -1,7 +1,7 @@
 #ifndef BELT_SOCKET_GLOBAL_H
 #define BELT_SOCKET_GLOBAL_H
 
-#include <global.hpp>
+#include <belt.pp/global.hpp>
 
 #if defined(SOCKET_LIBRARY)
 #define SOCKETSHARED_EXPORT BELT_EXPORT

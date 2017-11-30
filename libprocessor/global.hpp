@@ -1,7 +1,7 @@
 #ifndef BELT_PROCESSOR_GLOBAL_H
 #define BELT_PROCESSOR_GLOBAL_H
 
-#include <global.hpp>
+#include <belt.pp/global.hpp>
 
 #if defined(PROCESSOR_LIBRARY)
 #define PROCESSORSHARED_EXPORT BELT_EXPORT

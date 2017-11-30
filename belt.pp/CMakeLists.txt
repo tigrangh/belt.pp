@@ -1,5 +1,5 @@
-add_library(include INTERFACE)
-add_custom_target(include_ide SOURCES
+add_library(belt.pp INTERFACE)
+add_custom_target(include SOURCES
     delegate.hpp
     global.hpp
     iprocessor.hpp
@@ -14,4 +14,4 @@ add_custom_target(include_ide SOURCES
     scope_helper.hpp
     socket.hpp)
 
-target_include_directories(include INTERFACE .)
+target_include_directories(belt.pp INTERFACE ..)

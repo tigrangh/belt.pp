@@ -4,15 +4,15 @@
 #include <memory>
 #include <vector>
 #include <map>
-#include <delegate.hpp>
-#include <processor.hpp>
-#include <message.hpp>
-#include <messagecodes.hpp>
-#include <p2psocket.hpp>
-#include <type_traits>
-#include <socket.hpp>
-#include <message.hpp>
-#include <queue.hpp>
+#include <belt.pp/delegate.hpp>
+#include <belt.pp/processor.hpp>
+#include <belt.pp/message.hpp>
+#include <belt.pp/messagecodes.hpp>
+//#include <belt.pp/p2psocket.hpp>
+//#include <type_traits>
+#include <belt.pp/socket.hpp>
+#include <belt.pp/message.hpp>
+#include <belt.pp/queue.hpp>
 
 using sf = beltpp::socket_family_t<beltpp::message_code_join::rtt,
 beltpp::message_code_drop::rtt,
@@ -91,7 +91,7 @@ int main(int argc, char** argv)
             //sk.listen({"127.0.0.1", 3450, sv});
 
             beltpp::message msg;
-            beltpp::p2psocket::peer_id peer;
+            beltpp::socket::peer_id peer;
             while (true)
             {
                 std::cout << "server reading...\n";

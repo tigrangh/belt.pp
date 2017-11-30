@@ -14,7 +14,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 add_compile_options(-Wall)
 add_compile_options(-Werror)
 
-add_subdirectory(include)
+add_subdirectory(belt.pp)
 add_subdirectory(libmessage)
 add_subdirectory(libmessagecodes)
 add_subdirectory(libprocessor)

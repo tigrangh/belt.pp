@@ -1,7 +1,7 @@
 #ifndef BELT_MESSAGECODES_GLOBAL_H
 #define BELT_MESSAGECODES_GLOBAL_H
 
-#include <global.hpp>
+#include <belt.pp/global.hpp>
 
 #if defined(MESSAGECODES_LIBRARY)
 #define MESSAGECODESSHARED_EXPORT BELT_EXPORT

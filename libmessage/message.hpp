@@ -3,7 +3,7 @@
 
 #include "global.hpp"
 
-#include <message_global.hpp>
+#include <belt.pp/message_global.hpp>
 
 #include <memory>
 #include <vector>
