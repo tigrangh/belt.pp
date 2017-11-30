@@ -157,7 +157,13 @@ int main(int argc, char** argv)
                     }
                     break;
                     case beltpp::message_code_error::rtt:
-                        throw std::runtime_error("error");
+                    {
+                        std::cout << "error from " << peer << std::endl;
+                        beltpp::message_code_drop drop_message;
+                        beltpp::message msgdrop;
+                        msgdrop.set(drop_message);
+                        sk.write(peer, msgdrop);
+                    }
                     break;
                     default:
                         break;
@@ -227,6 +233,14 @@ int main(int argc, char** argv)
                     else if (msg.type() == beltpp::message_code_drop::rtt)
                     {
                         std::cout << "disconnected\n";
+                    }
+                    else if (msg.type() == beltpp::message_code_error::rtt)
+                    {
+                        std::cout << "error from " << peer << std::endl;
+                        beltpp::message_code_drop drop_message;
+                        beltpp::message msgdrop;
+                        msgdrop.set(drop_message);
+                        sk.write(peer, msgdrop);
                     }
                 }
             }
