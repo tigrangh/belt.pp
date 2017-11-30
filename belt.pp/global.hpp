@@ -1,5 +1,4 @@
-#ifndef BELT_GLOBAL_H
-#define BELT_GLOBAL_H
+#pragma once
 
 #ifdef _MSC_VER
 
@@ -20,4 +19,3 @@ namespace beltpp
 enum class e_three_state_result {success, attempt, error};
 }
 
-#endif// BELT_GLOBAL

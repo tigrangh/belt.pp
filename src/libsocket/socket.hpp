@@ -1,5 +1,4 @@
-#ifndef BELT_SOCKET_H
-#define BELT_SOCKET_H
+#pragma once
 
 #include "global.hpp"
 #include <belt.pp/isocket.hpp>
@@ -89,4 +88,3 @@ socket SOCKETSHARED_EXPORT getsocket()
 
 }
 
-#endif // BELT_SOCKET_H

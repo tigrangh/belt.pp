@@ -1,5 +1,4 @@
-#ifndef BELT_SCOPE_HELPER_H
-#define BELT_SCOPE_HELPER_H
+#pragma once
 
 #include <functional>
 
@@ -53,5 +52,3 @@ private:
 };
 
 }
-
-#endif // BELT_SCOPE_HELPER_H

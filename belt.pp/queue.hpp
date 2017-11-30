@@ -1,5 +1,4 @@
-#ifndef BELT_QUEUE_VECTOR_HPP
-#define BELT_QUEUE_VECTOR_HPP
+#pragma once
 
 #include <vector>
 #include <cassert>
@@ -402,4 +401,3 @@ namespace detail
 
 }
 
-#endif// BELT_QUEUE_VECTOR_HPP

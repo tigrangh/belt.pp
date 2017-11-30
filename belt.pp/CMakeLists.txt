@@ -8,7 +8,7 @@ add_custom_target(include SOURCES
     message.hpp
     message_global.hpp
     messagecodes.hpp
-    p2psocket.hpp
+    #p2psocket.hpp
     processor.hpp
     queue.hpp
     scope_helper.hpp

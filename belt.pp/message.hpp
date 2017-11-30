@@ -1,1 +1,2 @@
-#include "../libmessage/message.hpp"
+#pragma once
+#include "../src/libmessage/message.hpp"

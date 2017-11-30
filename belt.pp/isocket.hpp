@@ -1,5 +1,4 @@
-#ifndef BELT_ISOCKET_H
-#define BELT_ISOCKET_H
+#pragma once
 
 #include <string>
 #include <list>
@@ -90,4 +89,3 @@ public:
 
 }
 
-#endif // BELT_ISOCKET_H

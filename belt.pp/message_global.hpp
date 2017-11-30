@@ -1,5 +1,4 @@
-#ifndef MESSAGE_GLOBAL_HPP
-#define MESSAGE_GLOBAL_HPP
+#pragma once
 
 #include "global.hpp"
 #include <belt.pp/iterator_wrapper.hpp>
@@ -43,4 +42,3 @@ using fptr_message_loader = detail::pmsg_all (*)(
 }
 }
 
-#endif// MESSAGE_GLOBAL_HPP

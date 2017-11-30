@@ -1,5 +1,4 @@
-#ifndef BELT_IPROCESSOR_H
-#define BELT_IPROCESSOR_H
+#pragma once
 
 #include <cstddef>
 
@@ -26,4 +25,3 @@ public:
 
 }
 
-#endif // BELT_IPROCESSOR_H

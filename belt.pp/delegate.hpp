@@ -1,5 +1,4 @@
-#ifndef DELEGATE_H
-#define DELEGATE_H
+#pragma once
 
 #include <exception>
 #include <type_traits>
@@ -145,4 +144,3 @@ private:
 
 }
 
-#endif // DELEGATE_H

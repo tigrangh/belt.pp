@@ -1,1 +1,2 @@
-#include "../libprocessor/processor.hpp"
+#pragma once
+#include "../src/libprocessor/processor.hpp"

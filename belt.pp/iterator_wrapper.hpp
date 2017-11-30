@@ -1,5 +1,4 @@
-#ifndef ITERATOR_WRAPPER_H
-#define ITERATOR_WRAPPER_H
+#pragma once
 
 #include <iterator>
 #include <memory>
@@ -93,5 +92,3 @@ protected:
     std::unique_ptr<void, void(*)(void*)> m_iterator;
 };
 }
-
-#endif// ITERATOR_WRAPPER_H

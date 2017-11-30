@@ -1,5 +1,4 @@
-#ifndef BELT_MESSAGECODES_H
-#define BELT_MESSAGECODES_H
+#pragma once
 
 #include "global.hpp"
 
@@ -423,5 +422,3 @@ int store_fptr()
 }
 
 }
-
-#endif // BELT_MESSAGECODES_H

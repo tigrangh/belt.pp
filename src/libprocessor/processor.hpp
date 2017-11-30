@@ -1,5 +1,4 @@
-#ifndef BELT_PROCESSOR_H
-#define BELT_PROCESSOR_H
+#pragma once
 
 #include <belt.pp/iprocessor.hpp>
 #include "global.hpp"
@@ -72,5 +71,3 @@ private:
 };
 
 }
-
-#endif // BELT_PROCESSOR_H

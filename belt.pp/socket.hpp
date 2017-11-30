@@ -1,1 +1,2 @@
-#include "../libsocket/socket.hpp"
+#pragma once
+#include "../src/libsocket/socket.hpp"

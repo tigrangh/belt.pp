@@ -1,5 +1,4 @@
-#ifndef BELT_MESSAGE_H
-#define BELT_MESSAGE_H
+#pragma once
 
 #include "global.hpp"
 
@@ -76,5 +75,3 @@ void message::get(MessageValue& msg) const
 }
 
 }
-
-#endif // BELT_MESSAGE_H

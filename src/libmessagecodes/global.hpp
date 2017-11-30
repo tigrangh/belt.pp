@@ -1,5 +1,4 @@
-#ifndef BELT_MESSAGECODES_GLOBAL_H
-#define BELT_MESSAGECODES_GLOBAL_H
+#pragma once
 
 #include <belt.pp/global.hpp>
 
@@ -9,4 +8,3 @@
 #define MESSAGECODESSHARED_EXPORT BELT_IMPORT
 #endif
 
-#endif// BELT_MESSAGECODES_GLOBAL_H
