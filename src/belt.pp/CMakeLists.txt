@@ -1,5 +1,19 @@
+# interface library for headers only module
 add_library(belt.pp INTERFACE)
-add_custom_target(include SOURCES
+
+# modules linking to this library will include following
+# directories. two options are provided for installed package
+# and for in-tree source build
+target_include_directories(belt.pp INTERFACE
+    $<INSTALL_INTERFACE:include/belt.pp>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>)
+
+# what to do on make install
+install(TARGETS belt.pp
+        EXPORT belt.pp.package
+        DESTINATION lib/belt.pp)
+
+set(SRC_FILES
     delegate.hpp
     global.hpp
     iprocessor.hpp
@@ -8,22 +22,18 @@ add_custom_target(include SOURCES
     message.hpp
     message_global.hpp
     messagecodes.hpp
-    #p2psocket.hpp
     processor.hpp
     queue.hpp
     scope_helper.hpp
     socket.hpp)
-
-target_include_directories(belt.pp INTERFACE
-    $<INSTALL_INTERFACE:include/belt.pp>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>)
-
-install(TARGETS belt.pp
-        EXPORT belt.pp.package
-        DESTINATION lib/belt.pp)
 
 install(FILES
     global.hpp
     message.hpp
     DESTINATION include/belt.pp/belt.pp)
 
+#
+# add custom target simply for IDE to show the files
+#
+add_custom_target(include SOURCES
+    ${SRC_FILES})

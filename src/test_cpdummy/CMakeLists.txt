@@ -1,4 +1,11 @@
+# define the executable
 add_executable(test_cpdummy
     main.cpp)
 
-target_link_libraries(test_cpdummy processor belt.pp)
+# libraries this module links to
+target_link_libraries(test_cpdummy PUBLIC processor)
+
+# what to do on make install
+install(TARGETS test_cpdummy
+        EXPORT belt.pp.package
+        RUNTIME DESTINATION bin/belt.pp)

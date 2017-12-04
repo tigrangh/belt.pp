@@ -12,7 +12,6 @@
 //#include <type_traits>
 #include <belt.pp/socket.hpp>
 #include <belt.pp/message.hpp>
-#include <belt.pp/queue.hpp>
 
 using sf = beltpp::socket_family_t<beltpp::message_code_join::rtt,
 beltpp::message_code_drop::rtt,
