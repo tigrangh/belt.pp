@@ -1,7 +1,7 @@
 #pragma once
 
 #include "global.hpp"
-#include <belt.pp/iterator_wrapper.hpp>
+#include "iterator_wrapper.hpp"
 #include <vector>
 
 namespace beltpp
