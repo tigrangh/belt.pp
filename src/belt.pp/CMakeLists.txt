@@ -28,8 +28,7 @@ set(SRC_FILES
     socket.hpp)
 
 install(FILES
-    global.hpp
-    message.hpp
+    ${SRC_FILES}
     DESTINATION include/belt.pp/belt.pp)
 
 #
