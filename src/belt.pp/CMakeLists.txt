@@ -34,5 +34,5 @@ install(FILES
 #
 # add custom target simply for IDE to show the files
 #
-add_custom_target(include SOURCES
+add_custom_target(belt.pp.include SOURCES
     ${SRC_FILES})

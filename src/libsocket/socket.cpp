@@ -233,12 +233,14 @@ void getaddressinfo(addrinfo* &servinfo,
                     ip_address::e_type type,
                     string const& str_address,
                     unsigned short port,
-                    beltpp::scope_helper& servinfo_cleaner);
+                    beltpp::scope_helper& servinfo_cleaner,
+                    bool hold_family_mismatch_exception = false);
 void getaddressinfo(addrinfo* &servinfo,
                     int ai_family,
                     string const& str_address,
                     unsigned short port,
-                    beltpp::scope_helper& servinfo_cleaner);
+                    beltpp::scope_helper& servinfo_cleaner,
+                    bool hold_family_mismatch_exception = false);
 sockets socket(addrinfo* servinfo,
                bool bind,
                bool reuse,
@@ -386,15 +388,24 @@ void socket::open(ip_address address,
         string str_temp_address = detail::dump(*socket_info.second->ai_addr);
         str_temp_address += "\t";
 
+        bool hold_exception = false;
+        if (address.type == ip_address::e_type::any)
+            hold_exception = true;
+
         addrinfo* remoteinfo = nullptr;
         beltpp::scope_helper remoteinfo_cleaner;
         detail::getaddressinfo(remoteinfo,
                                socket_info.second->ai_family,
                                address.remote.address,
                                address.remote.port,
-                               remoteinfo_cleaner);
+                               remoteinfo_cleaner,
+                               hold_exception);
 
-        assert(remoteinfo);
+        if (nullptr == remoteinfo)
+        {
+            ::close(socket_info.first);
+            continue;
+        }
         str_temp_address += detail::dump(*remoteinfo->ai_addr);
 
         string connect_error;
@@ -456,12 +467,6 @@ void socket::open(ip_address address,
                                         store_result,
                                         connect_error));
     }
-
-    /*if (peers.empty() &&
-        false == error_message.empty())
-        throw std::runtime_error("connect(): " + error_message);
-
-    return peers;*/
 }
 
 void set_nonblocking(int socket_descriptor, bool option)
@@ -915,7 +920,8 @@ void getaddressinfo(addrinfo* &servinfo,
                     ip_address::e_type type,
                     string const& str_address,
                     unsigned short port,
-                    beltpp::scope_helper& servinfo_cleaner)
+                    beltpp::scope_helper& servinfo_cleaner,
+                    bool hold_family_mismatch_exception/* = false*/)
 {
     int ai_family;
     switch (type)
@@ -935,14 +941,16 @@ void getaddressinfo(addrinfo* &servinfo,
                    ai_family,
                    str_address,
                    port,
-                   servinfo_cleaner);
+                   servinfo_cleaner,
+                   hold_family_mismatch_exception);
 }
 
 void getaddressinfo(addrinfo* &servinfo,
                     int ai_family,
                     string const& str_address,
                     unsigned short port,
-                    beltpp::scope_helper& servinfo_cleaner)
+                    beltpp::scope_helper& servinfo_cleaner,
+                    bool hold_family_mismatch_exception/* = false*/)
 {
     addrinfo hints;
     memset(&hints, 0, sizeof(hints));
@@ -960,12 +968,22 @@ void getaddressinfo(addrinfo* &servinfo,
                                std::to_string(port).c_str(),
                                &hints,
                                &servinfo);
-    if (gai_rv)
+    //
+    //  throw any error, except EAI_ADDRFAMILY when
+    //  hold_family_mismatch_exception is true
+    if (gai_rv &&
+        (gai_rv != EAI_ADDRFAMILY ||
+         false == hold_family_mismatch_exception))
         throw std::runtime_error(gai_strerror(gai_rv));
 
-    assert(servinfo);
-    if (nullptr == servinfo)
-        throw std::runtime_error("assert(servinfo);");
+    if (gai_rv) // in case of error that was not thrown
+        servinfo = nullptr;
+    else
+    {
+        assert(servinfo);
+        if (nullptr == servinfo)
+            throw std::runtime_error("assert(servinfo);");
+    }
 
     servinfo_cleaner = beltpp::scope_helper([]{}, [&servinfo]{freeaddrinfo(servinfo);});
 }
@@ -1041,7 +1059,6 @@ sockets socket(addrinfo* servinfo,
         }
 
         result.push_back(std::make_pair(socket_descriptor, p));
-        //break;
     }
 
     return result;

@@ -11,6 +11,11 @@ class message;
 class ip_destination
 {
 public:
+    ip_destination(std::string const& addr = std::string(),
+                   unsigned short p = 0)
+        : address(addr)
+        , port(p)
+    {}
     std::string address;
     unsigned short port;
 
@@ -60,10 +65,23 @@ public:
         {
             if (dest->empty())
                 return std::string();
-            else if (type == e_type::ipv4)
-                return dest->address + ":" + std::to_string(dest->port);
             else
-                return "[" + dest->address + "]:" + std::to_string(dest->port);
+            {
+                std::string op, cl;
+                if (type == e_type::ipv6)
+                {
+                    op = "[";
+                    cl = "]";
+                }
+                else if (type == e_type::any)
+                {
+                    op = "{";
+                    cl = "}";
+                }
+
+                return op + dest->address + cl + ":" +
+                        std::to_string(dest->port);
+            }
         }
     }
 
