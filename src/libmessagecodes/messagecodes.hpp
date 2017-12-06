@@ -118,6 +118,7 @@ using message_list = detail_typelist::type_list<class message_code_error,
                                                 class message_code_join,
                                                 class message_code_drop,
                                                 class message_code_hello,
+                                                class message_code_get_peers,
                                                 class message_code_peer_info>;
 
 namespace detail
@@ -284,10 +285,12 @@ public:
     std::string m_message;
 };
 
+class MESSAGECODESSHARED_EXPORT message_code_get_peers : public message_code<message_code_get_peers>
+{};
+
 class MESSAGECODESSHARED_EXPORT message_code_peer_info : public message_code<message_code_peer_info>
 {
 public:
-
     std::string message_saver() const
     {
         std::string type;
@@ -307,8 +310,9 @@ public:
         }
         return address.local.address + "\n" +
                 std::to_string(address.local.port) + "\n" +
-                type + "\n" +
-                (online ? "1" : "0") + "\n";
+                address.remote.address + "\n" +
+                std::to_string(address.remote.port) + "\n" +
+                type + "\n";
     }
 
     detail::scan_result message_scanner(beltpp::iterator_wrapper<char const> const& iter_scan_begin,
@@ -351,7 +355,37 @@ public:
         {
             read();
             size_t ilen;
-            address.local.port = std::stoi(message, &ilen);
+            try
+            {
+                address.local.port = std::stoi(message, &ilen);
+            }
+            catch(...)
+            {
+                ilen = std::string::npos;
+            }
+
+            if (ilen != message.length())
+                error = true;
+        }
+
+        if (whole && !error)
+        {
+            read();
+            address.remote.address = message;
+        }
+
+        if (whole && !error)
+        {
+            read();
+            size_t ilen;
+            try
+            {
+                address.remote.port = std::stoi(message, &ilen);
+            }
+            catch(...)
+            {
+                ilen = std::string::npos;
+            }
 
             if (ilen != message.length())
                 error = true;
@@ -366,17 +400,6 @@ public:
                 address.type = ip_address::e_type::ipv6;
             else if (message == "any")
                 address.type = ip_address::e_type::any;
-            else
-                error = true;
-        }
-
-        if (whole && !error)
-        {
-            read();
-            if (message == "1")
-                online = true;
-            else if (message == "0")
-                online = false;
             else
                 error = true;
         }
@@ -397,7 +420,6 @@ public:
         return result;
     }
 
-    bool online;
     ip_address address;
 };
 
