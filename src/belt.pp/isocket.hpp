@@ -19,7 +19,7 @@ public:
     std::string address;
     unsigned short port;
 
-    bool empty() const {return port == 0 || address.empty();}
+    bool empty() const noexcept {return port == 0 || address.empty();}
 };
 
 class ip_address
