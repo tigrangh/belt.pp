@@ -354,18 +354,24 @@ public:
         if (whole && !error)
         {
             read();
-            size_t ilen;
-            try
-            {
-                address.local.port = std::stoi(message, &ilen);
-            }
-            catch(...)
-            {
-                ilen = std::string::npos;
-            }
 
-            if (ilen != message.length())
-                error = true;
+            if (message.empty())
+                whole = false;
+            else
+            {
+                size_t ilen;
+                try
+                {
+                    address.local.port = std::stoi(message, &ilen);
+                }
+                catch(...)
+                {
+                    ilen = std::string::npos;
+                }
+
+                if (ilen != message.length())
+                    error = true;
+            }
         }
 
         if (whole && !error)
@@ -377,24 +383,32 @@ public:
         if (whole && !error)
         {
             read();
-            size_t ilen;
-            try
-            {
-                address.remote.port = std::stoi(message, &ilen);
-            }
-            catch(...)
-            {
-                ilen = std::string::npos;
-            }
 
-            if (ilen != message.length())
-                error = true;
+            if (message.empty())
+                whole = false;
+            else
+            {
+                size_t ilen;
+                try
+                {
+                    address.remote.port = std::stoi(message, &ilen);
+                }
+                catch(...)
+                {
+                    ilen = std::string::npos;
+                }
+
+                if (ilen != message.length())
+                    error = true;
+            }
         }
 
         if (whole && !error)
         {
             read();
-            if (message == "ip4")
+            if (message.empty())
+                whole = false;
+            else if (message == "ip4")
                 address.type = ip_address::e_type::ipv4;
             else if (message == "ip6")
                 address.type = ip_address::e_type::ipv6;
