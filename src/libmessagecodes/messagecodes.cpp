@@ -224,7 +224,7 @@ scan_result read(uint64_t& value,
     if (iter != iter_scan_end &&
         *iter == ':')
         ++result.second;
-    else
+    else if (iter != iter_scan_end)
         result.first = e_scan_result::error;
 
     return result;
