@@ -672,16 +672,15 @@ messages socket::read(peer_id& peer)
             }
             else if (connect_result == e_three_state_result::attempt)
             {
-                if (false == current_channel.m_imitate_nonblocking)
-                    detail::delete_channel(m_pimpl.get(), current_id);
+                auto attempts = current_channel.m_attempts;
+                detail::delete_channel(m_pimpl.get(), current_id);
 
                 if (current_channel.m_attempts)
-                    open(current_channel.m_socket_bundle, current_channel.m_attempts);
+                    open(current_channel.m_socket_bundle, attempts);
             }
             else if (connect_result == e_three_state_result::error)
             {
-                if (false == current_channel.m_imitate_nonblocking)
-                    detail::delete_channel(m_pimpl.get(), current_id);
+                detail::delete_channel(m_pimpl.get(), current_id);
 
                 throw std::runtime_error(connect_error);
             }
