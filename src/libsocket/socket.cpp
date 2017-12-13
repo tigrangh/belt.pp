@@ -26,8 +26,12 @@
 #include <mutex>
 #include <memory>
 #include <list>
+#include <chrono>
 //
 using string = std::string;
+namespace chrono = std::chrono;
+using time_point = chrono::steady_clock::time_point;
+using duration = chrono::steady_clock::duration;
 using sockets = std::vector<std::pair<int, addrinfo*>>;
 using peer_ids = beltpp::socket::peer_ids;
 using messages = beltpp::socket::messages;
@@ -39,6 +43,47 @@ namespace beltpp
  */
 namespace detail
 {
+class timer_helper
+{
+public:
+    timer_helper()
+        : is_set(false)
+        , last_point()
+        , timer_period()
+    {}
+
+    static time_point now()
+    {
+        return chrono::steady_clock::now();
+    }
+
+    void set(duration const& period)
+    {
+        is_set = true;
+        last_point = now();
+        timer_period = period;
+    }
+
+    void clean()
+    {
+        is_set = false;
+    }
+
+    void update()
+    {
+        last_point += timer_period;
+    }
+
+    bool expired() const
+    {
+        auto time_since_started = now() - last_point;
+        return (time_since_started >= timer_period);
+    }
+
+    bool is_set;
+    time_point last_point;
+    duration timer_period;
+};
 class channel
 {
 public:
@@ -154,7 +199,7 @@ public:
         m_arr_event.resize(m_arr_event.size() - 1);
     }
 
-    std::unordered_set<uint64_t> wait()
+    std::unordered_set<uint64_t> wait(timer_helper const& tm)
     {
         std::unordered_set<uint64_t> set_ids;
         //while (true)
@@ -162,10 +207,22 @@ public:
             int count = -1;
             do
             {
+                int milliseconds = -1;
+                if (tm.is_set)
+                {
+                    auto timeout = (tm.last_point + tm.timer_period) - tm.now();
+                    auto timeout_ms =
+                            chrono::duration_cast<chrono::milliseconds>(timeout);
+                    milliseconds = timeout_ms.count();
+                    if (milliseconds < 0)
+                        //  timeout should at least be 0
+                        //  in order for epoll_wait to return immediately
+                        milliseconds = 0;
+                }
                 count = epoll_wait(m_fd,
                                    &m_arr_event[0],
                                    m_arr_event.size(),
-                                   -1);
+                                   milliseconds);
             } while (-1 == count && errno == EINTR);
 
             if (-1 == count)
@@ -198,30 +255,40 @@ class socket_internals
 public:
     socket_internals(size_t rtt_join,
                      size_t rtt_drop,
+                     size_t rtt_timer_out,
                      detail::fptr_creator fcreator_join,
                      detail::fptr_creator fcreator_drop,
+                     detail::fptr_creator fcreator_timer_out,
                      detail::fptr_saver fsaver_join,
                      detail::fptr_saver fsaver_drop,
+                     detail::fptr_saver fsaver_timer_out,
                      detail::fptr_message_loader fmessage_loader)
         : m_rtt_join(rtt_join)
         , m_rtt_drop(rtt_drop)
+        , m_rtt_timer_out(rtt_timer_out)
         , m_fcreator_join(fcreator_join)
         , m_fcreator_drop(fcreator_drop)
+        , m_fcreator_timer_out(fcreator_timer_out)
         , m_fsaver_join(fsaver_join)
         , m_fsaver_drop(fsaver_drop)
+        , m_fsaver_timer_out(fsaver_timer_out)
         , m_fmessage_loader(fmessage_loader)
     {}
 
     size_t m_rtt_join;
     size_t m_rtt_drop;
+    size_t m_rtt_timer_out;
     detail::fptr_creator m_fcreator_join;
     detail::fptr_creator m_fcreator_drop;
+    detail::fptr_creator m_fcreator_timer_out;
     detail::fptr_saver m_fsaver_join;
     detail::fptr_saver m_fsaver_drop;
+    detail::fptr_saver m_fsaver_timer_out;
     detail::fptr_message_loader m_fmessage_loader;
     std::list<channels> m_lst_channels;
     std::unordered_set<uint64_t> m_set_imitate_id;
     poll_master m_poll_master;
+    timer_helper m_timer_helper;
     std::mutex m_mutex;
 };
 
@@ -265,18 +332,24 @@ ip_address get_socket_bundle(int socket_descriptor);
  */
 socket::socket(size_t _rtt_join,
                size_t _rtt_drop,
+               size_t _rtt_timer_out,
                detail::fptr_creator _fcreator_join,
                detail::fptr_creator _fcreator_drop,
+               detail::fptr_creator _fcreator_timer_out,
                detail::fptr_saver _fsaver_join,
                detail::fptr_saver _fsaver_drop,
+               detail::fptr_saver _fsaver_timer_out,
                detail::fptr_message_loader _fmessage_loader)
     : isocket()
     , m_pimpl(new detail::socket_internals(_rtt_join,
                                            _rtt_drop,
+                                           _rtt_timer_out,
                                            _fcreator_join,
                                            _fcreator_drop,
+                                           _fcreator_timer_out,
                                            _fsaver_join,
                                            _fsaver_drop,
+                                           _fsaver_timer_out,
                                            _fmessage_loader))
 {
 
@@ -505,8 +578,19 @@ messages socket::read(peer_id& peer)
     }
 
     if (set_ids.empty())
-        set_ids = m_pimpl->m_poll_master.wait();
+        set_ids = m_pimpl->m_poll_master.wait(m_pimpl->m_timer_helper);
 
+    if (m_pimpl->m_timer_helper.expired())
+    {
+        m_pimpl->m_timer_helper.update();
+        message msg;
+        msg.set(m_pimpl->m_rtt_timer_out,
+                m_pimpl->m_fcreator_timer_out(),
+                m_pimpl->m_fsaver_timer_out);
+
+        result.emplace_back(std::move(msg));
+    }
+    else
     for (uint64_t current_id : set_ids)
     {
         detail::channel& current_channel =
@@ -581,7 +665,7 @@ messages socket::read(peer_id& peer)
                         m_pimpl->m_fcreator_join(),
                         m_pimpl->m_fsaver_join);
 
-                result.push_back(std::move(msg));
+                result.emplace_back(std::move(msg));
 
                 peer = detail::construct_peer_id(current_id,
                                                  current_channel.m_socket_bundle);
@@ -635,7 +719,7 @@ messages socket::read(peer_id& peer)
                     m_pimpl->m_fcreator_join(),
                     m_pimpl->m_fsaver_join);
 
-            result.push_back(std::move(msg));
+            result.emplace_back(std::move(msg));
             break;
         }
         else// if(current_channel.m_type == detail::channel::type::streaming)
@@ -675,7 +759,7 @@ messages socket::read(peer_id& peer)
 
                 detail::delete_channel(m_pimpl.get(), current_id);
 
-                result.push_back(std::move(msg));
+                result.emplace_back(std::move(msg));
                 break;
             }
             else
@@ -709,7 +793,7 @@ messages socket::read(peer_id& peer)
                                 std::move(pmsgall.pmsg),
                                 pmsgall.fsaver);
 
-                        result.push_back(std::move(msg));
+                        result.emplace_back(std::move(msg));
                     }
                     else
                         break;
@@ -781,6 +865,11 @@ ip_address socket::info(peer_id const& peer) const
                                 current_id);
 
     return current_channel.m_socket_bundle;
+}
+
+void socket::set_timer(std::chrono::steady_clock::duration const& period)
+{
+    m_pimpl->m_timer_helper.set(period);
 }
 
 string socket::dump() const
