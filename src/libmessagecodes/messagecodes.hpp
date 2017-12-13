@@ -119,7 +119,8 @@ using message_list = detail_typelist::type_list<class message_code_error,
                                                 class message_code_drop,
                                                 class message_code_hello,
                                                 class message_code_get_peers,
-                                                class message_code_peer_info>;
+                                                class message_code_peer_info,
+                                                class message_code_timer_out>;
 
 namespace detail
 {
@@ -436,6 +437,9 @@ public:
 
     ip_address address;
 };
+
+class message_code_timer_out : public message_code<message_code_timer_out>
+{};
 
 static_assert(detail_inspection::has_message_saver<message_code_hello>::value == 1, "test");
 static_assert(detail_inspection::has_message_saver<message_code_drop>::value == 0, "test");

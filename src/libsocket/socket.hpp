@@ -8,6 +8,7 @@
 #include <string>
 #include <list>
 #include <vector>
+#include <chrono>
 
 namespace beltpp
 {
@@ -19,20 +20,26 @@ namespace detail
 
 template <size_t _rtt_join,
           size_t _rtt_drop,
+          size_t _rtt_timer_out,
           detail::fptr_creator _fcreator_join,
           detail::fptr_creator _fcreator_drop,
+          detail::fptr_creator _fcreator_timer_out,
           detail::fptr_saver _fsaver_join,
           detail::fptr_saver _fsaver_drop,
+          detail::fptr_saver _fsaver_timer_out,
           detail::fptr_message_loader _fmessage_loader>
 class socket_family_t
 {
 public:
     static constexpr size_t rtt_join = _rtt_join;
     static constexpr size_t rtt_drop = _rtt_drop;
+    static constexpr size_t rtt_timer_out = _rtt_timer_out;
     static constexpr detail::fptr_creator fcreator_join = _fcreator_join;
     static constexpr detail::fptr_creator fcreator_drop = _fcreator_drop;
+    static constexpr detail::fptr_creator fcreator_timer_out = _fcreator_timer_out;
     static constexpr detail::fptr_saver fsaver_join = _fsaver_join;
     static constexpr detail::fptr_saver fsaver_drop = _fsaver_drop;
+    static constexpr detail::fptr_saver fsaver_timer_out = _fsaver_timer_out;
     static constexpr detail::fptr_message_loader fmessage_loader = _fmessage_loader;
 };
 
@@ -45,10 +52,13 @@ public:
 
     socket(size_t _rtt_join,
            size_t _rtt_drop,
+           size_t _rtt_timer_out,
            detail::fptr_creator _fcreator_join,
            detail::fptr_creator _fcreator_drop,
+           detail::fptr_creator _fcreator_timer_out,
            detail::fptr_saver _fsaver_join,
            detail::fptr_saver _fsaver_drop,
+           detail::fptr_saver _fsaver_timer_out,
            detail::fptr_message_loader _fmessage_loader);
     socket(socket&& other);
     virtual ~socket();
@@ -65,6 +75,8 @@ public:
     void write(peer_id const& peer,
                message const& msg) override;
 
+    void set_timer(std::chrono::steady_clock::duration const& period);
+
     ip_address info(peer_id const& peer) const;
 
     std::string dump() const;
@@ -79,10 +91,13 @@ socket SOCKETSHARED_EXPORT getsocket()
     return
     socket(T_socket_family::rtt_join,
            T_socket_family::rtt_drop,
+           T_socket_family::rtt_timer_out,
            T_socket_family::fcreator_join,
            T_socket_family::fcreator_drop,
+           T_socket_family::fcreator_timer_out,
            T_socket_family::fsaver_join,
            T_socket_family::fsaver_drop,
+           T_socket_family::fsaver_timer_out,
            T_socket_family::fmessage_loader);
 }
 

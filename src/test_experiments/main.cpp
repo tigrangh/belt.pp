@@ -15,10 +15,13 @@
 
 using sf = beltpp::socket_family_t<beltpp::message_code_join::rtt,
 beltpp::message_code_drop::rtt,
+beltpp::message_code_timer_out::rtt,
 &beltpp::message_code_join::creator,
 &beltpp::message_code_drop::creator,
+&beltpp::message_code_timer_out::creator,
 &beltpp::message_code_join::saver,
 &beltpp::message_code_drop::saver,
+&beltpp::message_code_timer_out::saver,
 &beltpp::message_list_load
 >;
 
