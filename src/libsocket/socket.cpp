@@ -144,7 +144,7 @@ public:
 
         auto backup = m_event.events;
         if (out)
-            m_event.events |= (EPOLLOUT | EPOLLONESHOT);
+            m_event.events |= EPOLLOUT;
 
         m_arr_event.resize(m_arr_event.size() + 1);
 
@@ -160,7 +160,9 @@ public:
         }
     }
 
-    void mod(int socket_descriptor, uint64_t id, bool out)
+    //  don't use mod, don't use ONESHOT
+    //  use remove and add instead
+    /*void mod(int socket_descriptor, uint64_t id, bool out)
     {
         m_event.data.fd = socket_descriptor;
         m_event.data.u64 = id;
@@ -178,7 +180,7 @@ public:
             throw std::runtime_error("epoll_ctl(): " +
                                      epoll_error);
         }
-    }
+    }*/
 
     void remove(int socket_descriptor, uint64_t id, bool already_closed)
     {
@@ -648,9 +650,14 @@ messages socket::read(peer_id& peer)
             if (connect_result == e_three_state_result::success)
             {
                 if (false == current_channel.m_imitate_nonblocking)
-                    m_pimpl->m_poll_master.mod(socket_descriptor,
+                {
+                    m_pimpl->m_poll_master.remove(socket_descriptor,
+                                                  current_id,
+                                                  false);
+                    m_pimpl->m_poll_master.add(socket_descriptor,
                                                current_id,
                                                false);
+                }
                 else
                 {
                     m_pimpl->m_poll_master.add(socket_descriptor,
@@ -669,6 +676,8 @@ messages socket::read(peer_id& peer)
 
                 peer = detail::construct_peer_id(current_id,
                                                  current_channel.m_socket_bundle);
+
+                break;
             }
             else if (connect_result == e_three_state_result::attempt)
             {
