@@ -684,6 +684,8 @@ messages socket::read(peer_id& peer)
 
                 throw std::runtime_error(connect_error);
             }
+
+            break;
         }
         else if (current_channel.m_type == detail::channel::type::listening)
         {
