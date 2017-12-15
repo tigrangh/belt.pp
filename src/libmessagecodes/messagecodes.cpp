@@ -1,16 +1,12 @@
 #include "messagecodes.hpp"
 
+#include <belt.pp/message_global.hpp>
+
 #include <cassert>
 
-using message_code_store = beltpp::detail::message_code_store;
 using message_list = beltpp::message_list;
-
-beltpp::detail::fptr_creator
-    message_code_store::s_creators[message_list::count];
-beltpp::detail::fptr_scanner
-    message_code_store::s_scanners[message_list::count];
-beltpp::detail::fptr_saver
-    message_code_store::s_savers[message_list::count];
+using message_code_store =
+beltpp::detail::message_code_store<message_list>;
 
 namespace beltpp
 {

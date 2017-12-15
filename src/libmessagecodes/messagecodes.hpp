@@ -23,12 +23,6 @@ std::string read(std::string const& before,
                  beltpp::iterator_wrapper<char const> const& iter_scan_begin,
                  beltpp::iterator_wrapper<char const> const& iter_scan_end,
                  bool& whole) noexcept;
-
-template <size_t rtt,
-          detail::fptr_creator fcreator,
-          detail::fptr_scanner fscanner,
-          detail::fptr_saver fsaver>
-int store_fptr();
 }
 
 using message_list =
@@ -42,141 +36,26 @@ class message_code_peer_info,
 class message_code_timer_out
 >;
 
-namespace detail
-{
-class MESSAGECODESSHARED_EXPORT message_code_store
-{
-public:
-    static detail::fptr_creator s_creators[message_list::count];
-    static detail::fptr_scanner s_scanners[message_list::count];
-    static detail::fptr_saver s_savers[message_list::count];
-};
-}
-
 detail::pmsg_all MESSAGECODESSHARED_EXPORT message_list_load(
         beltpp::iterator_wrapper<char const> const& iter_scan_begin,
         beltpp::iterator_wrapper<char const> const& iter_scan_end,
         size_t& clean_count);
 
-namespace inspection
-{
-DECLARE_MF_INSPECTION(message_saver,
-                      std::string(TT::*)() const)
-DECLARE_MF_INSPECTION(message_scanner,
-                      beltpp::detail::scan_result(TT::*)
-                      (beltpp::iterator_wrapper<char const> const&,
-                       beltpp::iterator_wrapper<char const> const&))
-}
-
-template <typename MessageCode>
-class message_code
-{
-public:
-    enum {rtt = typelist::type_list_index
-                <MessageCode, message_list>::value};
-    message_code() {++s_dummy;} //  members in a template class need actually
-    virtual ~message_code() {--s_dummy;}    //  to be used, to get right by
-    //  other modules linking with this library
-
-protected:
-    template <typename T,
-              typename TEST = typename std::enable_if<
-                  inspection::has_message_saver<T>::value == 1, bool
-                  >::type>
-    static std::string message_saver(T* pmc)
-    {
-        return pmc->message_saver();
-    }
-    template <typename T = MessageCode,
-              typename TEST = typename std::enable_if<
-                  inspection::has_message_saver<T>::value == 0, char
-                  >::type>
-    static std::string message_saver(...)
-    {
-        return std::string();
-    }
-    template <typename T,
-              typename TEST = typename std::enable_if<
-                  inspection::has_message_scanner<T>::value == 1, bool
-                  >::type>
-    static detail::scan_result message_scanner(
-                                       beltpp::iterator_wrapper<char const> const& b,
-                                       beltpp::iterator_wrapper<char const> const& e,
-                                       T* pmc)
-    {
-        return pmc->message_scanner(b, e);
-    }
-    template <typename T = MessageCode,
-              typename TEST = typename std::enable_if<
-                  inspection::has_message_scanner<T>::value == 0, char
-                  >::type>
-    static detail::scan_result message_scanner(
-            beltpp::iterator_wrapper<char const> const&,
-            beltpp::iterator_wrapper<char const> const&,
-            ...)
-    {
-        detail::scan_result result;
-        result.first = detail::e_scan_result::success;
-        result.second = 0;
-        return result;
-    }
-public:
-    static detail::ptr_msg creator()
-    {
-        detail::ptr_msg result(nullptr,
-                               [](void* &p)
-                                {
-                                    MessageCode* pmc =
-                                            static_cast<MessageCode*>(p);
-                                    delete pmc;
-                                    p = nullptr;
-                                });
-
-        result.reset(new MessageCode());
-        return result;
-    }
-
-    static detail::scan_result scanner(void* p,
-                                       beltpp::iterator_wrapper<char const> const& iter_scan_begin,
-                                       beltpp::iterator_wrapper<char const> const& iter_scan_end)
-    {
-        MessageCode* pmc = static_cast<MessageCode*>(p);
-        return message_scanner(iter_scan_begin, iter_scan_end, pmc);
-    }
-
-    static std::vector<char> saver(void* p)
-    {
-        MessageCode* pmc = static_cast<MessageCode*>(p);
-        std::vector<char> result;
-        std::string str_rtt = std::to_string(message_code::rtt);
-        str_rtt += ":" + message_saver(pmc);
-        std::copy(str_rtt.begin(), str_rtt.end(), std::back_inserter(result));
-        return result;
-    }
-
-protected:
-
-    static int s_dummy;
-};
-
-template <typename MessageCode>
-int message_code<MessageCode>::s_dummy =
-        detail::store_fptr<message_code::rtt,
-                            &message_code::creator,
-                            &message_code::scanner,
-                            &message_code::saver>();
-
-class MESSAGECODESSHARED_EXPORT message_code_error : public message_code<message_code_error>
+class MESSAGECODESSHARED_EXPORT message_code_error :
+        public message_code<message_code_error, message_list>
 {
 };
 
-class MESSAGECODESSHARED_EXPORT message_code_join : public message_code<message_code_join>
+class MESSAGECODESSHARED_EXPORT message_code_join :
+        public message_code<message_code_join, message_list>
 {};
 
-class MESSAGECODESSHARED_EXPORT message_code_drop : public message_code<message_code_drop>
+class MESSAGECODESSHARED_EXPORT message_code_drop :
+        public message_code<message_code_drop, message_list>
 {};
 
-class MESSAGECODESSHARED_EXPORT message_code_hello : public message_code<message_code_hello>
+class MESSAGECODESSHARED_EXPORT message_code_hello :
+        public message_code<message_code_hello, message_list>
 {
 public:
     message_code_hello()
@@ -216,10 +95,12 @@ public:
     std::string m_message;
 };
 
-class MESSAGECODESSHARED_EXPORT message_code_get_peers : public message_code<message_code_get_peers>
+class MESSAGECODESSHARED_EXPORT message_code_get_peers :
+        public message_code<message_code_get_peers, message_list>
 {};
 
-class MESSAGECODESSHARED_EXPORT message_code_peer_info : public message_code<message_code_peer_info>
+class MESSAGECODESSHARED_EXPORT message_code_peer_info :
+        public message_code<message_code_peer_info, message_list>
 {
 public:
     std::string message_saver() const
@@ -368,27 +249,12 @@ public:
     ip_address address;
 };
 
-class message_code_timer_out : public message_code<message_code_timer_out>
+class message_code_timer_out :
+        public message_code<message_code_timer_out, message_list>
 {};
 
 static_assert(inspection::has_message_saver<message_code_hello>::value == 1, "test");
 static_assert(inspection::has_message_saver<message_code_drop>::value == 0, "test");
 static_assert(inspection::has_message_saver<message_code_error>::value == 0, "test");
-
-namespace detail
-{
-template <size_t rtt,
-          detail::fptr_creator fcreator,
-          detail::fptr_scanner fscanner,
-          detail::fptr_saver fsaver>
-int store_fptr()
-{
-    message_code_store::s_creators[rtt] = fcreator;
-    message_code_store::s_scanners[rtt] = fscanner;
-    message_code_store::s_savers[rtt] = fsaver;
-    return 0;
-}
-
-}
 
 }
