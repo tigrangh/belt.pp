@@ -5,6 +5,7 @@
 #include <belt.pp/iterator_wrapper.hpp>
 #include <belt.pp/message_global.hpp>
 #include <belt.pp/isocket.hpp>
+#include <belt.pp/meta.hpp>
 
 #include <memory>
 #include <utility>
@@ -16,54 +17,6 @@
 
 namespace beltpp
 {
-
-namespace detail_typelist
-{
-template <typename T1, typename T2>
-class two_types_same
-{
-public:
-    enum {value = false};
-};
-
-template <typename T>
-class two_types_same<T, T>
-{
-public:
-    enum {value = true};
-};
-
-template <typename... Ts>
-class type_list
-{
-public:
-    enum {count = sizeof...(Ts)};
-};
-
-template <typename Tfind, typename...>
-class type_list_index;
-
-template <typename Tfind,
-          template <typename...> class Tlist,
-          typename... Ts>
-class type_list_index<Tfind, Tlist<Tfind, Ts...>>
-{
-public:
-    enum {value = 0};
-};
-
-template <typename Tfind,
-          template <typename...> class Tlist,
-          typename T0,
-          typename... Ts>
-class type_list_index<Tfind, Tlist<T0, Ts...>>
-{
-public:
-    enum {value = 1 + type_list_index<Tfind, Tlist<Ts...>>::value};
-};
-
-}   //  end namespace detail_typelist
-
 namespace detail
 {
 std::string read(std::string const& before,
@@ -78,49 +31,16 @@ template <size_t rtt,
 int store_fptr();
 }
 
-namespace detail_inspection
-{
-template <size_t N>
-using charray = char[N];
-
-template <typename T>
-class has_message_saver
-{
-protected:
-    template <typename TT>
-    using TTmember = std::string(TT::*)() const;
-
-    template <typename TT, TTmember<TT> fptr = &TT::message_saver>
-    static charray<1>& test(TT*);
-    template <typename TT = T>
-    static charray<2>& test(...);
-public:
-    enum {value = sizeof(test(static_cast<T*>(nullptr))) == 1 ? 1 : 0};
-};
-template <typename T>
-class has_message_scanner
-{
-protected:
-    template <typename TT>
-    using TTmember = beltpp::detail::scan_result(TT::*)(beltpp::iterator_wrapper<char const> const&,
-                                                        beltpp::iterator_wrapper<char const> const&);
-
-    template <typename TT, TTmember<TT> fptr = &TT::message_scanner>
-    static charray<1>& test(TT*);
-    template <typename TT = T>
-    static charray<2>& test(...);
-public:
-    enum {value = sizeof(test(static_cast<T*>(nullptr))) == 1 ? 1 : 0};
-};
-}
-
-using message_list = detail_typelist::type_list<class message_code_error,
-                                                class message_code_join,
-                                                class message_code_drop,
-                                                class message_code_hello,
-                                                class message_code_get_peers,
-                                                class message_code_peer_info,
-                                                class message_code_timer_out>;
+using message_list =
+typelist::type_list<
+class message_code_error,
+class message_code_join,
+class message_code_drop,
+class message_code_hello,
+class message_code_get_peers,
+class message_code_peer_info,
+class message_code_timer_out
+>;
 
 namespace detail
 {
@@ -138,11 +58,21 @@ detail::pmsg_all MESSAGECODESSHARED_EXPORT message_list_load(
         beltpp::iterator_wrapper<char const> const& iter_scan_end,
         size_t& clean_count);
 
+namespace inspection
+{
+DECLARE_MF_INSPECTION(message_saver,
+                      std::string(TT::*)() const)
+DECLARE_MF_INSPECTION(message_scanner,
+                      beltpp::detail::scan_result(TT::*)
+                      (beltpp::iterator_wrapper<char const> const&,
+                       beltpp::iterator_wrapper<char const> const&))
+}
+
 template <typename MessageCode>
 class message_code
 {
 public:
-    enum {rtt = detail_typelist::type_list_index
+    enum {rtt = typelist::type_list_index
                 <MessageCode, message_list>::value};
     message_code() {++s_dummy;} //  members in a template class need actually
     virtual ~message_code() {--s_dummy;}    //  to be used, to get right by
@@ -151,7 +81,7 @@ public:
 protected:
     template <typename T,
               typename TEST = typename std::enable_if<
-                  detail_inspection::has_message_saver<T>::value == 1, bool
+                  inspection::has_message_saver<T>::value == 1, bool
                   >::type>
     static std::string message_saver(T* pmc)
     {
@@ -159,7 +89,7 @@ protected:
     }
     template <typename T = MessageCode,
               typename TEST = typename std::enable_if<
-                  detail_inspection::has_message_saver<T>::value == 0, char
+                  inspection::has_message_saver<T>::value == 0, char
                   >::type>
     static std::string message_saver(...)
     {
@@ -167,7 +97,7 @@ protected:
     }
     template <typename T,
               typename TEST = typename std::enable_if<
-                  detail_inspection::has_message_scanner<T>::value == 1, bool
+                  inspection::has_message_scanner<T>::value == 1, bool
                   >::type>
     static detail::scan_result message_scanner(
                                        beltpp::iterator_wrapper<char const> const& b,
@@ -178,7 +108,7 @@ protected:
     }
     template <typename T = MessageCode,
               typename TEST = typename std::enable_if<
-                  detail_inspection::has_message_scanner<T>::value == 0, char
+                  inspection::has_message_scanner<T>::value == 0, char
                   >::type>
     static detail::scan_result message_scanner(
             beltpp::iterator_wrapper<char const> const&,
@@ -441,9 +371,9 @@ public:
 class message_code_timer_out : public message_code<message_code_timer_out>
 {};
 
-static_assert(detail_inspection::has_message_saver<message_code_hello>::value == 1, "test");
-static_assert(detail_inspection::has_message_saver<message_code_drop>::value == 0, "test");
-static_assert(detail_inspection::has_message_saver<message_code_error>::value == 0, "test");
+static_assert(inspection::has_message_saver<message_code_hello>::value == 1, "test");
+static_assert(inspection::has_message_saver<message_code_drop>::value == 0, "test");
+static_assert(inspection::has_message_saver<message_code_error>::value == 0, "test");
 
 namespace detail
 {

@@ -2,6 +2,7 @@
 
 #include "global.hpp"
 #include "iterator_wrapper.hpp"
+
 #include <vector>
 
 namespace beltpp
@@ -40,5 +41,6 @@ using fptr_message_loader = detail::pmsg_all (*)(
         beltpp::iterator_wrapper<char const> const&,
         size_t&);
 }
+
 }
 

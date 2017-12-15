@@ -22,6 +22,7 @@ set(SRC_FILES
     message.hpp
     message_global.hpp
     messagecodes.hpp
+    meta.hpp
     processor.hpp
     queue.hpp
     scope_helper.hpp
