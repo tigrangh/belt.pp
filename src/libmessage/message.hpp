@@ -7,6 +7,8 @@
 #include <memory>
 #include <vector>
 #include <cassert>
+#include <utility>
+#include <type_traits>
 
 namespace beltpp
 {
@@ -27,6 +29,16 @@ public:
     message(message&& other);
     virtual ~message();
 
+    template <typename MessageValue>
+    message(MessageValue&& msg) :
+        message()
+    {
+        set(std::forward<MessageValue>(msg));
+    }
+
+    message& operator = (message const&) = delete;
+    message& operator = (message&&) = delete;
+
     size_t type() const;
     void clean();
     std::vector<char> save() const;
@@ -35,7 +47,7 @@ public:
              fptr_saver fsaver);
 
     template <typename MessageValue>
-    void set(MessageValue const& msg);
+    void set(MessageValue&& msg);
 
     template <typename MessageValue>
     void get(MessageValue& msg) const;
@@ -50,16 +62,17 @@ protected:
 };
 
 template <typename MessageValue>
-void message::set(MessageValue const& msg)
+void message::set(MessageValue&& msg)
 {
-    ptr_msg pmsg(MessageValue::creator());
+    using MessageValueT = typename std::remove_reference<MessageValue>::type;
+    ptr_msg pmsg(MessageValueT::creator());
     void* pv = pmsg.get();
-    MessageValue* pmv = static_cast<MessageValue*>(pv);
-    MessageValue& ref = *pmv;
-    ref = msg;
-    set(MessageValue::rtt,
+    MessageValueT* pmv = static_cast<MessageValueT*>(pv);
+    MessageValueT& ref = *pmv;
+    ref = std::forward<MessageValue>(msg);
+    set(MessageValueT::rtt,
         std::move(pmsg),
-        &MessageValue::saver);
+        &MessageValueT::saver);
 }
 
 template <typename MessageValue>

@@ -1,16 +1,12 @@
 #include "messagecodes.hpp"
 
+#include <belt.pp/message_global.hpp>
+
 #include <cassert>
 
-using message_code_store = beltpp::detail::message_code_store;
 using message_list = beltpp::message_list;
-
-beltpp::detail::fptr_creator
-    message_code_store::s_creators[message_list::count];
-beltpp::detail::fptr_scanner
-    message_code_store::s_scanners[message_list::count];
-beltpp::detail::fptr_saver
-    message_code_store::s_savers[message_list::count];
+using message_code_store =
+beltpp::detail::message_code_store<message_list>;
 
 namespace beltpp
 {
@@ -229,18 +225,6 @@ scan_result read(uint64_t& value,
 
     return result;
 }
-
-using test_type_list = detail_typelist::type_list<int, char, class test_type>;
-static_assert(detail_typelist::type_list_index<int, test_type_list>::value ==
-              0, "type list check");
-static_assert(detail_typelist::type_list_index<char, test_type_list>::value ==
-              1, "type list check");
-static_assert(detail_typelist::type_list_index<class test_type, test_type_list>::value ==
-              2, "type list check");
-//
-//  the following one should be error
-/*static_assert(detail_typelist::type_list_index<double, test_type_list>::value ==
-              3, "type list check");*/
 
 static_assert(0 == beltpp::message_code_error::rtt, "rtt check");
 static_assert(1 == beltpp::message_code_join::rtt, "rtt check");
