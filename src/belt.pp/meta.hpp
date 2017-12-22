@@ -47,21 +47,42 @@ public:
     enum {value = 1 + type_list_index<Tfind, Tlist<Ts...>>::value};
 };
 
+template <size_t INDEX, typename...>
+class type_list_get;
+
+template <template <typename...> class Tlist,
+          typename Tfirst,
+          typename... Ts>
+class type_list_get<0, Tlist<Tfirst, Ts...>>
+{
+public:
+    using type = Tfirst;
+};
+
+template <size_t INDEX,
+          template <typename...> class Tlist,
+          typename Tfirst,
+          typename... Ts>
+class type_list_get<INDEX, Tlist<Tfirst, Ts...>>
+{
+public:
+    using type = typename type_list_get<INDEX - 1, Tlist<Ts...>>::type;
+};
 }   //  end namespace typelist
 
-#define DECLARE_MF_INSPECTION(mf_name, mf_signature)                    \
+#define DECLARE_MF_INSPECTION(mf_name, _T, mf_signature)                \
 template <typename T>                                                   \
 class has_ ## mf_name                                                   \
 {                                                                       \
 template <size_t N>                                                     \
 using charray = char[N];                                                \
 protected:                                                              \
-    template <typename  TT>                                             \
+    template <typename  _T>                                             \
     using TTmember = mf_signature;                                      \
                                                                         \
     template <typename TT, TTmember<TT> fptr = &TT::mf_name>            \
     static charray<1>& test(TT*);                                       \
-    template <typename TT=T>                                            \
+    template <typename = T>                                             \
     static charray<2>& test(...);                                       \
 public:                                                                 \
     enum {value = sizeof(test(static_cast<T*>(nullptr))) == 1 ? 1 : 0}; \

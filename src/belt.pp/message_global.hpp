@@ -55,9 +55,9 @@ class message_code_store;
 
 namespace inspection
 {
-DECLARE_MF_INSPECTION(message_saver,
+DECLARE_MF_INSPECTION(message_saver, TT,
                       std::string(TT::*)() const)
-DECLARE_MF_INSPECTION(message_scanner,
+DECLARE_MF_INSPECTION(message_scanner, TT,
                       beltpp::detail::scan_result(TT::*)
                       (beltpp::iterator_wrapper<char const> const&,
                        beltpp::iterator_wrapper<char const> const&))
