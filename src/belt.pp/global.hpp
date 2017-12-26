@@ -14,8 +14,39 @@
 #define BELT_IMPORT
 #endif
 
+#include <string>
+
 namespace beltpp
 {
 enum class e_three_state_result {success, attempt, error};
+
+double stod(std::string const& value, size_t& pos)
+{
+    double result;
+    try
+    {
+        result = std::stod(value, &pos);
+    }
+    catch(...)
+    {
+        pos = 0;
+    }
+
+    return result;
+}
+uint64_t stoll(std::string const& value, size_t& pos)
+{
+    uint64_t result = 0;
+    try
+    {
+        result = std::stoll(value, &pos);
+    }
+    catch(...)
+    {
+        pos = 0;
+    }
+
+    return result;
+}
 }
 
