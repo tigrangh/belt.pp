@@ -488,12 +488,17 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
         bool success = false;
         if (read_result.scope_closed &&
             ptr_expression &&
-            ptr_expression->is_value())
+            (   ptr_expression->is_value() ||
+                (ptr_expression->lexem.type == ctoken::etype::scope &&
+                 ptr_expression->lexem.scope_closed == false)))
         {
             T_expression_tree* pparent = ptr_expression.get();
-            while ((pparent = pparent->parent) != nullptr &&
+            while (pparent != nullptr &&
                    (pparent->lexem.type != ctoken::etype::scope ||
-                    pparent->lexem.scope_closed != false)){}
+                    pparent->lexem.scope_closed != false))
+            {
+                pparent = pparent->parent;
+            }
             //  after this while pparent can either be nullptr,
             //  or it's an open scope, waiting to be closed
             if (pparent &&
