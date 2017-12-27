@@ -2,6 +2,7 @@
 
 #include "global.hpp"
 #include "meta.hpp"
+#include "queue.hpp"
 
 #include <utility>
 #include <memory>
@@ -50,6 +51,11 @@ public:
     using string = T_string;
     using ctoken = detail::token<T_string>;
 
+    expression_tree() = default;
+    expression_tree(expression_tree&) = delete;
+    expression_tree(expression_tree&&) = delete;
+    ~expression_tree() noexcept;
+
     bool is_node() const noexcept;
     bool is_leaf() const noexcept;
     bool is_value() const noexcept;
@@ -60,6 +66,48 @@ public:
     ctoken lexem;
     std::vector<expression_tree*> children;
 };
+
+template <typename T_list_operator_lexers,
+          typename T_list_value_lexers,
+          typename T_list_scope_lexers,
+          typename T_list_discard_lexers,
+          typename T_string
+          >
+expression_tree<
+T_list_operator_lexers,
+T_list_value_lexers,
+T_list_scope_lexers,
+T_list_discard_lexers,
+T_string>::~expression_tree() noexcept
+{
+    auto pparent = this;
+    while (pparent->parent)
+        pparent = pparent->parent;
+
+    queue<expression_tree<
+            T_list_operator_lexers,
+            T_list_value_lexers,
+            T_list_scope_lexers,
+            T_list_discard_lexers,
+            T_string>*> items;
+
+    items.push(pparent);
+
+    while (false == items.empty())
+    {
+        auto pitem = items.front();
+        for (auto& pchild : pitem->children)
+        {
+            pchild->parent = nullptr;
+            items.push(pchild);
+            pchild = nullptr;
+        }
+        pitem->children.clear();
+        items.pop();
+        if (pitem != pparent)
+            delete pitem;
+    }
+}
 
 template <typename T_list_operator_lexers,
           typename T_list_value_lexers,
