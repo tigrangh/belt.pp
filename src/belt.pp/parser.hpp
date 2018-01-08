@@ -105,7 +105,7 @@ T_string>::~expression_tree() noexcept
         }
         pitem->children.clear();
         items.pop();
-        if (pitem != pparent)
+        if (pitem != this)
             delete pitem;
     }
 }
@@ -538,7 +538,7 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
         //  otherwise don't forget to reset it_copy to it_begin
         //  and set read_val_code to false
         it_copy = it_begin;
-        read_val_code = false;
+        read_scope_code = false;
     }
 
     if (read_val_code == false &&
@@ -826,7 +826,7 @@ public:
 };
 
 struct standard_white_space_set { public: static const std::string value; };
-std::string const standard_white_space_set::value = " \0\t\n";
+std::string const standard_white_space_set::value = " \0\t\r\n";
 struct standard_operator_set { public: static const std::string value; };
 std::string const standard_operator_set::value = "+-*&/\\=!$@^%,;:";
 
@@ -935,13 +935,13 @@ public:
     }
 };
 
-using standard_list_operator_comma_lexers =
+using standard_list_operator_lexers =
 beltpp::typelist::type_list<
 class standard_operator_comma_lexer
 >;
 class standard_operator_comma_lexer :
         public beltpp::operator_lexer_base<standard_operator_comma_lexer,
-                                            standard_list_operator_comma_lexers,
+                                            standard_list_operator_lexers,
                                             beltpp::standard_operator_set>
 {
 public:
