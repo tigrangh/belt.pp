@@ -13,12 +13,16 @@
 #include <belt.pp/socket.hpp>
 #include <belt.pp/message.hpp>
 
-using sf = beltpp::socket_family_t<beltpp::message_code_join::rtt,
+using sf = beltpp::socket_family_t<
+beltpp::message_code_error::rtt,
+beltpp::message_code_join::rtt,
 beltpp::message_code_drop::rtt,
 beltpp::message_code_timer_out::rtt,
-&beltpp::message_code_join::creator,
-&beltpp::message_code_drop::creator,
-&beltpp::message_code_timer_out::creator,
+&beltpp::message_code_creator<beltpp::message_code_error>,
+&beltpp::message_code_creator<beltpp::message_code_join>,
+&beltpp::message_code_creator<beltpp::message_code_drop>,
+&beltpp::message_code_creator<beltpp::message_code_timer_out>,
+&beltpp::message_code_error::saver,
 &beltpp::message_code_join::saver,
 &beltpp::message_code_drop::saver,
 &beltpp::message_code_timer_out::saver,

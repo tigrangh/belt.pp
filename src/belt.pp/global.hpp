@@ -34,12 +34,26 @@ double stod(std::string const& value, size_t& pos)
 
     return result;
 }
-uint64_t stoll(std::string const& value, size_t& pos)
+int64_t stoll(std::string const& value, size_t& pos)
+{
+    int64_t result = 0;
+    try
+    {
+        result = std::stoll(value, &pos);
+    }
+    catch(...)
+    {
+        pos = 0;
+    }
+
+    return result;
+}
+uint64_t stoull(std::string const& value, size_t& pos)
 {
     uint64_t result = 0;
     try
     {
-        result = std::stoll(value, &pos);
+        result = std::stoull(value, &pos);
     }
     catch(...)
     {

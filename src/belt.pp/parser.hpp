@@ -18,36 +18,20 @@ template <typename T_string>
 class token
 {
 public:
-    enum class etype
-    {
-        bin_op,
-        un_op,
-        value,
-        scope,
-        discard
-    };
-
-    bool scope_closed = false;
-    etype type = etype::discard;
     size_t rtt = -1;
     size_t priority = 0;
+    size_t right = -1;
+    size_t left_min = -1;
+    size_t left_max = -1;
     T_string value;
 };
 }
 
-template <typename T_list_operator_lexers,
-          typename T_list_value_lexers,
-          typename T_list_scope_lexers,
-          typename T_list_discard_lexers,
-          typename T_string
-          >
+template <typename T_lexers, typename T_string>
 class expression_tree
 {
 public:
-    using list_operator_lexers = T_list_operator_lexers;
-    using list_value_lexers = T_list_value_lexers;
-    using list_scope_lexers = T_list_scope_lexers;
-    using list_discard_lexers = T_list_discard_lexers;
+    using lexers = T_lexers;
     using string = T_string;
     using ctoken = detail::token<T_string>;
 
@@ -57,9 +41,8 @@ public:
     ~expression_tree() noexcept;
 
     size_t depth() const;
-    bool is_node() const noexcept;
-    bool is_leaf() const noexcept;
     bool is_value() const noexcept;
+    bool is_operator() const noexcept;
     expression_tree& add_child(ctoken const& child_lexem);
     expression_tree& add_child(std::unique_ptr<expression_tree>&& ptree);
 
@@ -68,29 +51,14 @@ public:
     std::vector<expression_tree*> children;
 };
 
-template <typename T_list_operator_lexers,
-          typename T_list_value_lexers,
-          typename T_list_scope_lexers,
-          typename T_list_discard_lexers,
-          typename T_string
-          >
-expression_tree<
-T_list_operator_lexers,
-T_list_value_lexers,
-T_list_scope_lexers,
-T_list_discard_lexers,
-T_string>::~expression_tree() noexcept
+template <typename T_lexers, typename T_string>
+expression_tree<T_lexers, T_string>::~expression_tree() noexcept
 {
     auto pparent = this;
     while (pparent->parent)
         pparent = pparent->parent;
 
-    queue<expression_tree<
-            T_list_operator_lexers,
-            T_list_value_lexers,
-            T_list_scope_lexers,
-            T_list_discard_lexers,
-            T_string>*> items;
+    queue<expression_tree<T_lexers, T_string>*> items;
 
     items.push(pparent);
 
@@ -105,31 +73,17 @@ T_string>::~expression_tree() noexcept
         }
         pitem->children.clear();
         items.pop();
-        if (pitem != pparent)
+        if (pitem != this)
             delete pitem;
     }
 }
 
-template <typename T_list_operator_lexers,
-          typename T_list_value_lexers,
-          typename T_list_scope_lexers,
-          typename T_list_discard_lexers,
-          typename T_string
+template <typename T_lexers, typename T_string
           >
-size_t expression_tree<
-T_list_operator_lexers,
-T_list_value_lexers,
-T_list_scope_lexers,
-T_list_discard_lexers,
-T_string>::depth() const
+size_t expression_tree<T_lexers, T_string>::depth() const
 {
     size_t depth = -1;
-    queue<expression_tree<
-            T_list_operator_lexers,
-            T_list_value_lexers,
-            T_list_scope_lexers,
-            T_list_discard_lexers,
-            T_string> const*> items;
+    queue<expression_tree<T_lexers, T_string> const*> items;
 
     items.push(this);
 
@@ -150,77 +104,22 @@ T_string>::depth() const
     return depth;
 }
 
-template <typename T_list_operator_lexers,
-          typename T_list_value_lexers,
-          typename T_list_scope_lexers,
-          typename T_list_discard_lexers,
-          typename T_string
+template <typename T_lexers, typename T_string
           >
-bool expression_tree<
-T_list_operator_lexers,
-T_list_value_lexers,
-T_list_scope_lexers,
-T_list_discard_lexers,
-T_string>::is_node() const noexcept
+bool expression_tree<T_lexers, T_string>::is_value() const noexcept
 {
-    if (false == children.empty())
-        return true;
-    return false;
+    return lexem.right == 0;
 }
 
-template <typename T_list_operator_lexers,
-          typename T_list_value_lexers,
-          typename T_list_scope_lexers,
-          typename T_list_discard_lexers,
-          typename T_string
-          >
-bool expression_tree<
-T_list_operator_lexers,
-T_list_value_lexers,
-T_list_scope_lexers,
-T_list_discard_lexers,
-T_string>::is_leaf() const noexcept
+template <typename T_lexers, typename T_string>
+bool expression_tree<T_lexers, T_string>::is_operator() const noexcept
 {
-    if (children.empty())
-        return true;
-    return false;
+    return  lexem.right > 0;
 }
 
-template <typename T_list_operator_lexers,
-          typename T_list_value_lexers,
-          typename T_list_scope_lexers,
-          typename T_list_discard_lexers,
-          typename T_string
-          >
-bool expression_tree<
-T_list_operator_lexers,
-T_list_value_lexers,
-T_list_scope_lexers,
-T_list_discard_lexers,
-T_string>::is_value() const noexcept
-{
-    return (lexem.type == ctoken::etype::value ||
-            (   lexem.type == ctoken::etype::scope &&
-                lexem.scope_closed));
-}
-
-template <typename T_list_operator_lexers,
-          typename T_list_value_lexers,
-          typename T_list_scope_lexers,
-          typename T_list_discard_lexers,
-          typename T_string
-          >
-expression_tree<
-T_list_operator_lexers,
-T_list_value_lexers,
-T_list_scope_lexers,
-T_list_discard_lexers,
-T_string>& expression_tree<
-T_list_operator_lexers,
-T_list_value_lexers,
-T_list_scope_lexers,
-T_list_discard_lexers,
-T_string>::add_child(ctoken const& child_lexem)
+template <typename T_lexers, typename T_string>
+expression_tree<T_lexers, T_string>&
+expression_tree<T_lexers,T_string>::add_child(ctoken const& child_lexem)
 {
     std::unique_ptr<expression_tree> ptree(new expression_tree);
     ptree->lexem = child_lexem;
@@ -228,23 +127,10 @@ T_string>::add_child(ctoken const& child_lexem)
     return add_child(std::move(ptree));
 }
 
-template <typename T_list_operator_lexers,
-          typename T_list_value_lexers,
-          typename T_list_scope_lexers,
-          typename T_list_discard_lexers,
-          typename T_string
-          >
-expression_tree<
-T_list_operator_lexers,
-T_list_value_lexers,
-T_list_scope_lexers,
-T_list_discard_lexers,
-T_string>& expression_tree<
-T_list_operator_lexers,
-T_list_value_lexers,
-T_list_scope_lexers,
-T_list_discard_lexers,
-T_string>::add_child(std::unique_ptr<expression_tree>&& ptree)
+template <typename T_lexers, typename T_string>
+expression_tree<T_lexers, T_string>&
+expression_tree<T_lexers, T_string>::add_child(
+        std::unique_ptr<expression_tree>&& ptree)
 {
     if (ptree->parent)
     {
@@ -267,10 +153,7 @@ T_string>::add_child(std::unique_ptr<expression_tree>&& ptree)
 
 namespace detail
 {
-template <typename T_list_lexers,
-          typename T_string,
-          typename T_iterator,
-          typename INDEX>
+template <typename T_lexers, typename T_string, typename T_iterator, typename INDEX>
 class dummy
 {
 public:
@@ -281,12 +164,12 @@ bool read(T_iterator& it_begin,
     {
         auto it_copy = it_begin;
         auto const discard_result = detail::token<T_string>();
-        if (INDEX::value >= T_list_lexers::count)
+        if (INDEX::value >= T_lexers::count)
             return false;
         else
         {
             using T_lexer =
-                typename typelist::type_list_get<INDEX::value, T_list_lexers>::type;
+                typename typelist::type_list_get<INDEX::value, T_lexers>::type;
             auto current_result = discard_result;
             bool current_code =
                     T_lexer::template internal_read<T_string, T_iterator>
@@ -294,7 +177,7 @@ bool read(T_iterator& it_begin,
                                              it_end,
                                              current_result);
 
-            if (INDEX::value + 1 == T_list_lexers::count ||
+            if (INDEX::value + 1 == T_lexers::count ||
                 (current_code && it_copy != it_begin))
             {
                 if (current_code && it_copy != it_begin)
@@ -306,7 +189,7 @@ bool read(T_iterator& it_begin,
             else    // if (INDEX::value + 1 < T_list::count)
             {
                 it_copy = it_begin;
-                using cdummy = dummy<T_list_lexers, T_string, T_iterator,
+                using cdummy = dummy<T_lexers, T_string, T_iterator,
                 std::integral_constant<size_t, INDEX::value + 1>>;
 
                 auto next_result = discard_result;
@@ -330,13 +213,9 @@ bool read(T_iterator& it_begin,
     }
 };
 
-template <typename T_list_lexers,
-          typename T_string,
-          typename T_iterator>
-class dummy<T_list_lexers,
-        T_string,
-        T_iterator,
-        std::integral_constant<size_t, T_list_lexers::count>>
+template <typename T_lexers, typename T_string, typename T_iterator>
+class dummy<T_lexers, T_string, T_iterator,
+        std::integral_constant<size_t, T_lexers::count>>
 {
 public:
     static
@@ -357,88 +236,148 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
 {
     auto read_result = typename T_expression_tree::ctoken();
 
-    using cdummy_discards =
+    using cdummy =
         detail::dummy<
-    typename T_expression_tree::list_discard_lexers,
-    typename T_expression_tree::string,
-    T_iterator,
-    std::integral_constant<size_t, 0>>;
-
-    using cdummy_op =
-        detail::dummy<
-    typename T_expression_tree::list_operator_lexers,
-    typename T_expression_tree::string,
-    T_iterator,
-    std::integral_constant<size_t, 0>>;
-
-    using cdummy_val =
-        detail::dummy<
-    typename T_expression_tree::list_value_lexers,
-    typename T_expression_tree::string,
-    T_iterator,
-    std::integral_constant<size_t, 0>>;
-
-    using cdummy_scope =
-        detail::dummy<
-    typename T_expression_tree::list_scope_lexers,
-    typename T_expression_tree::string,
-    T_iterator,
-    std::integral_constant<size_t, 0>>;
-
-    using ctoken = typename T_expression_tree::ctoken;
-    using token_type = typename ctoken::etype;
+            typename T_expression_tree::lexers,
+            typename T_expression_tree::string,
+            T_iterator,
+            std::integral_constant<size_t, 0>>;
 
     auto it_copy = it_begin;
 
-    bool read_discard_code = cdummy_discards::read(it_copy, it_end, read_result);
-    if (read_discard_code && it_copy != it_begin)
-    {
-        it_begin = it_copy;
-        return true;
-    }
-
-    bool read_op_code = cdummy_op::read(it_copy, it_end, read_result);
+    bool read_op_code = cdummy::read(it_copy, it_end, read_result);
     if (read_op_code && it_copy != it_begin)
     {   //  try to place the operator token in the expression tree
         //  if successful then update it_begin and return
-        if (ptr_expression &&
+        bool success = false;
+        enum token_type {token_type_value, token_type_operator};
+        std::vector<token_type> types;
+        if (read_result.right == size_t(-1) &&
+            read_result.left_max == size_t(-1) &&
+            read_result.left_min == size_t(-1))
+            success = true; //  discard the result
+        else
+        {
+            if (read_result.left_max > 0)
+                types.push_back(token_type_operator);
+            if (read_result.left_min == 0)
+                types.push_back(token_type_value);
+        }
+
+        for (auto ttype : types)
+        {
+        if (success)
+            break;
+        if (token_type_operator == ttype &&
+            ptr_expression &&
             ptr_expression->is_value())
         {
             T_expression_tree* pparent = ptr_expression.get();
             T_expression_tree* test_pparent = nullptr;
             while ((test_pparent = pparent->parent) != nullptr &&
-                   test_pparent->lexem.type == ctoken::etype::bin_op &&
-                   test_pparent->lexem.priority >= read_result.priority)
+                   test_pparent->lexem.priority >= read_result.priority &&
+                   test_pparent->is_value())
             {
                 pparent = test_pparent;
             }
             //  after this while pparent is either the same as ptr_expression
             //  or is the weakest priority binary operator, that is still stronger
-            //  than read_result
-            ptr_expression.release();
-            ptr_expression.reset(pparent);
+            //  than read_result but it cannot go as weak as the enclosing operator
+            //  that still needs one or more arguments and is different than read_result
 
-            if (ptr_expression->lexem.type == read_result.type &&
-                ptr_expression->lexem.rtt == read_result.rtt &&
-                ptr_expression->lexem.value == read_result.value)
+            //  now that we have pparent, try to scan up to see if there is an
+            //  enclosing operator that needs one or more arguments and has the
+            //  is actually the same as read_result
+            test_pparent = pparent;
+            while (test_pparent && test_pparent->is_value())
+                test_pparent = test_pparent->parent;
+            if (test_pparent &&
+                test_pparent->is_operator() &&  //  this wasn't in older code
+                test_pparent->lexem.rtt == read_result.rtt)
+                pparent = test_pparent;
+
+            bool fix_the_same_possible = false;
+            if (pparent->lexem.rtt == read_result.rtt)
+                fix_the_same_possible = true;
+
+            size_t left_count = 1;
+            if (fix_the_same_possible)
+                left_count = pparent->children.size();
+
+            if (left_count >= read_result.left_min &&
+                left_count <= read_result.left_max)
             {
-                //  just move to this place
+                if (ptr_expression.get() != pparent)
+                {
+                    ptr_expression.release();
+                    ptr_expression.reset(pparent);
+                }
+
+                if (fix_the_same_possible)
+                {
+                    auto value_backup = ptr_expression->lexem.value;
+                    ptr_expression->lexem = read_result;
+                    ptr_expression->lexem.value = value_backup + ptr_expression->lexem.value;
+                }
+                else
+                {
+                    auto ptr_backup = std::move(ptr_expression);
+                    auto pparent_backup = ptr_backup->parent;
+
+                    ptr_expression.reset(new T_expression_tree);
+                    ptr_expression->lexem = read_result;
+                    ptr_expression->add_child(std::move(ptr_backup));
+                    if (pparent_backup)
+                    {
+                        auto pexpression =
+                                &pparent_backup->add_child(
+                                    std::move(ptr_expression));
+                        ptr_expression.reset(pexpression);
+                    }
+                }
+
+                success = true;
             }
-            else
-            {
-                auto ptr_backup = std::move(ptr_expression);
-                auto pparent_backup = ptr_backup->parent;
+        }
+        else if (token_type_value == ttype)
+        {
+            T_expression_tree* pparent = ptr_expression.get();
+            while (pparent && pparent->is_value())
+                pparent = pparent->parent;
 
+            if (nullptr == ptr_expression)
+            {
                 ptr_expression.reset(new T_expression_tree);
                 ptr_expression->lexem = read_result;
-                ptr_expression->add_child(std::move(ptr_backup));
-                if (pparent_backup)
-                {
-                    auto pexpression = &pparent_backup->add_child(std::move(ptr_expression));
-                    ptr_expression.reset(pexpression);
-                }
+                success = true;
             }
+            else if (pparent && pparent->is_operator() &&
+                     pparent->lexem.rtt == read_result.rtt &&
+                     pparent->children.size() <= read_result.left_max &&
+                     pparent->children.size() >= read_result.left_min)
+            {
+                ptr_expression.release();
+                ptr_expression.reset(pparent);
 
+                auto value_backup = ptr_expression->lexem.value;
+                ptr_expression->lexem = read_result;
+                ptr_expression->lexem.value = value_backup + ptr_expression->lexem.value;
+                success = true;
+            }
+            else if (pparent && pparent->is_operator())
+            {
+                T_expression_tree* ptemp = &pparent->add_child(read_result);
+
+                ptr_expression.release();
+                ptr_expression.reset(ptemp);
+                --pparent->lexem.right;
+                success = true;
+            }
+        }
+        }
+
+        if (success)
+        {
             it_begin = it_copy;
             return true;
         }
@@ -448,102 +387,7 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
         read_op_code = false;
     }
 
-    bool read_val_code = cdummy_val::read(it_copy, it_end, read_result);
-    if (read_val_code && it_copy != it_begin)
-    {   //  try to place the value token in the expression tree
-        //  if successful then update it_begin and return
-        bool success = false;
-        if (nullptr == ptr_expression)
-        {
-            ptr_expression.reset(new T_expression_tree);
-            ptr_expression->lexem = read_result;
-            success = true;
-        }
-        else if (ptr_expression->lexem.type == token_type::bin_op ||
-                 (  ptr_expression->lexem.type == token_type::scope &&
-                    ptr_expression->lexem.scope_closed == false))
-        {
-            T_expression_tree* ptemp = &ptr_expression->add_child(read_result);
-
-            ptr_expression.release();
-            ptr_expression.reset(ptemp);
-            success = true;
-        }
-
-        if (success)
-        {
-            it_begin = it_copy;
-            return true;
-        }
-        //  otherwise don't forget to reset it_copy to it_begin
-        //  and set read_val_code to false
-        it_copy = it_begin;
-        read_val_code = false;
-    }
-
-    bool read_scope_code = cdummy_scope::read(it_copy, it_end, read_result);
-    if (read_scope_code && it_copy != it_begin)
-    {   //  try to place the value token in the expression tree
-        //  if successful then update it_begin and return
-        bool success = false;
-        if (read_result.scope_closed &&
-            ptr_expression &&
-            (   ptr_expression->is_value() ||
-                (ptr_expression->lexem.type == ctoken::etype::scope &&
-                 ptr_expression->lexem.scope_closed == false)))
-        {
-            T_expression_tree* pparent = ptr_expression.get();
-            while (pparent != nullptr &&
-                   (pparent->lexem.type != ctoken::etype::scope ||
-                    pparent->lexem.scope_closed != false))
-            {
-                pparent = pparent->parent;
-            }
-            //  after this while pparent can either be nullptr,
-            //  or it's an open scope, waiting to be closed
-            if (pparent &&
-                read_result.rtt == pparent->lexem.rtt)
-            {
-                ptr_expression.release();
-                ptr_expression.reset(pparent);
-                ptr_expression->lexem.scope_closed = true;
-                ptr_expression->lexem.value += read_result.value;
-                success = true;
-            }
-        }
-        else if (read_result.scope_closed == false &&
-                 nullptr == ptr_expression)
-        {
-            ptr_expression.reset(new T_expression_tree);
-            ptr_expression->lexem = read_result;
-            success = true;
-        }
-        else if (read_result.scope_closed == false &&
-                 (  ptr_expression->lexem.type == token_type::bin_op ||
-                    (   ptr_expression->lexem.type == token_type::scope &&
-                        ptr_expression->lexem.scope_closed == false)))
-        {
-            T_expression_tree* ptemp = &ptr_expression->add_child(read_result);
-
-            ptr_expression.release();
-            ptr_expression.reset(ptemp);
-            success = true;
-        }
-
-        if (success)
-        {
-            it_begin = it_copy;
-            return true;
-        }
-        //  otherwise don't forget to reset it_copy to it_begin
-        //  and set read_val_code to false
-        it_copy = it_begin;
-        read_val_code = false;
-    }
-
-    if (read_val_code == false &&
-        read_op_code == false &&
-        read_scope_code == false)
+    if (read_op_code == false)
         return false;
 
     return true;
@@ -552,20 +396,21 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
 namespace detail
 {
 template <typename T_lexer,
-          typename T_string>
+          typename T_string,
+          typename T_iterator>
 class final_check_helper
 {
     DECLARE_MF_INSPECTION(final_check, TT,
-                          bool (TT::*)(typename T_string::iterator,
-                                       typename T_string::iterator) const)
+                          bool (TT::*)(T_iterator,
+                                       T_iterator) const)
 public:
     template <typename T,
               typename TEST = typename std::enable_if<
                   has_final_check<T>::value == 1, bool
                   >::type>
     static bool check(T const* p,
-                      typename T_string::iterator it_begin,
-                      typename T_string::iterator it_end)
+                      T_iterator it_begin,
+                      T_iterator it_end)
     {
         return p->final_check(it_begin, it_end);
     }
@@ -578,8 +423,7 @@ public:
         return true;
     }
 };
-template <typename T_lexer,
-          typename T_string>
+template <typename T_lexer>
 class scan_beyond_helper
 {
     DECLARE_MF_INSPECTION(scan_beyond, TT,
@@ -605,9 +449,10 @@ public:
 }
 
 template <typename T_lexer,
-          typename T_string>
-bool lexer_helper(typename T_string::iterator& it_begin,
-                  typename T_string::iterator it_end,
+          typename T_string,
+          typename T_iterator>
+bool lexer_helper(T_iterator& it_begin,
+                  T_iterator it_end,
                   T_lexer* p = nullptr)
 {
     bool result = true;
@@ -620,37 +465,40 @@ bool lexer_helper(typename T_string::iterator& it_begin,
     {
         std::pair<bool, bool> lexer_res = lexer.check(*it_copy);
         if (false == lexer_res.first)
-        {
+        {   //  will stop, next symbol is not accepted anymore
             if (index == 0)
-            {
+            {   //  empty, not accepted anything
                 result = false;
                 break;
             }
             else
-            {
+            {   //  had something accepted previously
+                //  stop and do final check
                 it_begin = it_copy;
                 break;
             }
         }
         else if (true == lexer_res.second)
-        {
+        {   //  next symbol is accepted and suggested to be final
             ++it_copy;
             it_begin = it_copy;
             break;
         }
     }
 
-    if (result &&
-        it_begin == it_backup &&
-        false == detail::scan_beyond_helper<T_lexer, T_string>::check(&lexer))
-        it_begin = it_end;
+    if (result &&   //  something accepted, but not sure if its final
+        it_begin == it_backup &&    //  so it_begin was not altered yet
+        false == detail::scan_beyond_helper<T_lexer>::check(&lexer))
+        it_begin = it_end;  //  now alter it_begin too, this will not happen by default
+    //  insted will have to scan past the last token to accept it
 
     if (result && it_begin != it_backup)
     {
         if (false ==
-                detail::final_check_helper<T_lexer, T_string>::check(&lexer,
-                                                                     it_backup,
-                                                                     it_begin))
+                detail::final_check_helper<T_lexer, T_string, T_iterator>
+                    ::check(&lexer,
+                            it_backup,
+                            it_begin))
         {
             result = false;
             it_begin = it_backup;
@@ -662,15 +510,13 @@ bool lexer_helper(typename T_string::iterator& it_begin,
     return result;
 }
 
-template <typename T_discard_lexer,
-          typename T_list_discard_lexers,
-          typename T_white_space_set>
+template <typename T_discard_lexer, typename T_lexers, typename T_white_space_set>
 class discard_lexer_base
 {
 public:
     enum { rtt = typelist::type_list_index<
                         T_discard_lexer,
-                        T_list_discard_lexers>::value};
+                        T_lexers>::value};
 
     template <typename T_string,
               typename T_iterator>
@@ -686,7 +532,6 @@ public:
         if (code && it_copy != it_begin)
         {
             result.rtt = T_discard_lexer::rtt;
-            result.type = detail::token<T_string>::etype::discard;
             result.value.assign(it_begin, it_copy);
             it_begin = it_copy;
         }
@@ -696,21 +541,20 @@ public:
 
     std::pair<bool, bool> check(char ch)
     {
-        if (T_white_space_set::value.find(ch) != std::string::npos)
+        auto value = T_white_space_set::value;
+        if (value.find(ch) != std::string::npos)
             return std::make_pair(true, false);
         return std::make_pair(false, false);
     }
 };
 
-template <typename T_operator_lexer,
-          typename T_list_operator_lexers,
-          typename T_operator_set>
+template <typename T_operator_lexer, typename T_lexers>
 class operator_lexer_base
 {
 public:
     enum { rtt = typelist::type_list_index<
                         T_operator_lexer,
-                        T_list_operator_lexers>::value};
+                        T_lexers>::value};
 
     static size_t const priority;
 
@@ -723,47 +567,49 @@ public:
     {
         auto it_copy = it_begin;
         result = detail::token<T_string>();
-        bool code = lexer_helper<T_operator_lexer, T_string>(it_copy, it_end);
+        T_operator_lexer lexer;
+        bool code = lexer_helper<T_operator_lexer, T_string>(it_copy, it_end, &lexer);
 
         if (code && it_copy != it_begin)
         {
             result.priority = T_operator_lexer::priority;
             result.rtt = T_operator_lexer::rtt;
-            result.type = detail::token<T_string>::etype::bin_op;
             result.value.assign(it_begin, it_copy);
+            result.right = lexer.right;
+            result.left_min = lexer.left_min;
+            result.left_max = lexer.left_max;
             it_begin = it_copy;
         }
 
         return code;
-    }
-
-    std::pair<bool, bool> check(char ch)
-    {
-        if (T_operator_set::value.find(ch) != std::string::npos)
-            return std::make_pair(true, false);
-        return std::make_pair(false, false);
     }
 private:
     enum { previous_rtt = (rtt == 0) ? 0 : rtt - 1 };
 };
 
 template <typename T_operator_lexer,
-          typename T_list_operator_lexers,
-          typename T_operator_set>
+          typename T_lexers>
 size_t const
-operator_lexer_base<T_operator_lexer, T_list_operator_lexers, T_operator_set>::priority =
+operator_lexer_base<T_operator_lexer, T_lexers>::priority =
         T_operator_lexer::grow_priority +
         ((T_operator_lexer::rtt == 0) ? 0 :
-         (typelist::type_list_get<T_operator_lexer::previous_rtt, T_list_operator_lexers>::type::priority));
+         (typelist::type_list_get<T_operator_lexer::previous_rtt, T_lexers>::type::priority));
 
-template <typename T_value_lexer,
-          typename T_list_value_lexers>
+template <typename T_operator_set>
+std::pair<bool, bool> standard_operator_check(char ch)
+{
+    if (T_operator_set::value.find(ch) != std::string::npos)
+        return std::make_pair(true, false);
+    return std::make_pair(false, false);
+}
+
+template <typename T_value_lexer, typename T_lexers>
 class value_lexer_base
 {
 public:
     enum { rtt = typelist::type_list_index<
                         T_value_lexer,
-                        T_list_value_lexers>::value};
+                        T_lexers>::value};
 
     template <typename T_string,
               typename T_iterator>
@@ -779,7 +625,9 @@ public:
         if (code && it_copy != it_begin)
         {
             result.rtt = T_value_lexer::rtt;
-            result.type = detail::token<T_string>::etype::value;
+            result.right = 0;
+            result.left_min = 0;
+            result.left_max = 0;
             result.value.assign(it_begin, it_copy);
             it_begin = it_copy;
         }
@@ -788,67 +636,28 @@ public:
     }
 };
 
-template <typename T_scope_lexer,
-          typename T_list_scope_lexers>
-class scope_lexer_base
-{
-public:
-    enum { rtt = typelist::type_list_index<
-                        T_scope_lexer,
-                        T_list_scope_lexers>::value};
-
-    template <typename T_string,
-              typename T_iterator>
-    static
-    bool internal_read(T_iterator& it_begin,
-                       T_iterator it_end,
-                       typename detail::token<T_string>& result)
-    {
-        auto it_copy = it_begin;
-        result = detail::token<T_string>();
-        T_scope_lexer lexer;
-        bool code = lexer_helper<T_scope_lexer, T_string>(it_copy, it_end, &lexer);
-
-        if (code && it_copy != it_begin)
-        {
-            result.rtt = T_scope_lexer::rtt;
-            result.scope_closed = false;
-            result.type = detail::token<T_string>::etype::scope;
-            result.value.assign(it_begin, it_copy);
-
-            it_begin = it_copy;
-            if (lexer.is_close)
-                result.scope_closed = true;
-        }
-
-        return code;
-    }
-};
-
+//
+//  if not make these template leads to severe segfault on app exit
+//
+template <typename N = void>
 struct standard_white_space_set { public: static const std::string value; };
-std::string const standard_white_space_set::value = " \0\t\n";
+template <typename N>
+std::string const standard_white_space_set<N>::value = " \t\r\n";
+template <typename N = void>
 struct standard_operator_set { public: static const std::string value; };
-std::string const standard_operator_set::value = "+-*&/\\=!$@^%,;:";
+template <typename N>
+std::string const standard_operator_set<N>::value = "+-*&/|\\=!$@^%,;:<>";
 
-using standard_discard_lexers =
-beltpp::typelist::type_list<
-class standard_white_space_lexer
->;
+template <typename T_lexers>
 class standard_white_space_lexer :
-        public beltpp::discard_lexer_base<standard_white_space_lexer,
-                                            standard_discard_lexers,
-                                            beltpp::standard_white_space_set>
+        public beltpp::discard_lexer_base<standard_white_space_lexer<T_lexers>,
+                                            T_lexers,
+                                            beltpp::standard_white_space_set<void>>
 {};
 
-using standard_value_lexers =
-beltpp::typelist::type_list<
-class standard_value_string_lexer,
-class standard_value_number_lexer
->;
-
+template <typename T_lexers>
 class standard_value_string_lexer :
-        public beltpp::value_lexer_base<standard_value_string_lexer,
-                                        standard_value_lexers>
+        public beltpp::value_lexer_base<standard_value_string_lexer<T_lexers>, T_lexers>
 {
     enum states
     {
@@ -894,9 +703,10 @@ public:
     }
 };
 
+template <typename T_lexers>
 class standard_value_number_lexer :
-        public beltpp::value_lexer_base<standard_value_number_lexer,
-                                        standard_value_lexers>
+        public beltpp::value_lexer_base<standard_value_number_lexer<T_lexers>,
+                                        T_lexers>
 {
     std::string value;
 private:
@@ -935,17 +745,23 @@ public:
     }
 };
 
-using standard_list_operator_comma_lexers =
-beltpp::typelist::type_list<
-class standard_operator_comma_lexer
->;
+template <typename T_lexers>
 class standard_operator_comma_lexer :
-        public beltpp::operator_lexer_base<standard_operator_comma_lexer,
-                                            standard_list_operator_comma_lexers,
-                                            beltpp::standard_operator_set>
+        public beltpp::operator_lexer_base<standard_operator_comma_lexer<T_lexers>,
+                                            T_lexers>
 {
 public:
+    size_t right = 1;
+    size_t left_max = -1;
+    size_t left_min = 1;
+
     enum { grow_priority = 1 };
+
+    std::pair<bool, bool> check(char ch)
+    {
+        return standard_operator_check<beltpp::standard_operator_set<void>>(ch);
+    }
+
     bool final_check(std::string::iterator it_begin,
                      std::string::iterator it_end) const
     {
@@ -953,37 +769,83 @@ public:
     }
 };
 
-using standard_parentheses_lexers =
-beltpp::typelist::type_list<
-class standard_parentheses_lexer
->;
-
-class standard_parentheses_lexer :
-        public beltpp::scope_lexer_base<standard_parentheses_lexer,
-                                        standard_parentheses_lexers>
+template <typename T_expression_tree>
+typename T_expression_tree::string dump(T_expression_tree const* pexpression)
 {
-public:
-    bool is_close = false;
+    typename T_expression_tree::string result;
 
-    std::pair<bool, bool> check(char ch)
+    if (nullptr == pexpression)
+        return result;
+
+    auto p_iterator = pexpression;
+    std::vector<size_t> track;
+    size_t depth = 0;
+
+    while (p_iterator)
     {
-        if (ch == ')')
+        if (track.size() == depth)
+            track.push_back(0);
+
+        if (track.size() == depth + 1)
         {
-            is_close = true;
-            return std::make_pair(true, true);
+            for (size_t index = 0; index != depth; ++index)
+                result += ".";
+            result += p_iterator->lexem.value;
+            if (p_iterator->lexem.right > 0)
+                result += " !!!! ";
+            result += "\n";
         }
-        if (ch == '(')
-            return std::make_pair(true, true);
 
-        return std::make_pair(false, false);
+        size_t next_child_index = -1;
+        if (false == p_iterator->children.empty())
+        {
+            size_t childindex = 0;
+            if (track.size() > depth + 1)
+            {
+                ++track[depth + 1];
+                childindex = track[depth + 1];
+            }
+
+            if (childindex < p_iterator->children.size())
+                next_child_index = childindex;
+        }
+
+        if (size_t(-1) != next_child_index)
+        {
+            p_iterator = p_iterator->children[next_child_index];
+            ++depth;
+            if (track.size() > depth + 1)
+                track.resize(depth + 1);
+        }
+        else
+        {
+            p_iterator = p_iterator->parent;
+            --depth;
+        }
     }
 
-    bool final_check(std::string::iterator it_begin,
-                     std::string::iterator it_end) const
+    return result;
+}
+
+template <typename T_expression_tree>
+T_expression_tree* root(T_expression_tree* pexpression, bool& is_value)
+{
+    bool missing_expression = false;
+    if (nullptr == pexpression)
+        missing_expression = true;
+    else if (false == pexpression->is_value())
+        missing_expression = true;
+
+    if (pexpression)
+    while (auto parent = pexpression->parent)
     {
-        --it_end;
-        return (*it_end == '(' || *it_end == ')');
+        if (false == parent->is_value())
+            missing_expression = true;
+        pexpression = parent;
     }
-};
+
+    is_value = !missing_expression;
+    return pexpression;
+}
 
 }   //  end of namespace beltpp

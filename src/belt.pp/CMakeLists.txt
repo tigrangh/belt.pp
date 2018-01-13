@@ -19,6 +19,7 @@ set(SRC_FILES
     iprocessor.hpp
     isocket.hpp
     iterator_wrapper.hpp
+    json.hpp
     message.hpp
     message_global.hpp
     messagecodes.hpp

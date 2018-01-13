@@ -255,34 +255,43 @@ public:
 class socket_internals
 {
 public:
-    socket_internals(size_t rtt_join,
+    socket_internals(size_t rtt_error,
+                     size_t rtt_join,
                      size_t rtt_drop,
                      size_t rtt_timer_out,
+                     detail::fptr_creator fcreator_error,
                      detail::fptr_creator fcreator_join,
                      detail::fptr_creator fcreator_drop,
                      detail::fptr_creator fcreator_timer_out,
+                     detail::fptr_saver fsaver_error,
                      detail::fptr_saver fsaver_join,
                      detail::fptr_saver fsaver_drop,
                      detail::fptr_saver fsaver_timer_out,
                      detail::fptr_message_loader fmessage_loader)
-        : m_rtt_join(rtt_join)
+        : m_rtt_error(rtt_error)
+        , m_rtt_join(rtt_join)
         , m_rtt_drop(rtt_drop)
         , m_rtt_timer_out(rtt_timer_out)
+        , m_fcreator_error(fcreator_error)
         , m_fcreator_join(fcreator_join)
         , m_fcreator_drop(fcreator_drop)
         , m_fcreator_timer_out(fcreator_timer_out)
+        , m_fsaver_error(fsaver_error)
         , m_fsaver_join(fsaver_join)
         , m_fsaver_drop(fsaver_drop)
         , m_fsaver_timer_out(fsaver_timer_out)
         , m_fmessage_loader(fmessage_loader)
     {}
 
+    size_t m_rtt_error;
     size_t m_rtt_join;
     size_t m_rtt_drop;
     size_t m_rtt_timer_out;
+    detail::fptr_creator m_fcreator_error;
     detail::fptr_creator m_fcreator_join;
     detail::fptr_creator m_fcreator_drop;
     detail::fptr_creator m_fcreator_timer_out;
+    detail::fptr_saver m_fsaver_error;
     detail::fptr_saver m_fsaver_join;
     detail::fptr_saver m_fsaver_drop;
     detail::fptr_saver m_fsaver_timer_out;
@@ -332,23 +341,29 @@ ip_address get_socket_bundle(int socket_descriptor);
 /*
  * socket
  */
-socket::socket(size_t _rtt_join,
+socket::socket(size_t _rtt_error,
+               size_t _rtt_join,
                size_t _rtt_drop,
                size_t _rtt_timer_out,
+               detail::fptr_creator _fcreator_error,
                detail::fptr_creator _fcreator_join,
                detail::fptr_creator _fcreator_drop,
                detail::fptr_creator _fcreator_timer_out,
+               detail::fptr_saver _fsaver_error,
                detail::fptr_saver _fsaver_join,
                detail::fptr_saver _fsaver_drop,
                detail::fptr_saver _fsaver_timer_out,
                detail::fptr_message_loader _fmessage_loader)
     : isocket()
-    , m_pimpl(new detail::socket_internals(_rtt_join,
+    , m_pimpl(new detail::socket_internals(_rtt_error,
+                                           _rtt_join,
                                            _rtt_drop,
                                            _rtt_timer_out,
+                                           _fcreator_error,
                                            _fcreator_join,
                                            _fcreator_drop,
                                            _fcreator_timer_out,
+                                           _fsaver_error,
                                            _fsaver_join,
                                            _fsaver_drop,
                                            _fsaver_timer_out,
@@ -781,18 +796,15 @@ messages socket::read(peer_id& peer)
                 while (true &&
                        false == current_channel.m_stream.empty())
                 {
-                    size_t clean_count = 0;
                     auto const& stm = current_channel.m_stream;
-                    auto pmsgall = m_pimpl->m_fmessage_loader(stm.cbegin(),
-                                                              stm.cend(),
-                                                              clean_count);
+                    beltpp::iterator_wrapper<char const> it_begin = stm.cbegin();
+                    auto pmsgall = m_pimpl->m_fmessage_loader(it_begin,
+                                                              stm.cend());
 
                     while (false == current_channel.m_stream.empty() &&
-                           clean_count > 0)
-                    {
-                        --clean_count;
+                           beltpp::iterator_wrapper<char const>(stm.cbegin()) !=
+                           it_begin)
                         current_channel.m_stream.pop();
-                    }
 
                     if (pmsgall.pmsg)
                     {
@@ -800,6 +812,15 @@ messages socket::read(peer_id& peer)
                         msg.set(pmsgall.rtt,
                                 std::move(pmsgall.pmsg),
                                 pmsgall.fsaver);
+
+                        result.emplace_back(std::move(msg));
+                    }
+                    else if (pmsgall.rtt == 0)
+                    {
+                        message msg;
+                        msg.set(m_pimpl->m_rtt_error,
+                                m_pimpl->m_fcreator_error(),
+                                m_pimpl->m_fsaver_error);
 
                         result.emplace_back(std::move(msg));
                     }
@@ -849,8 +870,9 @@ void socket::write(peer_id const& peer,
                 int res = send(socket_descriptor,
                                &message_stream[sent],
                                message_stream.size() - sent,
-                               0/*MSG_NOSIGNAL*/);
-                //  need to test when sending to socket closed by the peer
+                               MSG_NOSIGNAL);
+                //  when sending to socket closed by the peer
+                //  we have res = -1 and errno set to EPIPE
 
                 if (-1 == res)
                 {

@@ -25,10 +25,10 @@ scan_result read(uint64_t& value,
 }
 
 beltpp::detail::pmsg_all message_list_load(
-        beltpp::iterator_wrapper<char const> const& iter_scan_begin,
-        beltpp::iterator_wrapper<char const> const& iter_scan_end,
-        size_t& clean_count)
+        beltpp::iterator_wrapper<char const>& iter_scan_begin,
+        beltpp::iterator_wrapper<char const> const& iter_scan_end)
 {
+    size_t clean_count = 0;
     uint64_t message_code_rtt(-1);
     detail::scan_result result = detail::read(message_code_rtt,
                                               iter_scan_begin,
@@ -73,13 +73,20 @@ beltpp::detail::pmsg_all message_list_load(
         clean_count = -1;
         return_value =
             beltpp::detail::pmsg_all(   message_code_error::rtt,
-                                        message_code_error::creator(),
+                                        message_code_creator<message_code_error>(),
                                         &message_code_error::saver);
     }
     else if (result.first == detail::e_scan_result::success)
         clean_count = result.second;
     else
         clean_count = 0;
+
+    while (iter_scan_begin != iter_scan_end &&
+           clean_count > 0)
+    {
+        --clean_count;
+        ++iter_scan_begin;
+    }
 
     return return_value;
 }

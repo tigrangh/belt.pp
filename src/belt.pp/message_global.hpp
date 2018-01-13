@@ -38,9 +38,8 @@ public:
 };
 
 using fptr_message_loader = detail::pmsg_all (*)(
-        beltpp::iterator_wrapper<char const> const&,
-        beltpp::iterator_wrapper<char const> const&,
-        size_t&);
+        beltpp::iterator_wrapper<char const>&,
+        beltpp::iterator_wrapper<char const> const&);
 
 template <size_t rtt,
           detail::fptr_creator fcreator,
@@ -61,6 +60,22 @@ DECLARE_MF_INSPECTION(message_scanner, TT,
                       beltpp::detail::scan_result(TT::*)
                       (beltpp::iterator_wrapper<char const> const&,
                        beltpp::iterator_wrapper<char const> const&))
+}
+
+template <typename T_message_code>
+static detail::ptr_msg message_code_creator()
+{
+    detail::ptr_msg result(nullptr,
+                           [](void* &p)
+                            {
+                                T_message_code* pmc =
+                                        static_cast<T_message_code*>(p);
+                                delete pmc;
+                                p = nullptr;
+                            });
+
+    result.reset(new T_message_code());
+    return result;
 }
 
 template <typename MessageCode, typename MessageList>
@@ -117,7 +132,7 @@ protected:
         return result;
     }
 public:
-    static detail::ptr_msg creator()
+    /*static detail::ptr_msg creator()
     {
         detail::ptr_msg result(nullptr,
                                [](void* &p)
@@ -130,7 +145,7 @@ public:
 
         result.reset(new MessageCode());
         return result;
-    }
+    }*/
 
     static detail::scan_result scanner(void* p,
                                        beltpp::iterator_wrapper<char const> const& iter_scan_begin,
@@ -151,14 +166,13 @@ public:
     }
 
 protected:
-
     static int s_dummy;
 };
 
 template <typename MessageCode, typename MessageList>
 int message_code<MessageCode, MessageList>::s_dummy =
         detail::store_fptr<message_code::rtt,
-                            &message_code::creator,
+                            &message_code_creator<MessageCode>,
                             &message_code::scanner,
                             &message_code::saver,
                             detail::message_code_store<MessageList>>();
