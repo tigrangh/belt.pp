@@ -65,7 +65,7 @@ template <typename MessageValue>
 void message::set(MessageValue&& msg)
 {
     using MessageValueT = typename std::remove_reference<MessageValue>::type;
-    ptr_msg pmsg(MessageValueT::creator());
+    ptr_msg pmsg(message_code_creator<MessageValueT>());
     void* pv = pmsg.get();
     MessageValueT* pmv = static_cast<MessageValueT*>(pv);
     MessageValueT& ref = *pmv;

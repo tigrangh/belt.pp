@@ -12,6 +12,7 @@ SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib/belt.pp")
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 add_subdirectory(belt.pp)
+add_subdirectory(idl)
 add_subdirectory(libmessage)
 add_subdirectory(libmessagecodes)
 add_subdirectory(libprocessor)

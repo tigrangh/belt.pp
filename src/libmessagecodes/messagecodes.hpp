@@ -37,9 +37,8 @@ class message_code_timer_out
 >;
 
 detail::pmsg_all MESSAGECODESSHARED_EXPORT message_list_load(
-        beltpp::iterator_wrapper<char const> const& iter_scan_begin,
-        beltpp::iterator_wrapper<char const> const& iter_scan_end,
-        size_t& clean_count);
+        beltpp::iterator_wrapper<char const>& iter_scan_begin,
+        beltpp::iterator_wrapper<char const> const& iter_scan_end);
 
 class MESSAGECODESSHARED_EXPORT message_code_error :
         public message_code<message_code_error, message_list>
