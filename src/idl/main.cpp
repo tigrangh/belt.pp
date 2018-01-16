@@ -130,8 +130,9 @@ public:
         return std::make_pair(false, false);
     }
 
-    bool final_check(std::string::iterator it_begin,
-                     std::string::iterator it_end) const
+    template <typename T_iterator>
+    bool final_check(T_iterator const& it_begin,
+                     T_iterator const& it_end) const
     {
         return std::string(it_begin, it_end) == "class";
     }
@@ -164,13 +165,12 @@ public:
         return std::make_pair(false, false);
     }
 
-    bool final_check(std::string::iterator it_begin,
-                     std::string::iterator it_end) const
+    template <typename T_iterator>
+    bool final_check(T_iterator const& it_begin,
+                     T_iterator const& it_end) const
     {
-        --it_end;
-        if (*it_end == '{' || *it_end == '}')
-            return true;
-        return false;
+        string temp(it_begin, it_end);
+        return (temp == "{" || temp == "}");
     }
 };
 
@@ -187,13 +187,11 @@ public:
         return beltpp::standard_operator_check<beltpp::standard_operator_set<void>>(ch);
     }
 
-    bool final_check(std::string::iterator it_begin,
-                     std::string::iterator it_end) const
+    template <typename T_iterator>
+    bool final_check(T_iterator const& it_begin,
+                     T_iterator const& it_end) const
     {
-        --it_end;
-        if (*it_end == ';')
-            return true;
-        return false;
+        return string(it_begin, it_end) == ";";
     }
 };
 
@@ -210,13 +208,11 @@ public:
         return beltpp::standard_operator_check<beltpp::standard_operator_set<void>>(ch);
     }
 
-    bool final_check(std::string::iterator it_begin,
-                     std::string::iterator it_end) const
+    template <typename T_iterator>
+    bool final_check(T_iterator const& it_begin,
+                     T_iterator const& it_end) const
     {
-        --it_end;
-        if (*it_end == ':')
-            return true;
-        return false;
+        return string(it_begin, it_end) == ":";
     }
 };
 
@@ -232,8 +228,9 @@ public:
         return std::make_pair(false, false);
     }
 
-    bool final_check(std::string::iterator it_begin,
-                     std::string::iterator it_end) const
+    template <typename T_iterator>
+    bool final_check(T_iterator const& it_begin,
+                     T_iterator const& it_end) const
     {
         return it_begin != it_end;
     }

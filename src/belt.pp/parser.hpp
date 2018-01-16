@@ -401,18 +401,18 @@ template <typename T_lexer,
 class final_check_helper
 {
     DECLARE_MF_INSPECTION(final_check, TT,
-                          bool (TT::*)(T_iterator,
-                                       T_iterator) const)
+                          bool (TT::*)(T_iterator const&,
+                                       T_iterator const&) const)
 public:
     template <typename T,
               typename TEST = typename std::enable_if<
                   has_final_check<T>::value == 1, bool
                   >::type>
     static bool check(T const* p,
-                      T_iterator it_begin,
-                      T_iterator it_end)
+                      T_iterator const* it_begin,
+                      T_iterator const* it_end)
     {
-        return p->final_check(it_begin, it_end);
+        return p->final_check(*it_begin, *it_end);
     }
     template <typename T = T_lexer,
               typename TEST = typename std::enable_if<
@@ -497,8 +497,8 @@ bool lexer_helper(T_iterator& it_begin,
         if (false ==
                 detail::final_check_helper<T_lexer, T_string, T_iterator>
                     ::check(&lexer,
-                            it_backup,
-                            it_begin))
+                            &it_backup,
+                            &it_begin))
         {
             result = false;
             it_begin = it_backup;
