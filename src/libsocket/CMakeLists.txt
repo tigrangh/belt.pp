@@ -3,11 +3,12 @@ add_definitions(-DSOCKET_LIBRARY)
 # define the shared library
 add_library(socket SHARED
     global.hpp
+    poll_master.hpp
     socket.cpp
     socket.hpp)
 
 # libraries this module links to
-target_link_libraries(socket PUBLIC belt.pp)
+target_link_libraries(socket PUBLIC belt.pp message)
 
 # what to do on make install
 install(TARGETS socket

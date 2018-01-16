@@ -1,14 +1,21 @@
 #pragma once
 
-#ifdef _MSC_VER
+#if defined _MSC_VER
 
 #define B_OS_WIN
 
 #define BELT_EXPORT     __declspec(dllexport)
 #define BELT_IMPORT     __declspec(dllimport)
+#elif defined __APPLE__
+
+#define B_OS_MACOS
+
+#define BELT_EXPORT
+#define BELT_IMPORT
+
 #else
 
-#define B_OS_UNIX
+#define B_OS_LINUX
 
 #define BELT_EXPORT
 #define BELT_IMPORT

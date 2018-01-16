@@ -1,10 +1,10 @@
 #include "socket.hpp"
+#include "poll_master.hpp"
 
 #include <belt.pp/scope_helper.hpp>
 #include <belt.pp/queue.hpp>
 #include <belt.pp/message.hpp>
 
-#include <sys/epoll.h>
 #include <netdb.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -26,15 +26,20 @@
 #include <mutex>
 #include <memory>
 #include <list>
-#include <chrono>
 //
 using string = std::string;
-namespace chrono = std::chrono;
-using time_point = chrono::steady_clock::time_point;
-using duration = chrono::steady_clock::duration;
 using sockets = std::vector<std::pair<int, addrinfo*>>;
 using peer_ids = beltpp::socket::peer_ids;
 using messages = beltpp::socket::messages;
+
+#ifndef MSG_NOSIGNAL
+# define MSG_NOSIGNAL 0
+# ifdef SO_NOSIGPIPE
+#  define BELT_USE_SO_NOSIGPIPE
+# else
+#  error "That's a problem, cannot block SIGPIPE..."
+# endif
+#endif
 
 namespace beltpp
 {
@@ -43,47 +48,6 @@ namespace beltpp
  */
 namespace detail
 {
-class timer_helper
-{
-public:
-    timer_helper()
-        : is_set(false)
-        , last_point()
-        , timer_period()
-    {}
-
-    static time_point now()
-    {
-        return chrono::steady_clock::now();
-    }
-
-    void set(duration const& period)
-    {
-        is_set = true;
-        last_point = now();
-        timer_period = period;
-    }
-
-    void clean()
-    {
-        is_set = false;
-    }
-
-    void update()
-    {
-        last_point += timer_period;
-    }
-
-    bool expired() const
-    {
-        auto time_since_started = now() - last_point;
-        return (time_since_started >= timer_period);
-    }
-
-    bool is_set;
-    time_point last_point;
-    duration timer_period;
-};
 class channel
 {
 public:
@@ -118,139 +82,6 @@ public:
     beltpp::queue<char> m_stream;
 };
 using channels = beltpp::queue<channel>;
-
-class poll_master
-{
-public:
-    poll_master()
-    {
-        m_fd = epoll_create(1);
-        if (-1 == m_fd)
-        {
-            string epoll_error = strerror(errno);
-            throw std::runtime_error("epoll_create(): " +
-                                     epoll_error);
-        }
-
-        m_event.events = EPOLLIN | EPOLLPRI | EPOLLERR | EPOLLHUP;
-    }
-
-    ~poll_master() {}
-
-    void add(int socket_descriptor, uint64_t id, bool out)
-    {
-        m_event.data.fd = socket_descriptor;
-        m_event.data.u64 = id;
-
-        auto backup = m_event.events;
-        if (out)
-            m_event.events |= EPOLLOUT;
-
-        m_arr_event.resize(m_arr_event.size() + 1);
-
-        int res = epoll_ctl(m_fd, EPOLL_CTL_ADD, socket_descriptor, &m_event);
-        m_event.events = backup;
-
-        if (-1 == res)
-        {
-            m_arr_event.resize(m_arr_event.size() - 1);
-            string epoll_error = strerror(errno);
-            throw std::runtime_error("epoll_ctl(): " +
-                                     epoll_error);
-        }
-    }
-
-    //  don't use mod, don't use ONESHOT
-    //  use remove and add instead
-    /*void mod(int socket_descriptor, uint64_t id, bool out)
-    {
-        m_event.data.fd = socket_descriptor;
-        m_event.data.u64 = id;
-
-        auto backup = m_event.events;
-        if (out)
-            m_event.events |= (EPOLLOUT | EPOLLONESHOT);
-
-        int res = epoll_ctl(m_fd, EPOLL_CTL_MOD, socket_descriptor, &m_event);
-        m_event.events = backup;
-
-        if (-1 == res)
-        {
-            string epoll_error = strerror(errno);
-            throw std::runtime_error("epoll_ctl(): " +
-                                     epoll_error);
-        }
-    }*/
-
-    void remove(int socket_descriptor, uint64_t id, bool already_closed)
-    {
-        m_event.data.fd = socket_descriptor;
-        m_event.data.u64 = id;
-
-        if (false == already_closed)
-        {
-            int res = epoll_ctl(m_fd, EPOLL_CTL_DEL, socket_descriptor, &m_event);
-            if (-1 == res)
-            {
-                string epoll_error = strerror(errno);
-                throw std::runtime_error("epoll_ctl(): " +
-                                         epoll_error);
-            }
-        }
-
-        m_arr_event.resize(m_arr_event.size() - 1);
-    }
-
-    std::unordered_set<uint64_t> wait(timer_helper const& tm)
-    {
-        std::unordered_set<uint64_t> set_ids;
-        //while (true)
-        {
-            int count = -1;
-            do
-            {
-                int milliseconds = -1;
-                if (tm.is_set)
-                {
-                    auto timeout = (tm.last_point + tm.timer_period) - tm.now();
-                    auto timeout_ms =
-                            chrono::duration_cast<chrono::milliseconds>(timeout);
-                    milliseconds = timeout_ms.count();
-                    if (milliseconds < 0)
-                        //  timeout should at least be 0
-                        //  in order for epoll_wait to return immediately
-                        milliseconds = 0;
-                }
-                count = epoll_wait(m_fd,
-                                   &m_arr_event[0],
-                                   m_arr_event.size(),
-                                   milliseconds);
-            } while (-1 == count && errno == EINTR);
-
-            if (-1 == count)
-            {
-                string epoll_error = strerror(errno);
-                throw std::runtime_error("epoll_wait(): " +
-                                         epoll_error);
-            }
-
-            // for each ready socket
-            for(int i = 0; i < count; ++i)
-            {
-                uint64_t id = m_arr_event[i].data.u64;
-                set_ids.insert(id);
-            }
-
-            //break;
-        }
-
-        return set_ids;
-    }
-
-    int m_fd;
-    epoll_event m_event;
-    std::vector<epoll_event> m_arr_event;
-};
 
 class socket_internals
 {
@@ -1130,6 +961,22 @@ sockets socket(addrinfo* servinfo,
         }
 
         string str_temp_address = detail::dump(*p->ai_addr);
+
+#ifdef BELT_USE_SO_NOSIGPIPE
+        {
+            int yes = 1;
+            int res = ::setsockopt(socket_descriptor,
+                                   SOL_SOCKET,
+                                   SO_NOSIGPIPE,
+                                   &yes,
+                                   sizeof(int));
+            if (-1 == res)
+            {
+                string setsockopt_error = strerror(errno);
+                throw std::runtime_error("setsockopt(): " + setsockopt_error);
+            }
+        }
+#endif
 
         {   //  reuse address always makes sense for linux
             int yes = 1;
