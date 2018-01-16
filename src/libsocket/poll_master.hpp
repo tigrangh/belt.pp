@@ -5,6 +5,7 @@
 #include <unordered_set>
 #include <string>
 #include <cerrno>
+#include <cstring>
 
 #include <chrono>
 
