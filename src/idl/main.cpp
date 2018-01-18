@@ -297,11 +297,11 @@ string analyze(expression_tree const* pexpression)
     result += "    case " + class_name + "::rtt:\n";
     result += "    {\n";
     result += "        return_value =\n";
-    result += "                beltpp::detail::pmsg_all(   message_code_join::rtt,\n";
-    result += "                                            message_code_creator<message_code_join>(),\n";
-    result += "                                            &message_code_join::saver);\n";
-    result += "        message_code_join* pmsgcode =\n";
-    result += "                static_cast<message_code_join*>(return_value.pmsg.get());\n";
+    result += "                beltpp::detail::pmsg_all(   " + class_name + "::rtt,\n";
+    result += "                                            message_code_creator<" + class_name + ">(),\n";
+    result += "                                            &" + class_name + "::saver);\n";
+    result += "        " + class_name + "* pmsgcode =\n";
+    result += "                static_cast<" + class_name + "*>(return_value.pmsg.get());\n";
     result += "        code = analyze_json(*pmsgcode, pexp);\n";
     result += "    }\n";
     result += "        break;\n";
