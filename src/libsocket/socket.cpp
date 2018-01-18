@@ -441,7 +441,8 @@ messages socket::read(peer_id& peer)
             {
                 m_pimpl->m_poll_master.remove(socket_descriptor,
                                               current_id,
-                                              false);
+                                              false,    //  already_closed
+                                              true);    //  out
                 m_pimpl->m_poll_master.add(socket_descriptor,
                                            current_id,
                                            false);
@@ -1007,12 +1008,16 @@ beltpp::socket::peer_id add_channel(detail::socket_internals* pimpl,
     beltpp::socket::peer_id current_peer =
             detail::construct_peer_id(id, socket_descriptor);
 
-    pimpl->m_poll_master.add(socket_descriptor, id, (attempts != 0));
+    bool out = (attempts != 0);
+    pimpl->m_poll_master.add(socket_descriptor, id, out);
 
     beltpp::scope_helper scope_guard([]{},
-    [pimpl, socket_descriptor, id]
+    [pimpl, socket_descriptor, id, out]
     {
-        pimpl->m_poll_master.remove(socket_descriptor, id, false);
+        pimpl->m_poll_master.remove(socket_descriptor,
+                                    id,
+                                    false,  //  already_closed
+                                    out);
     });
 
     it_channels->push(detail::channel(attempts,
@@ -1062,7 +1067,8 @@ void delete_channel(detail::socket_internals* pimpl,
 
             pimpl->m_poll_master.remove(current_channel.m_socket_descriptor,
                                         current_id,
-                                        true);
+                                        true,   //  already_closed
+                                        false); //  out
 
             while (false == it_channels->empty())
             {

@@ -110,7 +110,7 @@ public:
         }
     }
 
-    void remove(int socket_descriptor, uint64_t id, bool already_closed)
+    void remove(int socket_descriptor, uint64_t id, bool already_closed, bool)  //  last argument is used for mac os version
     {
         m_event.data.fd = socket_descriptor;
         m_event.data.u64 = id;
@@ -225,9 +225,12 @@ public:
         }
     }
 
-    void remove(int socket_descriptor, uint64_t id, bool already_closed)
+    void remove(int socket_descriptor, uint64_t id, bool already_closed, bool out)
     {
-        EV_SET(&m_event, socket_descriptor, EVFILT_READ, EV_DELETE, 0, 0, nullptr);
+        if (out)
+            EV_SET(&m_event, socket_descriptor, EVFILT_WRITE, EV_DELETE, 0, 0, nullptr);
+        else
+            EV_SET(&m_event, socket_descriptor, EVFILT_READ, EV_DELETE, 0, 0, nullptr);
 
         static_assert(sizeof(void*) == sizeof(uint64_t), "64 bit pointers, no?");
         m_event.udata = reinterpret_cast<void*>(id);
