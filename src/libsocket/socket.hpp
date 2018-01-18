@@ -76,8 +76,7 @@ public:
                     int backlog = 100);
 
     void open(ip_address address,
-              size_t attempts = 0,
-              bool nonblocking = true);
+              size_t attempts = 0);
 
     messages read(peer_id& peer) override;
 

@@ -38,8 +38,8 @@ public:
     }
 
     template <typename T_iterator>
-    bool final_check(T_iterator it_begin,
-                     T_iterator it_end) const
+    bool final_check(T_iterator const& it_begin,
+                     T_iterator const& it_end) const
     {
         return std::string(it_begin, it_end) == ",";
     }
@@ -60,8 +60,8 @@ public:
     }
 
     template <typename T_iterator>
-    bool final_check(T_iterator it_begin,
-                     T_iterator it_end) const
+    bool final_check(T_iterator const& it_begin,
+                     T_iterator const& it_end) const
     {
         return std::string(it_begin, it_end) == ":";
     }
@@ -95,8 +95,8 @@ public:
     }
 
     template <typename T_iterator>
-    bool final_check(T_iterator it_begin,
-                     T_iterator it_end) const
+    bool final_check(T_iterator const& it_begin,
+                     T_iterator const& it_end) const
     {
         std::string value(it_begin, it_end);
         if (value == "{" || value == "}")
@@ -190,8 +190,8 @@ public:
     }
 
     template <typename T_iterator>
-    bool final_check(T_iterator it_begin,
-                     T_iterator it_end) const
+    bool final_check(T_iterator const& it_begin,
+                     T_iterator const& it_end) const
     {
         return _check(std::string(it_begin, it_end));
     }

@@ -5,6 +5,7 @@
 #include <unordered_set>
 #include <string>
 #include <cerrno>
+#include <cstring>
 
 #include <chrono>
 
@@ -51,7 +52,7 @@ public:
     bool expired() const
     {
         auto time_since_started = now() - last_point;
-        return (time_since_started >= timer_period);
+        return is_set && (time_since_started >= timer_period);
     }
 
     bool is_set;
@@ -109,7 +110,7 @@ public:
         }
     }
 
-    void remove(int socket_descriptor, uint64_t id, bool already_closed)
+    void remove(int socket_descriptor, uint64_t id, bool already_closed, bool)  //  last argument is used for mac os version
     {
         m_event.data.fd = socket_descriptor;
         m_event.data.u64 = id;
@@ -224,9 +225,12 @@ public:
         }
     }
 
-    void remove(int socket_descriptor, uint64_t id, bool already_closed)
+    void remove(int socket_descriptor, uint64_t id, bool already_closed, bool out)
     {
-        EV_SET(&m_event, socket_descriptor, EVFILT_READ, EV_DELETE, 0, 0, nullptr);
+        if (out)
+            EV_SET(&m_event, socket_descriptor, EVFILT_WRITE, EV_DELETE, 0, 0, nullptr);
+        else
+            EV_SET(&m_event, socket_descriptor, EVFILT_READ, EV_DELETE, 0, 0, nullptr);
 
         static_assert(sizeof(void*) == sizeof(uint64_t), "64 bit pointers, no?");
         m_event.udata = reinterpret_cast<void*>(id);
@@ -263,11 +267,11 @@ public:
                     //  timeout should at least be 0
                     milliseconds = 0;
             }
-            struct timespec tm, *ptm = nullptr;
-            tm.tv_sec = milliseconds / 1000;
-            tm.tv_nsec = (milliseconds % 1000) * 1000000;
+            struct timespec tms, *ptm = nullptr;
+            tms.tv_sec = milliseconds / 1000;
+            tms.tv_nsec = (milliseconds % 1000) * 1000000;
             if (milliseconds > 0)
-                ptm = &tm;
+                ptm = &tms;
             count = kevent(m_fd,
                            nullptr, 0,
                            &m_arr_event.front(), m_arr_event.size(),
