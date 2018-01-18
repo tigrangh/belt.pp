@@ -830,6 +830,15 @@ void getaddressinfo(addrinfo* &servinfo,
                    hold_family_mismatch_exception);
 }
 
+bool getaddressinfo_is_family_mismatch_error(int rv)
+{
+#if defined B_OS_MACOS
+    return (rv == EAI_ADDRFAMILY) || (rv == EAI_NONAME);
+#else
+    return rv == EAI_ADDRFAMILY;
+#endif
+}
+
 void getaddressinfo(addrinfo* &servinfo,
                     int ai_family,
                     string const& str_address,
@@ -857,7 +866,7 @@ void getaddressinfo(addrinfo* &servinfo,
     //  throw any error, except EAI_ADDRFAMILY when
     //  hold_family_mismatch_exception is true
     if (gai_rv &&
-        (gai_rv != EAI_ADDRFAMILY ||
+        (false == getaddressinfo_is_family_mismatch_error(gai_rv) ||
          false == hold_family_mismatch_exception))
         throw std::runtime_error(gai_strerror(gai_rv));
 
