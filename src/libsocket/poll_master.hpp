@@ -52,7 +52,7 @@ public:
     bool expired() const
     {
         auto time_since_started = now() - last_point;
-        return (time_since_started >= timer_period);
+        return is_set && (time_since_started >= timer_period);
     }
 
     bool is_set;
@@ -264,11 +264,11 @@ public:
                     //  timeout should at least be 0
                     milliseconds = 0;
             }
-            struct timespec tm, *ptm = nullptr;
-            tm.tv_sec = milliseconds / 1000;
-            tm.tv_nsec = (milliseconds % 1000) * 1000000;
+            struct timespec tms, *ptm = nullptr;
+            tms.tv_sec = milliseconds / 1000;
+            tms.tv_nsec = (milliseconds % 1000) * 1000000;
             if (milliseconds > 0)
-                ptm = &tm;
+                ptm = &tms;
             count = kevent(m_fd,
                            nullptr, 0,
                            &m_arr_event.front(), m_arr_event.size(),

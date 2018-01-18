@@ -352,15 +352,20 @@ void socket::open(ip_address address,
 
 void set_nonblocking(int socket_descriptor, bool option)
 {
+    //  seems the initial state of socket is not
+    //  the same across OSes
+    //  non blocking listen accepts non blocking connections
+    //  on macos, while on linux need to set non blocking manually
+    //  so will force desired option always
     int flags = ::fcntl(socket_descriptor, F_GETFL, 0);
     if (false == option)
     {
-        assert(flags & O_NONBLOCK);
+        //  assert(flags & O_NONBLOCK);
         flags = flags ^ O_NONBLOCK;
     }
     else
     {
-        assert(!(flags & O_NONBLOCK));
+        //  assert(!(flags & O_NONBLOCK));
         flags = flags | O_NONBLOCK;
     }
     int res = ::fcntl(socket_descriptor, F_SETFL, flags);
