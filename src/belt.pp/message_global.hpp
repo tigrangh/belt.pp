@@ -10,8 +10,7 @@ namespace beltpp
 {
 namespace detail
 {
-using fptr_deleter = void(*)(void*&);
-using ptr_msg = std::unique_ptr<void, fptr_deleter>;
+using ptr_msg = beltpp::void_unique_ptr;
 using fptr_creator = ptr_msg(*)();
 //enum class e_scan_result {success, attempt, error};
 using e_scan_result = e_three_state_result;
@@ -45,11 +44,11 @@ template <size_t rtt,
           detail::fptr_creator fcreator,
           detail::fptr_scanner fscanner,
           detail::fptr_saver fsaver,
-          typename MessageCodeStore>
+          typename T_MessageStore>
 int store_fptr();
 
 template <typename MessageList>
-class message_code_store;
+class message_store;
 }
 
 namespace inspection
@@ -62,31 +61,15 @@ DECLARE_MF_INSPECTION(message_scanner, TT,
                        beltpp::iterator_wrapper<char const> const&))
 }
 
-template <typename T_message_code>
-static detail::ptr_msg message_code_creator()
-{
-    detail::ptr_msg result(nullptr,
-                           [](void* &p)
-                            {
-                                T_message_code* pmc =
-                                        static_cast<T_message_code*>(p);
-                                delete pmc;
-                                p = nullptr;
-                            });
-
-    result.reset(new T_message_code());
-    return result;
-}
-
-template <typename MessageCode, typename MessageList>
-class message_code
+template <typename T_message, typename T_MessageList>
+class message_base
 {
 public:
-    using parent_list = MessageList;
+    using parent_list = T_MessageList;
     enum {rtt = typelist::type_list_index
-                <MessageCode, MessageList>::value};
-    message_code() {++s_dummy;} //  members in a template class need actually
-    virtual ~message_code() {--s_dummy;}    //  to be used, to get right by
+                <T_message, T_MessageList>::value};
+    message_base() {++s_dummy;} //  members in a template class need actually
+    virtual ~message_base() {--s_dummy;}    //  to be used, to get right by
     //  other modules linking with this library
 
 protected:
@@ -98,7 +81,7 @@ protected:
     {
         return pmc->message_saver();
     }
-    template <typename T = MessageCode,
+    template <typename T = T_message,
               typename TEST = typename std::enable_if<
                   inspection::has_message_saver<T>::value == 0, char
                   >::type>
@@ -117,7 +100,7 @@ protected:
     {
         return pmc->message_scanner(b, e);
     }
-    template <typename T = MessageCode,
+    template <typename T = T_message,
               typename TEST = typename std::enable_if<
                   inspection::has_message_scanner<T>::value == 0, char
                   >::type>
@@ -132,34 +115,19 @@ protected:
         return result;
     }
 public:
-    /*static detail::ptr_msg creator()
-    {
-        detail::ptr_msg result(nullptr,
-                               [](void* &p)
-                                {
-                                    MessageCode* pmc =
-                                            static_cast<MessageCode*>(p);
-                                    delete pmc;
-                                    p = nullptr;
-                                });
-
-        result.reset(new MessageCode());
-        return result;
-    }*/
-
     static detail::scan_result scanner(void* p,
                                        beltpp::iterator_wrapper<char const> const& iter_scan_begin,
                                        beltpp::iterator_wrapper<char const> const& iter_scan_end)
     {
-        MessageCode* pmc = static_cast<MessageCode*>(p);
+        T_message* pmc = static_cast<T_message*>(p);
         return message_scanner(iter_scan_begin, iter_scan_end, pmc);
     }
 
     static std::vector<char> saver(void* p)
     {
-        MessageCode* pmc = static_cast<MessageCode*>(p);
+        T_message* pmc = static_cast<T_message*>(p);
         std::vector<char> result;
-        std::string str_rtt = std::to_string(message_code::rtt);
+        std::string str_rtt = std::to_string(message_base::rtt);
         str_rtt += ":" + message_saver(pmc);
         std::copy(str_rtt.begin(), str_rtt.end(), std::back_inserter(result));
         return result;
@@ -169,46 +137,45 @@ protected:
     static int s_dummy;
 };
 
-template <typename MessageCode, typename MessageList>
-int message_code<MessageCode, MessageList>::s_dummy =
-        detail::store_fptr<message_code::rtt,
-                            &message_code_creator<MessageCode>,
-                            &message_code::scanner,
-                            &message_code::saver,
-                            detail::message_code_store<MessageList>>();
+template <typename T_message, typename T_MessageList>
+int message_base<T_message, T_MessageList>::s_dummy =
+        detail::store_fptr<message_base::rtt,
+                            &make_void_unique_ptr<T_message>,
+                            &message_base::scanner,
+                            &message_base::saver,
+                            detail::message_store<T_MessageList>>();
 
 namespace detail
 {
-template <typename MessageList>
-class message_code_store
+template <typename T_MessageList>
+class message_store
 {
 public:
-    static fptr_creator s_creators[MessageList::count];
-    static fptr_scanner s_scanners[MessageList::count];
-    static fptr_saver s_savers[MessageList::count];
+    static fptr_creator s_creators[T_MessageList::count];
+    static fptr_scanner s_scanners[T_MessageList::count];
+    static fptr_saver s_savers[T_MessageList::count];
 };
 
-template <typename MessageList>
-fptr_creator message_code_store<MessageList>::s_creators[MessageList::count];
-template <typename MessageList>
-fptr_scanner message_code_store<MessageList>::s_scanners[MessageList::count];
-template <typename MessageList>
-fptr_saver message_code_store<MessageList>::s_savers[MessageList::count];
+template <typename T_MessageList>
+fptr_creator message_store<T_MessageList>::s_creators[T_MessageList::count];
+template <typename T_MessageList>
+fptr_scanner message_store<T_MessageList>::s_scanners[T_MessageList::count];
+template <typename T_MessageList>
+fptr_saver message_store<T_MessageList>::s_savers[T_MessageList::count];
 
 template <size_t rtt,
           fptr_creator fcreator,
           fptr_scanner fscanner,
           fptr_saver fsaver,
-          typename MessageCodeStore>
+          typename T_MessageStore>
 int store_fptr()
 {
-    MessageCodeStore::s_creators[rtt] = fcreator;
-    MessageCodeStore::s_scanners[rtt] = fscanner;
-    MessageCodeStore::s_savers[rtt] = fsaver;
+    T_MessageStore::s_creators[rtt] = fcreator;
+    T_MessageStore::s_scanners[rtt] = fscanner;
+    T_MessageStore::s_savers[rtt] = fsaver;
     return 0;
 }
 
 }
-
 }
 

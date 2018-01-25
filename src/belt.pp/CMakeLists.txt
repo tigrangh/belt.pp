@@ -20,10 +20,10 @@ set(SRC_FILES
     isocket.hpp
     iterator_wrapper.hpp
     json.hpp
-    message.hpp
     message_global.hpp
-    messagecodes.hpp
+    messages.hpp
     meta.hpp
+    packet.hpp
     parser.hpp
     processor.hpp
     queue.hpp

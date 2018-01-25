@@ -3,7 +3,7 @@
 
 #include <belt.pp/scope_helper.hpp>
 #include <belt.pp/queue.hpp>
-#include <belt.pp/message.hpp>
+#include <belt.pp/packet.hpp>
 
 #include <netdb.h>
 #include <sys/socket.h>
@@ -33,7 +33,7 @@ using std::tuple;
 using beltpp::scope_helper;
 using sockets = vector<tuple<int, addrinfo*, scope_helper>>;
 using peer_ids = beltpp::socket::peer_ids;
-using messages = beltpp::socket::messages;
+using packets = beltpp::socket::packets;
 
 #ifndef MSG_NOSIGNAL
 # define MSG_NOSIGNAL 0
@@ -376,9 +376,9 @@ void set_nonblocking(int socket_descriptor, bool option)
     }
 }
 
-messages socket::read(peer_id& peer)
+packets socket::recieve(peer_id& peer)
 {
-    messages result;
+    packets result;
 
     peer = peer_id();
 
@@ -388,7 +388,7 @@ messages socket::read(peer_id& peer)
     if (m_pimpl->m_timer_helper.expired())
     {
         m_pimpl->m_timer_helper.update();
-        message msg;
+        packet msg;
         msg.set(m_pimpl->m_rtt_timer_out,
                 m_pimpl->m_fcreator_timer_out(),
                 m_pimpl->m_fsaver_timer_out);
@@ -448,7 +448,7 @@ messages socket::read(peer_id& peer)
                                            false);
 
                 current_channel.m_attempts = 0;
-                message msg;
+                packet msg;
 
                 msg.set(m_pimpl->m_rtt_join,
                         m_pimpl->m_fcreator_join(),
@@ -503,7 +503,7 @@ messages socket::read(peer_id& peer)
                                        0,
                                        socket_bundle);
 
-            message msg;
+            packet msg;
 
             msg.set(m_pimpl->m_rtt_join,
                     m_pimpl->m_fcreator_join(),
@@ -542,7 +542,7 @@ messages socket::read(peer_id& peer)
             {
                 peer = detail::construct_peer_id(current_id,
                                                  current_channel.m_socket_bundle);
-                message msg;
+                packet msg;
                 msg.set(m_pimpl->m_rtt_drop,
                         m_pimpl->m_fcreator_drop(),
                         m_pimpl->m_fsaver_drop);
@@ -575,7 +575,7 @@ messages socket::read(peer_id& peer)
 
                     if (pmsgall.pmsg)
                     {
-                        message msg;
+                        packet msg;
                         msg.set(pmsgall.rtt,
                                 std::move(pmsgall.pmsg),
                                 pmsgall.fsaver);
@@ -584,7 +584,7 @@ messages socket::read(peer_id& peer)
                     }
                     else if (pmsgall.rtt == 0)
                     {
-                        message msg;
+                        packet msg;
                         msg.set(m_pimpl->m_rtt_error,
                                 m_pimpl->m_fcreator_error(),
                                 m_pimpl->m_fsaver_error);
@@ -608,8 +608,8 @@ messages socket::read(peer_id& peer)
     return result;
 }
 
-void socket::write(peer_id const& peer,
-                   message const& msg)
+void socket::send(peer_id const& peer,
+                  packet const& msg)
 {
     uint64_t current_id = detail::parse_peer_id(peer);
     if (msg.type() == m_pimpl->m_rtt_drop)
@@ -634,10 +634,10 @@ void socket::write(peer_id const& peer,
             size_t sent = 0;
             while (sent < message_len)
             {
-                int res = send(socket_descriptor,
-                               &message_stream[sent],
-                               message_stream.size() - sent,
-                               MSG_NOSIGNAL);
+                int res = ::send(socket_descriptor,
+                                 &message_stream[sent],
+                                 message_stream.size() - sent,
+                                 MSG_NOSIGNAL);
                 //  when sending to socket closed by the peer
                 //  we have res = -1 and errno set to EPIPE
 

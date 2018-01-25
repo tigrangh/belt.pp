@@ -1,4 +1,4 @@
-#include "message.hpp"
+#include "packet.hpp"
 
 #include <vector>
 #include <cstring>
@@ -7,23 +7,23 @@
 namespace beltpp
 {
 using vector_buffer = std::vector<char>;
-using ptr_msg = message::ptr_msg;
-using fptr_saver = message::fptr_saver;
+using ptr_msg = packet::ptr_msg;
+using fptr_saver = packet::fptr_saver;
 /*
  * internals
  */
 namespace detail
 {
 
-class message_internals
+class packet_internals
 {
 public:
-    message_internals()
+    packet_internals()
         : m_rtt(-1)
         , m_ptr_message_code(nullptr, [](void*&){})
         , m_fsaver(nullptr)
     {}
-    ~message_internals() noexcept
+    ~packet_internals() noexcept
     {
         m_ptr_message_code.reset();
     }
@@ -35,43 +35,43 @@ public:
 
 }
 /*
- * message
+ * packet
  */
-message::message()
-    : m_pimpl(new detail::message_internals())
+packet::packet()
+    : m_pimpl(new detail::packet_internals())
 {
 }
 
-message::message(message&& other)
+packet::packet(packet&& other)
     : m_pimpl(std::move(other.m_pimpl))
 {
 }
 
-message::~message()
+packet::~packet()
 {
 }
 
-size_t message::type() const
+size_t packet::type() const
 {
     return m_pimpl->m_rtt;
     return 0;
 }
 
-void message::clean()
+void packet::clean()
 {
-    m_pimpl.reset(new detail::message_internals());
+    m_pimpl.reset(new detail::packet_internals());
 }
 
-std::vector<char> message::save() const
+std::vector<char> packet::save() const
 {
     fptr_saver& fsaver = m_pimpl->m_fsaver;
     if (nullptr == fsaver)
-        throw std::runtime_error("message::save() on empty message");
+        throw std::runtime_error("packet::save() on empty message");
 
     return fsaver(m_pimpl->m_ptr_message_code.get());
 }
 
-void message::set(size_t rtt,
+void packet::set(size_t rtt,
                   ptr_msg pmsg,
                   fptr_saver fsaver)
 {
@@ -80,14 +80,14 @@ void message::set(size_t rtt,
                   fsaver);
 }
 
-void const* message::_get_internal() const noexcept
+void const* packet::_get_internal() const noexcept
 {
     return m_pimpl->m_ptr_message_code.get();
 }
 
-void message::_set_internal(size_t rtt,
-                            ptr_msg pmsg,
-                            fptr_saver fsaver) noexcept
+void packet::_set_internal(size_t rtt,
+                           ptr_msg pmsg,
+                           fptr_saver fsaver) noexcept
 {
     m_pimpl->m_ptr_message_code = std::move(pmsg);
     m_pimpl->m_rtt = rtt;

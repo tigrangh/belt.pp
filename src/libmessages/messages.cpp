@@ -1,4 +1,4 @@
-#include "messagecodes.hpp"
+#include "messages.hpp"
 
 #include <belt.pp/message_global.hpp>
 
@@ -6,7 +6,7 @@
 
 using message_list = beltpp::message_list;
 using message_code_store =
-beltpp::detail::message_code_store<message_list>;
+beltpp::detail::message_store<message_list>;
 
 namespace beltpp
 {
@@ -72,9 +72,9 @@ beltpp::detail::pmsg_all message_list_load(
     {
         clean_count = -1;
         return_value =
-            beltpp::detail::pmsg_all(   message_code_error::rtt,
-                                        message_code_creator<message_code_error>(),
-                                        &message_code_error::saver);
+            beltpp::detail::pmsg_all(   message_error::rtt,
+                                        make_void_unique_ptr<message_error>(),
+                                        &message_error::saver);
     }
     else if (result.first == detail::e_scan_result::success)
         clean_count = result.second;
@@ -233,9 +233,9 @@ scan_result read(uint64_t& value,
     return result;
 }
 
-static_assert(0 == beltpp::message_code_error::rtt, "rtt check");
-static_assert(1 == beltpp::message_code_join::rtt, "rtt check");
-static_assert(2 == beltpp::message_code_drop::rtt, "rtt check");
+static_assert(0 == beltpp::message_error::rtt, "rtt check");
+static_assert(1 == beltpp::message_join::rtt, "rtt check");
+static_assert(2 == beltpp::message_drop::rtt, "rtt check");
 }
 
 }

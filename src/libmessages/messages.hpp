@@ -27,37 +27,37 @@ std::string read(std::string const& before,
 
 using message_list =
 typelist::type_list<
-class message_code_error,
-class message_code_join,
-class message_code_drop,
-class message_code_hello,
-class message_code_get_peers,
-class message_code_peer_info,
-class message_code_timer_out
+class message_error,
+class message_join,
+class message_drop,
+class message_hello,
+class message_get_peers,
+class message_peer_info,
+class message_timer_out
 >;
 
-detail::pmsg_all MESSAGECODESSHARED_EXPORT message_list_load(
+detail::pmsg_all MESSAGESSHARED_EXPORT message_list_load(
         beltpp::iterator_wrapper<char const>& iter_scan_begin,
         beltpp::iterator_wrapper<char const> const& iter_scan_end);
 
-class MESSAGECODESSHARED_EXPORT message_code_error :
-        public message_code<message_code_error, message_list>
+class MESSAGESSHARED_EXPORT message_error :
+        public message_base<message_error, message_list>
 {
 };
 
-class MESSAGECODESSHARED_EXPORT message_code_join :
-        public message_code<message_code_join, message_list>
+class MESSAGESSHARED_EXPORT message_join :
+        public message_base<message_join, message_list>
 {};
 
-class MESSAGECODESSHARED_EXPORT message_code_drop :
-        public message_code<message_code_drop, message_list>
+class MESSAGESSHARED_EXPORT message_drop :
+        public message_base<message_drop, message_list>
 {};
 
-class MESSAGECODESSHARED_EXPORT message_code_hello :
-        public message_code<message_code_hello, message_list>
+class MESSAGESSHARED_EXPORT message_hello :
+        public message_base<message_hello, message_list>
 {
 public:
-    message_code_hello()
+    message_hello()
         : m_message("") {}
 
     std::string message_saver() const
@@ -94,12 +94,12 @@ public:
     std::string m_message;
 };
 
-class MESSAGECODESSHARED_EXPORT message_code_get_peers :
-        public message_code<message_code_get_peers, message_list>
+class MESSAGESSHARED_EXPORT message_get_peers :
+        public message_base<message_get_peers, message_list>
 {};
 
-class MESSAGECODESSHARED_EXPORT message_code_peer_info :
-        public message_code<message_code_peer_info, message_list>
+class MESSAGESSHARED_EXPORT message_peer_info :
+        public message_base<message_peer_info, message_list>
 {
 public:
     std::string message_saver() const
@@ -248,12 +248,12 @@ public:
     ip_address address;
 };
 
-class message_code_timer_out :
-        public message_code<message_code_timer_out, message_list>
+class message_timer_out :
+        public message_base<message_timer_out, message_list>
 {};
 
-static_assert(inspection::has_message_saver<message_code_hello>::value == 1, "test");
-static_assert(inspection::has_message_saver<message_code_drop>::value == 0, "test");
-static_assert(inspection::has_message_saver<message_code_error>::value == 0, "test");
+static_assert(inspection::has_message_saver<message_hello>::value == 1, "test");
+static_assert(inspection::has_message_saver<message_drop>::value == 0, "test");
+static_assert(inspection::has_message_saver<message_error>::value == 0, "test");
 
 }
