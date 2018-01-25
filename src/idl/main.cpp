@@ -298,7 +298,7 @@ string analyze(expression_tree const* pexpression)
     result += "    {\n";
     result += "        return_value =\n";
     result += "                beltpp::detail::pmsg_all(   " + class_name + "::rtt,\n";
-    result += "                                            message_code_creator<" + class_name + ">(),\n";
+    result += "                                            make_void_unique_ptr<" + class_name + ">(),\n";
     result += "                                            &" + class_name + "::saver);\n";
     result += "        " + class_name + "* pmsgcode =\n";
     result += "                static_cast<" + class_name + "*>(return_value.pmsg.get());\n";

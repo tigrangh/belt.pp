@@ -1,21 +1,21 @@
-add_definitions(-DMESSAGE_LIBRARY)
+add_definitions(-DMESSAGES_LIBRARY)
 
 # define the shared library
-add_library(message SHARED
+add_library(messages SHARED
     global.hpp
-    message.cpp
-    message.hpp)
+    messages.cpp
+    messages.hpp)
 
 # libraries this module links to
-target_link_libraries(message PUBLIC belt.pp)
+target_link_libraries(messages PUBLIC belt.pp)
 
 # what to do on make install
-install(TARGETS message
+install(TARGETS messages
         EXPORT belt.pp.package
         LIBRARY DESTINATION lib/belt.pp
         ARCHIVE DESTINATION lib/belt.pp/archive)
 
 install(FILES
     global.hpp
-    message.hpp
-    DESTINATION include/belt.pp/libmessage)
+    messages.hpp
+    DESTINATION include/belt.pp/libmessages)

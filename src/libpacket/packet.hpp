@@ -15,29 +15,29 @@ namespace beltpp
 
 namespace detail
 {
-    class message_internals;
+    class packet_internals;
 }
 
-class MESSAGESHARED_EXPORT message
+class PACKETSHARED_EXPORT packet
 {
 public:
     using fptr_deleter = detail::fptr_deleter;
     using fptr_saver = detail::fptr_saver;
     using ptr_msg = detail::ptr_msg;
 
-    message();
-    message(message&& other);
-    virtual ~message();
+    packet();
+    packet(packet&& other);
+    virtual ~packet();
 
-    template <typename MessageValue>
-    message(MessageValue&& msg) :
-        message()
+    template <typename T_message>
+    packet(T_message&& msg) :
+        packet()
     {
-        set(std::forward<MessageValue>(msg));
+        set(std::forward<T_message>(msg));
     }
 
-    message& operator = (message const&) = delete;
-    message& operator = (message&&) = delete;
+    packet& operator = (packet const&) = delete;
+    packet& operator = (packet&&) = delete;
 
     size_t type() const;
     void clean();
@@ -46,11 +46,11 @@ public:
              ptr_msg pmsg,
              fptr_saver fsaver);
 
-    template <typename MessageValue>
-    void set(MessageValue&& msg);
+    template <typename T_message>
+    void set(T_message&& msg);
 
-    template <typename MessageValue>
-    void get(MessageValue& msg) const;
+    template <typename T_message>
+    void get(T_message& msg) const;
 
 protected:
     void const* _get_internal() const noexcept;
@@ -58,30 +58,30 @@ protected:
                        ptr_msg pmsg,
                        fptr_saver fsaver) noexcept;
 
-    std::unique_ptr<detail::message_internals> m_pimpl;
+    std::unique_ptr<detail::packet_internals> m_pimpl;
 };
 
-template <typename MessageValue>
-void message::set(MessageValue&& msg)
+template <typename T_message>
+void packet::set(T_message&& msg)
 {
-    using MessageValueT = typename std::remove_reference<MessageValue>::type;
-    ptr_msg pmsg(message_code_creator<MessageValueT>());
+    using MessageValueT = typename std::remove_reference<T_message>::type;
+    ptr_msg pmsg(make_void_unique_ptr<MessageValueT>());
     void* pv = pmsg.get();
     MessageValueT* pmv = static_cast<MessageValueT*>(pv);
     MessageValueT& ref = *pmv;
-    ref = std::forward<MessageValue>(msg);
+    ref = std::forward<T_message>(msg);
     set(MessageValueT::rtt,
         std::move(pmsg),
         &MessageValueT::saver);
 }
 
-template <typename MessageValue>
-void message::get(MessageValue& msg) const
+template <typename T_message>
+void packet::get(T_message& msg) const
 {
     auto rtt = type();
-    if (rtt == MessageValue::rtt)
+    if (rtt == T_message::rtt)
     {
-        msg = *reinterpret_cast<MessageValue const*>(_get_internal());
+        msg = *reinterpret_cast<T_message const*>(_get_internal());
     }
     /*else
         msg = MessageValue::convert(_get_internal());*/

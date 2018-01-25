@@ -6,8 +6,8 @@ add_executable(test_experiments
 target_link_libraries(test_experiments PUBLIC
     socket
     processor
-    message
-    messagecodes)
+    packet
+    messages)
 
 # what to do on make install
 install(TARGETS test_experiments

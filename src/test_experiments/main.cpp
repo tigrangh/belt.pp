@@ -6,26 +6,23 @@
 #include <map>
 #include <belt.pp/delegate.hpp>
 #include <belt.pp/processor.hpp>
-#include <belt.pp/message.hpp>
-#include <belt.pp/messagecodes.hpp>
-//#include <belt.pp/p2psocket.hpp>
-//#include <type_traits>
+#include <belt.pp/packet.hpp>
+#include <belt.pp/messages.hpp>
 #include <belt.pp/socket.hpp>
-#include <belt.pp/message.hpp>
 
 using sf = beltpp::socket_family_t<
-beltpp::message_code_error::rtt,
-beltpp::message_code_join::rtt,
-beltpp::message_code_drop::rtt,
-beltpp::message_code_timer_out::rtt,
-&beltpp::message_code_creator<beltpp::message_code_error>,
-&beltpp::message_code_creator<beltpp::message_code_join>,
-&beltpp::message_code_creator<beltpp::message_code_drop>,
-&beltpp::message_code_creator<beltpp::message_code_timer_out>,
-&beltpp::message_code_error::saver,
-&beltpp::message_code_join::saver,
-&beltpp::message_code_drop::saver,
-&beltpp::message_code_timer_out::saver,
+beltpp::message_error::rtt,
+beltpp::message_join::rtt,
+beltpp::message_drop::rtt,
+beltpp::message_timer_out::rtt,
+&beltpp::make_void_unique_ptr<beltpp::message_error>,
+&beltpp::make_void_unique_ptr<beltpp::message_join>,
+&beltpp::make_void_unique_ptr<beltpp::message_drop>,
+&beltpp::make_void_unique_ptr<beltpp::message_timer_out>,
+&beltpp::message_error::saver,
+&beltpp::message_join::saver,
+&beltpp::message_drop::saver,
+&beltpp::message_timer_out::saver,
 &beltpp::message_list_load
 >;
 
@@ -57,28 +54,28 @@ int main(int argc, char** argv)
             sk.open({"127.0.0.1", 3333, "127.0.0.1", 4444, sv});
         else
             sk.open({"127.0.0.1", 4444, "127.0.0.1", 3333, sv});
-        beltpp::message msg;
+        beltpp::packet msg;
         beltpp::socket::peer_id peer;
-        beltpp::socket::messages message_list;
-        beltpp::message_code_hello hello;
+        beltpp::socket::packets message_list;
+        beltpp::message_hello hello;
 
         while (true)
         {
             std::cout << "reading...\n";
-            message_list = sk.read(peer);
+            message_list = sk.recieve(peer);
             for (auto const& msg : message_list)
             {
-                if (msg.type() == beltpp::message_code_join::rtt)
+                if (msg.type() == beltpp::message_join::rtt)
                 {
                     std::cout << "connected\n";
                     hello.m_message = sk.info(peer).local.address;
-                    sk.write(peer, hello);
+                    sk.send(peer, hello);
                 }
-                else if (msg.type() == beltpp::message_code_drop::rtt)
+                else if (msg.type() == beltpp::message_drop::rtt)
                 {
                     std::cout << "disconnected\n";
                 }
-                else if (msg.type() == beltpp::message_code_hello::rtt)
+                else if (msg.type() == beltpp::message_hello::rtt)
                 {
                     msg.get(hello);
                     std::cout << hello.m_message << std::endl;

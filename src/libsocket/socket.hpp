@@ -54,7 +54,7 @@ class SOCKETSHARED_EXPORT socket : public beltpp::isocket
 public:
     using peer_id = isocket::peer_id;
     using peer_ids = std::list<peer_id>;
-    using messages = isocket::messages;
+    using packets = isocket::packets;
 
     socket(size_t _rtt_error,
            size_t _rtt_join,
@@ -78,10 +78,10 @@ public:
     void open(ip_address address,
               size_t attempts = 0);
 
-    messages read(peer_id& peer) override;
+    packets recieve(peer_id& peer) override;
 
-    void write(peer_id const& peer,
-               message const& msg) override;
+    void send(peer_id const& peer,
+              packet const& msg) override;
 
     void set_timer(std::chrono::steady_clock::duration const& period);
 

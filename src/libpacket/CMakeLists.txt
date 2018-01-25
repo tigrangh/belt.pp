@@ -1,22 +1,21 @@
-add_definitions(-DSOCKET_LIBRARY)
+add_definitions(-DPACKET_LIBRARY)
 
 # define the shared library
-add_library(socket SHARED
+add_library(packet SHARED
     global.hpp
-    poll_master.hpp
-    socket.cpp
-    socket.hpp)
+    packet.cpp
+    packet.hpp)
 
 # libraries this module links to
-target_link_libraries(socket PUBLIC belt.pp packet)
+target_link_libraries(packet PUBLIC belt.pp)
 
 # what to do on make install
-install(TARGETS socket
+install(TARGETS packet
         EXPORT belt.pp.package
         LIBRARY DESTINATION lib/belt.pp
         ARCHIVE DESTINATION lib/belt.pp/archive)
 
 install(FILES
     global.hpp
-    socket.hpp
-    DESTINATION include/belt.pp/libsocket)
+    packet.hpp
+    DESTINATION include/belt.pp/libpacket)

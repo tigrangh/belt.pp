@@ -6,7 +6,7 @@
 namespace beltpp
 {
 
-class message;
+class packet;
 
 class ip_destination
 {
@@ -94,15 +94,15 @@ class isocket
 {
 public:
     using peer_id = std::string;
-    using messages = std::list<message>;
+    using packets = std::list<packet>;
 
     isocket() {};
     virtual ~isocket() {};
 
-    virtual messages read(peer_id& peer) = 0;
+    virtual packets recieve(peer_id& peer) = 0;
 
-    virtual void write(peer_id const& peer,
-                       message const& msg) = 0;
+    virtual void send(peer_id const& peer,
+                      packet const& msg) = 0;
 };
 
 }

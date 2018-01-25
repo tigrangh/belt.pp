@@ -22,10 +22,47 @@
 #endif
 
 #include <string>
+#include <memory>
 
 namespace beltpp
 {
 enum class e_three_state_result {success, attempt, error};
+
+namespace detail
+{
+using fptr_deleter = void(*)(void*&);
+}
+using void_unique_ptr = std::unique_ptr<void, detail::fptr_deleter>;
+
+template <typename T>
+static void_unique_ptr make_void_unique_ptr()
+{
+    void_unique_ptr result(nullptr,
+                           [](void* &p)
+                            {
+                                T* pmc = static_cast<T*>(p);
+                                delete pmc;
+                                p = nullptr;
+                            });
+
+    result.reset(new T());
+    return result;
+}
+
+template <typename T>
+static void_unique_ptr make_void_unique_ptr(T const& other)
+{
+    void_unique_ptr result(nullptr,
+                           [](void* &p)
+                            {
+                                T* pmc = static_cast<T*>(p);
+                                delete pmc;
+                                p = nullptr;
+                            });
+
+    result.reset(new T(other));
+    return result;
+}
 
 double stod(std::string const& value, size_t& pos)
 {
