@@ -99,7 +99,7 @@ public:
     isocket() {};
     virtual ~isocket() {};
 
-    virtual packets recieve(peer_id& peer) = 0;
+    virtual packets receive(peer_id& peer) = 0;
 
     virtual void send(peer_id const& peer,
                       packet const& msg) = 0;

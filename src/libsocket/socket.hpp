@@ -78,7 +78,7 @@ public:
     void open(ip_address address,
               size_t attempts = 0);
 
-    packets recieve(peer_id& peer) override;
+    packets receive(peer_id& peer) override;
 
     void send(peer_id const& peer,
               packet const& msg) override;

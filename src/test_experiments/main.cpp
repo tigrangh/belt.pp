@@ -62,7 +62,7 @@ int main(int argc, char** argv)
         while (true)
         {
             std::cout << "reading...\n";
-            message_list = sk.recieve(peer);
+            message_list = sk.receive(peer);
             for (auto const& msg : message_list)
             {
                 if (msg.type() == beltpp::message_join::rtt)

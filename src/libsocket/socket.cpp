@@ -376,7 +376,7 @@ void set_nonblocking(int socket_descriptor, bool option)
     }
 }
 
-packets socket::recieve(peer_id& peer)
+packets socket::receive(peer_id& peer)
 {
     packets result;
 
@@ -573,21 +573,25 @@ packets socket::recieve(peer_id& peer)
                            it_begin)
                         current_channel.m_stream.pop();
 
-                    if (pmsgall.pmsg)
-                    {
-                        packet msg;
-                        msg.set(pmsgall.rtt,
-                                std::move(pmsgall.pmsg),
-                                pmsgall.fsaver);
-
-                        result.emplace_back(std::move(msg));
-                    }
-                    else if (pmsgall.rtt == 0)
+                    if (pmsgall.rtt == 0 ||
+                        pmsgall.rtt == m_pimpl->m_rtt_drop ||
+                        pmsgall.rtt == m_pimpl->m_rtt_error ||
+                        pmsgall.rtt == m_pimpl->m_rtt_join ||
+                        pmsgall.rtt == m_pimpl->m_rtt_timer_out)
                     {
                         packet msg;
                         msg.set(m_pimpl->m_rtt_error,
                                 m_pimpl->m_fcreator_error(),
                                 m_pimpl->m_fsaver_error);
+
+                        result.emplace_back(std::move(msg));
+                    }
+                    else if (pmsgall.pmsg)
+                    {
+                        packet msg;
+                        msg.set(pmsgall.rtt,
+                                std::move(pmsgall.pmsg),
+                                pmsgall.fsaver);
 
                         result.emplace_back(std::move(msg));
                     }
