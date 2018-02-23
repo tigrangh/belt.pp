@@ -159,7 +159,7 @@ public:
         {
             right = 0;
             left_min = 0;
-            left_max = 1;
+            left_max = -1;
             return std::make_pair(true, true);
         }
         return std::make_pair(false, false);
@@ -343,30 +343,14 @@ string analyze_class(expression_tree const* pexpression,
 
     vector<expression_tree const*> members;
     auto pexpression_brace = pexpression->children.back();
-    assert(pexpression_brace->children.size() <= 1);
 
-    if (pexpression_brace->children.empty())
+    for (auto item : pexpression_brace->children)
     {
-        //  that's ok
+        if (item->lexem.rtt == operator_colon::rtt)
+            members.push_back(item);
+        else
+            throw runtime_error("inside class syntax error, wtf");
     }
-    else if (pexpression_brace->children.front()->lexem.rtt ==
-            operator_colon::rtt)
-        members.push_back(pexpression_brace->children.front());
-    else if (pexpression_brace->children.front()->lexem.rtt ==
-             operator_semicolon::rtt)
-    {
-        for (auto item : pexpression_brace->children.front()->children)
-        {
-            if (item->lexem.rtt == operator_colon::rtt)
-                members.push_back(item);
-            else
-                throw runtime_error("inside class syntax error, wtf");
-        }
-
-        assert(false == members.empty());
-    }
-    else
-        throw runtime_error("inside class syntax error, wtf, still");
 
     result += "    enum {rtt = " + std::to_string(rtt) + "};\n";
 
