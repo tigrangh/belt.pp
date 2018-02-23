@@ -114,7 +114,7 @@ bool expression_tree<T_lexers, T_string>::is_value() const noexcept
 template <typename T_lexers, typename T_string>
 bool expression_tree<T_lexers, T_string>::is_operator() const noexcept
 {
-    return  lexem.right > 0;
+    return lexem.right > 0;
 }
 
 template <typename T_lexers, typename T_string>
@@ -269,32 +269,40 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
         if (success)
             break;
         if (token_type_operator == ttype &&
-            ptr_expression &&
-            ptr_expression->is_value())
+            ptr_expression)
         {
             T_expression_tree* pparent = ptr_expression.get();
-            T_expression_tree* test_pparent = nullptr;
-            while ((test_pparent = pparent->parent) != nullptr &&
-                   test_pparent->lexem.priority >= read_result.priority &&
-                   test_pparent->is_value())
+            T_expression_tree* test_pparent = pparent;
+            while (pparent &&
+                   pparent->is_value() &&
+                   pparent->lexem.priority >= read_result.priority)
             {
-                pparent = test_pparent;
+                test_pparent = pparent;
+                pparent = pparent->parent;
             }
-            //  after this while pparent is either the same as ptr_expression
+            assert(test_pparent);
+            pparent = test_pparent;
+            //  now pparent is either the same as ptr_expression
             //  or is the weakest priority binary operator, that is still stronger
             //  than read_result but it cannot go as weak as the enclosing operator
             //  that still needs one or more arguments and is different than read_result
 
-            //  now that we have pparent, try to scan up to see if there is an
-            //  enclosing operator that needs one or more arguments and has the
+            //  will try to scan up to see if there is an
+            //  enclosing operator that needs one or more arguments and
             //  is actually the same as read_result
-            test_pparent = pparent;
-            while (test_pparent && test_pparent->is_value())
+            while (true)
+            {
+                if (test_pparent->is_operator() &&
+                    test_pparent->lexem.rtt == read_result.rtt)
+                {
+                    pparent = test_pparent;
+                    break;
+                }
+                if (nullptr == test_pparent->parent ||
+                    false == test_pparent->is_value())
+                    break;
                 test_pparent = test_pparent->parent;
-            if (test_pparent &&
-                test_pparent->is_operator() &&  //  this wasn't in older code
-                test_pparent->lexem.rtt == read_result.rtt)
-                pparent = test_pparent;
+            }
 
             bool fix_the_same_possible = false;
             if (pparent->lexem.rtt == read_result.rtt)
@@ -307,6 +315,9 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
             if (left_count >= read_result.left_min &&
                 left_count <= read_result.left_max)
             {
+                read_result.left_min = 0;
+                read_result.left_max -= left_count;
+
                 if (ptr_expression.get() != pparent)
                 {
                     ptr_expression.release();
@@ -317,7 +328,8 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
                 {
                     auto value_backup = ptr_expression->lexem.value;
                     ptr_expression->lexem = read_result;
-                    ptr_expression->lexem.value = value_backup + ptr_expression->lexem.value;
+                    ptr_expression->lexem.value =
+                            value_backup + ptr_expression->lexem.value;
                 }
                 else
                 {
@@ -342,7 +354,9 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
         else if (token_type_value == ttype)
         {
             T_expression_tree* pparent = ptr_expression.get();
-            while (pparent && pparent->is_value())
+            while (pparent &&
+                   false == pparent->is_operator() &&
+                   pparent->is_value())
                 pparent = pparent->parent;
 
             if (nullptr == ptr_expression)
@@ -351,20 +365,11 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
                 ptr_expression->lexem = read_result;
                 success = true;
             }
-            else if (pparent && pparent->is_operator() &&
-                     pparent->lexem.rtt == read_result.rtt &&
-                     pparent->children.size() <= read_result.left_max &&
-                     pparent->children.size() >= read_result.left_min)
+            else if (pparent && false == pparent->is_operator())
             {
-                ptr_expression.release();
-                ptr_expression.reset(pparent);
-
-                auto value_backup = ptr_expression->lexem.value;
-                ptr_expression->lexem = read_result;
-                ptr_expression->lexem.value = value_backup + ptr_expression->lexem.value;
-                success = true;
+                assert(false);
             }
-            else if (pparent && pparent->is_operator())
+            else if (pparent)
             {
                 T_expression_tree* ptemp = &pparent->add_child(read_result);
 
@@ -624,6 +629,7 @@ public:
 
         if (code && it_copy != it_begin)
         {
+            result.priority = size_t(-1);
             result.rtt = T_value_lexer::rtt;
             result.right = 0;
             result.left_min = 0;
