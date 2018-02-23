@@ -19,7 +19,7 @@ using std::ifstream;
 using std::vector;
 
 using lexers = beltpp::typelist::type_list<
-class operator_semicolon,
+class keyword_namespace,
 class keyword_class,
 class scope_brace,
 class operator_colon,
@@ -114,6 +114,30 @@ int main(int argc, char* argv[])
     return 0;
 }
 
+class keyword_namespace : public beltpp::operator_lexer_base<keyword_namespace, lexers>
+{
+public:
+    size_t right = 2;
+    size_t left_max = 0;
+    size_t left_min = 0;
+    enum { grow_priority = 1 };
+
+    std::pair<bool, bool> check(char ch)
+    {
+        if ((ch >= 'a' && ch <= 'z') ||
+            (ch >= 'A' && ch <= 'Z'))
+            return std::make_pair(true, false);
+        return std::make_pair(false, false);
+    }
+
+    template <typename T_iterator>
+    bool final_check(T_iterator const& it_begin,
+                     T_iterator const& it_end) const
+    {
+        return std::string(it_begin, it_end) == "namespace";
+    }
+};
+
 class keyword_class : public beltpp::operator_lexer_base<keyword_class, lexers>
 {
 public:
@@ -171,27 +195,6 @@ public:
     {
         string temp(it_begin, it_end);
         return (temp == "{" || temp == "}");
-    }
-};
-
-class operator_semicolon : public beltpp::operator_lexer_base<operator_semicolon, lexers>
-{
-public:
-    size_t right = 1;
-    size_t left_max = -1;
-    size_t left_min = 1;
-    enum { grow_priority = 1 };
-
-    std::pair<bool, bool> check(char ch)
-    {
-        return beltpp::standard_operator_check<beltpp::standard_operator_set<void>>(ch);
-    }
-
-    template <typename T_iterator>
-    bool final_check(T_iterator const& it_begin,
-                     T_iterator const& it_end) const
-    {
-        return string(it_begin, it_end) == ";";
     }
 };
 
@@ -265,21 +268,20 @@ string analyze(expression_tree const* pexpression)
     vector<string> class_names;
     string class_name;
 
-    if (pexpression->lexem.rtt == keyword_class::rtt)
+    if (pexpression->lexem.rtt != keyword_namespace::rtt)
+        throw runtime_error("use one and only one namespace");
+    else if (pexpression->children.size() != 2 ||
+             pexpression->children.front()->lexem.rtt != identifier::rtt ||
+             pexpression->children.back()->lexem.rtt != scope_brace::rtt)
+        throw runtime_error("namespace syntax error");
+    else
     {
-        result += analyze_class(pexpression, rtt++, class_name);
-        class_names.push_back(class_name);
-    }
-    else if (pexpression->lexem.rtt == operator_semicolon::rtt)
-    {
-        for (auto item : pexpression->children)
+        for (auto item : pexpression->children.back()->children)
         {
             result += analyze_class(item, rtt++, class_name);
             class_names.push_back(class_name);
         }
     }
-    else
-        throw runtime_error("wtf");
 
     if (class_names.empty())
         throw runtime_error("wtf, nothing to do");
