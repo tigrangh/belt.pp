@@ -363,7 +363,7 @@ public:
 
 namespace detail
 {
-    uint64_t next2pow(uint64_t number)
+    inline uint64_t next2pow(uint64_t number)
     {
         uint64_t p2 = 1;
         while (number > p2)
@@ -372,7 +372,7 @@ namespace detail
         return p2;
     }
 
-    uint64_t capacity2pow(uint64_t capacity)
+    inline uint64_t capacity2pow(uint64_t capacity)
     {
         if (0 != capacity)
             capacity = next2pow(capacity);

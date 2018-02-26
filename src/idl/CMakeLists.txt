@@ -1,6 +1,11 @@
 # define the executable
 add_executable(idl
-    main.cpp)
+    generator.cpp
+    generator.hpp
+    main.cpp
+    parser.hpp
+    resources.cpp
+    resources.hpp)
 
 # libraries this module links to
 target_link_libraries(idl PUBLIC belt.pp)
