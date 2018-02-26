@@ -35,7 +35,7 @@ using fptr_deleter = void(*)(void*&);
 using void_unique_ptr = std::unique_ptr<void, detail::fptr_deleter>;
 
 template <typename T>
-static void_unique_ptr make_void_unique_ptr()
+inline void_unique_ptr make_void_unique_ptr()
 {
     void_unique_ptr result(nullptr,
                            [](void* &p)
@@ -50,7 +50,7 @@ static void_unique_ptr make_void_unique_ptr()
 }
 
 template <typename T>
-static void_unique_ptr make_void_unique_ptr(T const& other)
+inline void_unique_ptr make_void_unique_ptr(T const& other)
 {
     void_unique_ptr result(nullptr,
                            [](void* &p)
@@ -64,7 +64,7 @@ static void_unique_ptr make_void_unique_ptr(T const& other)
     return result;
 }
 
-double stod(std::string const& value, size_t& pos)
+inline double stod(std::string const& value, size_t& pos)
 {
     double result;
     try
@@ -78,7 +78,7 @@ double stod(std::string const& value, size_t& pos)
 
     return result;
 }
-int64_t stoll(std::string const& value, size_t& pos)
+inline int64_t stoll(std::string const& value, size_t& pos)
 {
     int64_t result = 0;
     try
@@ -92,7 +92,7 @@ int64_t stoll(std::string const& value, size_t& pos)
 
     return result;
 }
-uint64_t stoull(std::string const& value, size_t& pos)
+inline uint64_t stoull(std::string const& value, size_t& pos)
 {
     uint64_t result = 0;
     try
@@ -105,6 +105,12 @@ uint64_t stoull(std::string const& value, size_t& pos)
     }
 
     return result;
+}
+
+template <typename Tself, typename Tother>
+inline void assign(Tself& self, Tother const& other)
+{
+    self = static_cast<Tself>(other);
 }
 }
 
