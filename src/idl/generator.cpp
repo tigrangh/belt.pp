@@ -38,7 +38,8 @@ string analyze(expression_tree const* pexpression)
     result += "namespace detail\n";
     result += "{\n";
     result += "bool analyze_json_object(beltpp::json::expression_tree* pexp,\n";
-    result += "                         beltpp::detail::pmsg_all& return_value)\n";
+    result += "                         beltpp::detail::pmsg_all& return_value,\n";
+    result += "                         utils const& utl)\n";
     result += "{\n";
     result += "    bool code = false;\n";
     result += "    switch (return_value.rtt)\n";
@@ -53,7 +54,7 @@ string analyze(expression_tree const* pexpression)
     result += "                                            &" + class_name + "::saver);\n";
     result += "        " + class_name + "* pmsgcode =\n";
     result += "                static_cast<" + class_name + "*>(return_value.pmsg.get());\n";
-    result += "        code = analyze_json(*pmsgcode, pexp);\n";
+    result += "        code = analyze_json(*pmsgcode, pexp, utl);\n";
     result += "    }\n";
     result += "        break;\n";
     }
@@ -194,7 +195,8 @@ string analyze_class(expression_tree const* pexpression,
     result += "namespace detail\n";
     result += "{\n";
     result += "bool analyze_json(" + class_name + "& msgcode,\n";
-    result += "                  beltpp::json::expression_tree* pexp)\n";
+    result += "                  beltpp::json::expression_tree* pexp,\n";
+    result += "                  utils const& utl)\n";
     result += "{\n";
     result += "    bool code = true;\n";
     result += "    std::unordered_map<std::string, beltpp::json::expression_tree*> members;\n";
@@ -215,7 +217,7 @@ string analyze_class(expression_tree const* pexpression,
     result += "            {\n";
     result += "                beltpp::json::expression_tree* item = it_find->second;\n";
     result += "                assert(item);\n";
-    result += "                code = analyze_json(msgcode." + member_name.value + ", item);\n";
+    result += "                code = analyze_json(msgcode." + member_name.value + ", item, utl);\n";
     result += "            }\n";
     result += "        }\n";
     }

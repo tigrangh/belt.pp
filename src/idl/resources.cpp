@@ -14,10 +14,12 @@ namespace {namespace_name}
 {
 namespace detail
 {
+class utils;
 bool analyze_json_object(beltpp::json::expression_tree* pexp,
                          size_t& rtt);
 bool analyze_json_object(beltpp::json::expression_tree* pexp,
-                         beltpp::detail::pmsg_all& return_value);
+                         pmsg_all& return_value,
+                         utils const& utl);
 bool analyze_json_common(size_t& rtt,
                          beltpp::json::expression_tree* pexp,
                          std::unordered_map<std::string, beltpp::json::expression_tree*>& members);
@@ -25,7 +27,14 @@ bool analyze_colon(beltpp::json::expression_tree* pexp,
                    size_t& rtt);
 bool analyze_colon(beltpp::json::expression_tree* pexp,
                    std::unordered_map<std::string, beltpp::json::expression_tree*>& members);
+typedef bool(*fptr_utf32_to_utf8)(uint32_t, std::string&);
+class utils
+{
+public:
+ fptr_utf32_to_utf8 fp_utf32_to_utf8;
+};
 }
+template <detail::fptr_utf32_to_utf8 fp_utf32_to_utf8>
 detail::pmsg_all message_list_load(
         beltpp::iterator_wrapper<char const>& iter_scan_begin,
         beltpp::iterator_wrapper<char const> const& iter_scan_end)
@@ -34,6 +43,9 @@ detail::pmsg_all message_list_load(
 
     json::ptr_expression_tree pexp;
     json::expression_tree* proot = nullptr;
+
+    detail::utils utl;
+    utl.fp_utf32_to_utf8 = fp_utf32_to_utf8;
 
     detail::pmsg_all return_value (size_t(-1),
                                    detail::ptr_msg(nullptr, [](void*&){}),
@@ -60,7 +72,7 @@ detail::pmsg_all message_list_load(
         code = e_three_state_result::error;
     }
     else if (e_three_state_result::success == code &&
-             false == detail::analyze_json_object(pexp.get(), return_value))
+             false == detail::analyze_json_object(pexp.get(), return_value, utl))
     {
         code = e_three_state_result::error;
     }
@@ -95,10 +107,11 @@ std::string saver(int value)
 }
 std::string saver(std::string const& value)
 {
-    return "\"" + value + "\"";
+    return beltpp::json::value_string::encode(value);
 }
 bool analyze_json(int& value,
-                  beltpp::json::expression_tree* pexp)
+                  beltpp::json::expression_tree* pexp,
+                  utils const&)
 {
     bool code = true;
     if (nullptr == pexp ||
@@ -118,17 +131,15 @@ bool analyze_json(int& value,
 }
 
 bool analyze_json(std::string& value,
-                  beltpp::json::expression_tree* pexp)
+                  beltpp::json::expression_tree* pexp,
+                  utils const& utl)
 {
     bool code = true;
     if (nullptr == pexp ||
         pexp->lexem.rtt != json::value_string::rtt)
         code = false;
     else
-    {
-        value = pexp->lexem.value;
-        value = value.substr(1, value.length() - 2);
-    }
+        code = beltpp::json::value_string::decode(pexp->lexem.value, value, utl.fp_utf32_to_utf8);
 
     return code;
 }
