@@ -128,7 +128,7 @@ static_assert(0x10000 + 0x400*(uint16_t(0xD801) - 0xD800) +
               (uint16_t(0xDC01) - 0xDC00) == 0x10401, "sure?");
 static_assert(0x10000 + 0x400*(uint16_t(0xDBFF) - 0xD800) +
               (uint16_t(0xDFFF) - 0xDC00) == 0x10FFFF, "sure?");
-inline std::string code_point_to_utf8(uint32_t cp)
+inline std::string utf32_to_utf8(uint32_t cp)
 {
     std::string result;
     if (cp < 256)
@@ -276,7 +276,7 @@ public:
 
     static bool decode(std::string const& utf8_encoded,
                        std::string& utf8_value,
-                       bool(*fp_code_point_to_utf8)(uint32_t, std::string&) = nullptr)
+                       bool(*fp_utf32_to_utf8)(uint32_t, std::string&) = nullptr)
     {
         bool code = true;
         std::ostringstream out;
@@ -418,11 +418,11 @@ public:
                 if (uint32_t(-1) != code_point_encoded)
                 {
                     std::string temp_item;
-                    if (fp_code_point_to_utf8 &&
-                        fp_code_point_to_utf8(code_point_encoded, temp_item))
+                    if (fp_utf32_to_utf8 &&
+                        fp_utf32_to_utf8(code_point_encoded, temp_item))
                         item = temp_item;
                     else
-                        item = detail::code_point_to_utf8(code_point_encoded);
+                        item = detail::utf32_to_utf8(code_point_encoded);
                     code_point_encoded = -1;
                 }
 
