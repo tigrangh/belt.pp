@@ -9,6 +9,7 @@
 #include <belt.pp/packet.hpp>
 #include <belt.pp/messages.hpp>
 #include <belt.pp/socket.hpp>
+#include <belt.pp/json.hpp>
 
 using sf = beltpp::socket_family_t<
 beltpp::message_error::rtt,
@@ -26,7 +27,7 @@ beltpp::message_timer_out::rtt,
 &beltpp::message_list_load
 >;
 
-#define VERSION 10
+#define VERSION 2
 
 int main(int argc, char** argv)
 {
@@ -46,6 +47,73 @@ int main(int argc, char** argv)
         //sk.open({"", 3033}, {"", 3033}, beltpp::socket::socketv::any);
 
         std::cout << sk.dump() << std::endl;
+#elif (VERSION == 2)
+        auto converter = [](uint32_t cp, std::string& value)
+        {
+            if (cp == 0x0576)
+            {
+                value = "ն";
+                return true;
+            }
+            return false;
+        };
+        std::vector<std::string> strings_encode =
+        {
+            "ն, \n\t\x10ա",
+            "",
+            "\\"
+        };
+        for (auto const& item : strings_encode)
+        {
+            std::cout << "---\n";
+            std::string encoded = beltpp::json::value_string::encode(item);
+            std::cout << ":" << item << ":" << std::endl;
+            std::cout << encoded;
+            std::string decoded;
+            if (beltpp::json::value_string::decode(encoded, decoded))
+                std::cout << std::endl << ":" << decoded << ":" << std::endl;
+            else
+                std::cout << " - failed to decode" << std::endl;
+        }
+        std::cout << "===" << std::endl;
+        std::cout << "===" << std::endl;
+        std::vector<std::string> strings_decode =
+        {
+            "",
+            "\\",
+            "\"\"",
+            "\"\\\"",
+            "\"a\\rA\\\\\\f\"",
+            "\"a\\nA\\\\\\t\x12\"",
+            "\"\\\\",
+            "\"\\x\"",
+            "\"not closed bmp\\u1111bmp\\u0022a",
+            "\"bmp\\u0576 bmp\\u0022\\u0c01b\"",
+            "\"a bmp \\u0c01b\\u0055\\u007f\\u007e\"",
+            "\"a low \\udc01b\"",
+            "\"a low not closed \\\\\\udc01b",
+            "\"a high\\ud801\\udc01low\"",
+            "\"a high\\ud801\\u0576bmp\"",
+            "\"a high high\\ud801\\ud802bmp\"",
+            "\"a high\\ud801\"",
+            "\"not closed high\\ud801",
+            "\"high low high low\\ud801\\udc01\\udbff\\uDFFF\"",
+        };
+        for (auto const& item : strings_decode)
+        {
+            std::cout << "---\n";
+            std::string decoded;
+            std::cout << item;
+            if (beltpp::json::value_string::decode(item, decoded, converter))
+            {
+                std::cout << std::endl << ":" << decoded << ":" << std::endl;
+                std::string encoded = beltpp::json::value_string::encode(decoded);
+                std::cout << encoded << std::endl;
+            }
+            else
+                std::cout << " - failed to decode" << std::endl;
+        }
+
 #elif (VERSION == 10)
         auto sv = beltpp::ip_address::e_type::ipv4;
 
