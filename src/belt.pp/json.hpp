@@ -6,6 +6,8 @@
 #include "iterator_wrapper.hpp"
 
 #include <memory>
+#include <sstream>
+#include <cstdint>
 
 namespace beltpp
 {
@@ -105,50 +107,345 @@ public:
     }
 };
 
+namespace detail
+{
+enum class utf16_range {bmp, high, low};
+inline utf16_range utf16_check(uint16_t code)
+{
+    if (0xD800 <= code && code <= 0xDBFF)
+        return utf16_range::high;
+    if (0xDC00 <= code && code <= 0xDFFF)
+        return utf16_range::low;
+    return utf16_range::bmp;
+}
+inline uint32_t utf16_surrogate_pair_to_code_point(uint16_t high, uint16_t low)
+{
+    assert(utf16_check(high) == utf16_range::high);
+    assert(utf16_check(low) == utf16_range::low);
+    return 0x10000 + 0x400*(high - 0xD800) + (low - 0xDC00);
+}
+static_assert(0x10000 + 0x400*(uint16_t(0xD801) - 0xD800) +
+              (uint16_t(0xDC01) - 0xDC00) == 0x10401, "sure?");
+static_assert(0x10000 + 0x400*(uint16_t(0xDBFF) - 0xD800) +
+              (uint16_t(0xDFFF) - 0xDC00) == 0x10FFFF, "sure?");
+inline std::string code_point_to_utf8(uint32_t cp)
+{
+    std::string result;
+    if (cp < 256)
+    {
+        char ch = static_cast<char>(cp);
+        result += ch;
+    }
+    else    //  this assumes that a module depending on a proper
+            //  utf8 implementation will be able to override this
+            //  simple implementation. need to check if c++11 has
+            //  enough portable solution for this
+        result = "?";
+
+    return result;
+}
+}
+
 class value_string :
         public beltpp::value_lexer_base<value_string, lexers>
 {
-    enum states
-    {
-        state_none = 0x0,
-        state_single_quote_open = 0x01,
-        state_double_quote_open = 0x02,
-        state_escape_symbol = 0x04
-    };
-    int state = state_none;
+    size_t escape_sequence_index = 0;
+    size_t escape_sequence_remaining = 0;
     size_t index = -1;
 public:
-    std::pair<bool, bool> check(char ch)
+    std::pair<bool, bool> check(unsigned char ch)
     {
         ++index;
-        if (0 == index && ch == '\'')
+        if (0 == index)
         {
-            state |= state_single_quote_open;
+            if (ch == '\"')
+                return std::make_pair(true, false);
+            if (ch != '\"')
+                return std::make_pair(false, false);
+        }
+        if (0 == escape_sequence_remaining && ch == '\\')
+        {
+            ++escape_sequence_remaining;
+            escape_sequence_index = 1;
             return std::make_pair(true, false);
         }
-        if (0 == index && ch == '\"')
+        if (0 < escape_sequence_remaining &&
+            1 == escape_sequence_index)
         {
-            state |= state_double_quote_open;
-            return std::make_pair(true, false);
+            if ('\"' == ch || '\\' == ch ||
+                '/' == ch || 'b' == ch ||
+                'f' == ch || 'n' == ch ||
+                'r' == ch || 't' == ch)
+            {
+                escape_sequence_index = 0;
+                escape_sequence_remaining = 0;
+                return std::make_pair(true, false);
+            }
+            else if ('u' == ch)
+            {
+                ++escape_sequence_index;
+                escape_sequence_remaining = 4;
+                return std::make_pair(true, false);
+            }
+            else    //  unsupported escape sequence
+                return std::make_pair(false, false);
         }
-        if (0 == index && ch != '\'' && ch != '\"')
+        if (0 < escape_sequence_remaining)
+        {
+            assert(2 <= escape_sequence_index);
+            assert(6 > escape_sequence_index);
+
+            if (('0' <= ch && ch <= '9') ||
+                ('a' <= tolower(ch) && tolower(ch) <= 'f'))
+            {
+                --escape_sequence_remaining;
+                ++escape_sequence_index;
+                if (0 == escape_sequence_remaining)
+                    escape_sequence_index = 0;
+                return std::make_pair(true, false);
+            }
+            else    //  unsupported escape sequence
+                return std::make_pair(false, false);
+        }
+
+        assert(0 == escape_sequence_remaining);
+        assert(0 == escape_sequence_index);
+
+        if ('\"' == ch)
+            return std::make_pair(true, true);
+        if ('\x20' > ch)    //  unsupported charachter
             return std::make_pair(false, false);
-        if (0 != index && ch == '\'' &&
-            (state & state_single_quote_open) &&
-            !(state & state_escape_symbol))
-            return std::make_pair(true, true);
-        if (0 != index && ch == '\"' &&
-            (state & state_double_quote_open) &&
-            !(state & state_escape_symbol))
-            return std::make_pair(true, true);
-        if (0 != index && ch == '\\' &&
-            !(state & state_escape_symbol))
-        {
-            state |= state_escape_symbol;
-            return std::make_pair(true, false);
-        }
-        state &= ~state_escape_symbol;
+
         return std::make_pair(true, false);
+    }
+
+    static std::string encode(std::string const& utf8_value)
+    {
+        auto it_end = utf8_value.end();
+        auto it_begin = utf8_value.begin();
+
+        std::ostringstream out;
+        out << '\"';
+        for (auto it = it_begin; it != it_end; ++it)
+        {
+            switch (*it)
+            {
+            case '\x00': out << "\\u0000"; break;
+            case '\x01': out << "\\u0001"; break;
+            case '\x02': out << "\\u0002"; break;
+            case '\x03': out << "\\u0003"; break;
+            case '\x04': out << "\\u0004"; break;
+            case '\x05': out << "\\u0005"; break;
+            case '\x06': out << "\\u0006"; break;
+            case '\x07': out << "\\u0007"; break;
+            case '\x08': out << "\\b"; break;
+            case '\x09': out << "\\t"; break;
+            case '\x0a': out << "\\n"; break;
+            case '\x0b': out << "\\u000b"; break;
+            case '\x0c': out << "\\f"; break;
+            case '\x0d': out << "\\r"; break;
+            case '\x0e': out << "\\u000e"; break;
+            case '\x0f': out << "\\u000f"; break;
+
+            case '\x10': out << "\\u0010"; break;
+            case '\x11': out << "\\u0011"; break;
+            case '\x12': out << "\\u0012"; break;
+            case '\x13': out << "\\u0013"; break;
+            case '\x14': out << "\\u0014"; break;
+            case '\x15': out << "\\u0015"; break;
+            case '\x16': out << "\\u0016"; break;
+            case '\x17': out << "\\u0017"; break;
+            case '\x18': out << "\\u0018"; break;
+            case '\x19': out << "\\u0019"; break;
+            case '\x1a': out << "\\u001a"; break;
+            case '\x1b': out << "\\u001b"; break;
+            case '\x1c': out << "\\u001c"; break;
+            case '\x1d': out << "\\u001d"; break;
+            case '\x1e': out << "\\u001e"; break;
+            case '\x1f': out << "\\u001f"; break;
+
+            case '\\': out << "\\\\"; break;
+            case '\"': out << "\\\""; break;
+            default: out << *it;
+            }
+        }
+        out << '\"';
+
+        return out.str();
+    }
+
+    static bool decode(std::string const& utf8_encoded,
+                       std::string& utf8_value,
+                       bool(*fp_code_point_to_utf8)(uint32_t, std::string&) = nullptr)
+    {
+        bool code = true;
+        std::ostringstream out;
+
+        auto it_begin = utf8_encoded.begin();
+        auto it_end = utf8_encoded.end();
+
+        //  these two keep the state to parse escape sequences
+        size_t escape_sequence_index = 0;
+        size_t escape_sequence_remaining = 0;
+
+        uint32_t code_point_encoded = -1;
+        uint32_t surrogate_pair_high = -1;
+
+        bool proper_ending = false;
+
+        for (auto it = it_begin; code && it != it_end; ++it)
+        {
+            unsigned char ch = *it;
+            std::string item;
+
+            if (it_begin == it)
+            {
+                if (ch != '\"')
+                    code = false;
+            }
+            else if (0 == escape_sequence_remaining && ch == '\\')
+            {
+                ++escape_sequence_remaining;
+                escape_sequence_index = 1;
+            }
+            else if (0 < escape_sequence_remaining &&
+                     1 == escape_sequence_index)
+            {
+                if ('\"' == ch || '\\' == ch ||
+                    '/' == ch || 'b' == ch ||
+                    'f' == ch || 'n' == ch ||
+                    'r' == ch || 't' == ch)
+                {
+                    escape_sequence_index = 0;
+                    escape_sequence_remaining = 0;
+                    switch (ch)
+                    {
+                    case '\"': item += ch; break;
+                    case '\\': item += ch; break;
+                    case '/': item += ch; break;
+                    case 'b': item += '\x08'; break;
+                    case 'f': item += '\x0c'; break;
+                    case 'n': item += '\n'; break;
+                    case 'r': item += '\r'; break;
+                    case 't': item += '\t'; break;
+                    }
+                }
+                else if ('u' == ch)
+                {
+                    ++escape_sequence_index;
+                    escape_sequence_remaining = 4;
+                }
+                else    //  unsupported escape sequence
+                    code = false;
+            }
+            else if (0 < escape_sequence_remaining)
+            {
+                assert(2 <= escape_sequence_index);
+                assert(6 > escape_sequence_index);
+
+                if (('0' <= ch && ch <= '9') ||
+                    ('a' <= tolower(ch) && tolower(ch) <= 'f'))
+                {
+                    uint32_t ch_value = 0;
+                    if ('0' <= ch && ch <= '9')
+                        ch_value = ch - '0';
+                    else if ('a' <= tolower(ch) && tolower(ch) <= 'f')
+                        ch_value = 10 + tolower(ch) - 'a';
+
+                    if (2 == escape_sequence_index)
+                        code_point_encoded = ch_value;
+                    else
+                    {
+                        code_point_encoded *= 16;
+                        code_point_encoded += ch_value;
+                    }
+
+                    --escape_sequence_remaining;
+                    ++escape_sequence_index;
+                    if (0 == escape_sequence_remaining)
+                        escape_sequence_index = 0;
+                }
+                else    //  unsupported escape sequence
+                    code = false;
+            }
+            else if ('\"' == ch)
+            {
+                auto test = it;
+                ++test;
+                if (test != it_end)
+                    code = false;
+                else
+                    proper_ending = true;
+            }
+            else if ('\x20' > ch)    //  unsupported charachter
+                code = false;
+            else
+                item += ch;
+
+            if (code &&
+                0 == escape_sequence_remaining &&
+                false == proper_ending &&
+                it != it_begin)
+            {
+                assert((uint32_t(-1) != code_point_encoded && item.empty()) ||
+                       (uint32_t(-1) == code_point_encoded && false == item.empty()));
+
+                if (uint32_t(-1) != surrogate_pair_high &&
+                    uint32_t(-1) != code_point_encoded &&
+                    detail::utf16_check(code_point_encoded) ==
+                        detail::utf16_range::low)
+                {
+                    code_point_encoded =
+                            detail::utf16_surrogate_pair_to_code_point(
+                                surrogate_pair_high, code_point_encoded);
+                    surrogate_pair_high = -1;
+                }
+                else if (uint32_t(-1) != surrogate_pair_high)
+                    code = false;
+                //  cases below this have (-1 == surrogate_pair_high)
+                else if (uint32_t(-1) != code_point_encoded &&
+                         detail::utf16_check(code_point_encoded) ==
+                             detail::utf16_range::high)
+                {
+                    surrogate_pair_high = code_point_encoded;
+                    code_point_encoded = -1;
+                }
+                else if (uint32_t(-1) != code_point_encoded &&
+                         detail::utf16_check(code_point_encoded) ==
+                             detail::utf16_range::low)
+                    code = false;
+
+                if (uint32_t(-1) != code_point_encoded)
+                {
+                    std::string temp_item;
+                    if (fp_code_point_to_utf8 &&
+                        fp_code_point_to_utf8(code_point_encoded, temp_item))
+                        item = temp_item;
+                    else
+                        item = detail::code_point_to_utf8(code_point_encoded);
+                    code_point_encoded = -1;
+                }
+
+                if (code)
+                {
+                    assert(uint32_t(-1) == code_point_encoded);
+                    assert((false == item.empty() && uint32_t(-1) == surrogate_pair_high) ||
+                           (item.empty() && uint32_t(-1) != surrogate_pair_high));
+                    out << item;
+                }
+            }
+        }
+
+        if (false == proper_ending ||
+            uint32_t(-1) != code_point_encoded ||
+            uint32_t(-1) != surrogate_pair_high ||
+            0 != escape_sequence_remaining)
+            code = false;
+
+        if (code)
+            utf8_value = out.str();
+
+        return code;
     }
 };
 
