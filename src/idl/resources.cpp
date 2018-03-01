@@ -8,7 +8,9 @@ std::string const resources::file_template = R"file_template(/*
 #include <belt.pp/message_global.hpp>
 #include <belt.pp/json.hpp>
 #include <string>
+#include <cstdint>
 #include <unordered_map>
+#include <vector>
 
 namespace {namespace_name}
 {
@@ -109,27 +111,29 @@ std::string saver(std::string const& value)
 {
     return beltpp::json::value_string::encode(value);
 }
-bool analyze_json(int& value,
-                  beltpp::json::expression_tree* pexp,
-                  utils const&)
+std::string saver(bool value)
 {
-    bool code = true;
-    if (nullptr == pexp ||
-            pexp->lexem.rtt != json::value_number::rtt)
-        code = false;
+    if (value)
+        return "true";
     else
-    {
-        std::string const& str_value = pexp->lexem.value;
-        size_t pos;
-        value = beltpp::stoll(str_value, pos);
-
-        if (pos != str_value.length())
-            code = false;
-    }
-
-    return code;
+        return "false";
 }
-
+std::string saver(int64_t value)
+{
+    return std::to_string(value);
+}
+std::string saver(uint64_t value)
+{
+    return std::to_string(value);
+}
+std::string saver(float value)
+{
+    return std::to_string(value);
+}
+std::string saver(double value)
+{
+    return std::to_string(value);
+}
 bool analyze_json(std::string& value,
                   beltpp::json::expression_tree* pexp,
                   utils const& utl)
@@ -143,9 +147,237 @@ bool analyze_json(std::string& value,
 
     return code;
 }
+bool analyze_json(bool& value,
+                  beltpp::json::expression_tree* pexp,
+                  utils const&)
+{
+    bool code = true;
+    if (nullptr == pexp ||
+        pexp->lexem.rtt != json::value_bool::rtt)
+        code = false;
+    else
+    {
+        std::string const& str_value = pexp->lexem.value;
+        size_t pos = 0;
+        if (str_value == "true")
+        {
+            pos = str_value.length();
+            value = true;
+        }
+        else if (str_value == "false")
+        {
+            pos = str_value.length();
+            value = false;
+        }
+
+        if (pos != str_value.length())
+            code = false;
+    }
+
+    return code;
+}
+bool analyze_json(int8_t& value,
+                  beltpp::json::expression_tree* pexp,
+                  utils const&)
+{
+    bool code = true;
+    if (nullptr == pexp ||
+        pexp->lexem.rtt != json::value_number::rtt)
+        code = false;
+    else
+    {
+        std::string const& str_value = pexp->lexem.value;
+        size_t pos;
+        value = beltpp::stoi8(str_value, pos);
+
+        if (pos != str_value.length())
+            code = false;
+    }
+
+    return code;
+}
+bool analyze_json(uint8_t& value,
+                  beltpp::json::expression_tree* pexp,
+                  utils const&)
+{
+    bool code = true;
+    if (nullptr == pexp ||
+        pexp->lexem.rtt != json::value_number::rtt)
+        code = false;
+    else
+    {
+        std::string const& str_value = pexp->lexem.value;
+        size_t pos;
+        value = beltpp::stoui8(str_value, pos);
+
+        if (pos != str_value.length())
+            code = false;
+    }
+
+    return code;
+}
+bool analyze_json(int16_t& value,
+                  beltpp::json::expression_tree* pexp,
+                  utils const&)
+{
+    bool code = true;
+    if (nullptr == pexp ||
+        pexp->lexem.rtt != json::value_number::rtt)
+        code = false;
+    else
+    {
+        std::string const& str_value = pexp->lexem.value;
+        size_t pos;
+        value = beltpp::stoi16(str_value, pos);
+
+        if (pos != str_value.length())
+            code = false;
+    }
+
+    return code;
+}
+bool analyze_json(uint16_t& value,
+                  beltpp::json::expression_tree* pexp,
+                  utils const&)
+{
+    bool code = true;
+    if (nullptr == pexp ||
+        pexp->lexem.rtt != json::value_number::rtt)
+        code = false;
+    else
+    {
+        std::string const& str_value = pexp->lexem.value;
+        size_t pos;
+        value = beltpp::stoui16(str_value, pos);
+
+        if (pos != str_value.length())
+            code = false;
+    }
+
+    return code;
+}
+bool analyze_json(int32_t& value,
+                  beltpp::json::expression_tree* pexp,
+                  utils const&)
+{
+    bool code = true;
+    if (nullptr == pexp ||
+        pexp->lexem.rtt != json::value_number::rtt)
+        code = false;
+    else
+    {
+        std::string const& str_value = pexp->lexem.value;
+        size_t pos;
+        value = beltpp::stoi32(str_value, pos);
+
+        if (pos != str_value.length())
+            code = false;
+    }
+
+    return code;
+}
+bool analyze_json(uint32_t& value,
+                  beltpp::json::expression_tree* pexp,
+                  utils const&)
+{
+    bool code = true;
+    if (nullptr == pexp ||
+        pexp->lexem.rtt != json::value_number::rtt)
+        code = false;
+    else
+    {
+        std::string const& str_value = pexp->lexem.value;
+        size_t pos;
+        value = beltpp::stoui32(str_value, pos);
+
+        if (pos != str_value.length())
+            code = false;
+    }
+
+    return code;
+}
+bool analyze_json(int64_t& value,
+                  beltpp::json::expression_tree* pexp,
+                  utils const&)
+{
+    bool code = true;
+    if (nullptr == pexp ||
+        pexp->lexem.rtt != json::value_number::rtt)
+        code = false;
+    else
+    {
+        std::string const& str_value = pexp->lexem.value;
+        size_t pos;
+        value = beltpp::stoi64(str_value, pos);
+
+        if (pos != str_value.length())
+            code = false;
+    }
+
+    return code;
+}
+bool analyze_json(uint64_t& value,
+                  beltpp::json::expression_tree* pexp,
+                  utils const&)
+{
+    bool code = true;
+    if (nullptr == pexp ||
+        pexp->lexem.rtt != json::value_number::rtt)
+        code = false;
+    else
+    {
+        std::string const& str_value = pexp->lexem.value;
+        size_t pos;
+        value = beltpp::stoui64(str_value, pos);
+
+        if (pos != str_value.length())
+            code = false;
+    }
+
+    return code;
+}
+bool analyze_json(float& value,
+                  beltpp::json::expression_tree* pexp,
+                  utils const&)
+{
+    bool code = true;
+    if (nullptr == pexp ||
+        pexp->lexem.rtt != json::value_number::rtt)
+        code = false;
+    else
+    {
+        std::string const& str_value = pexp->lexem.value;
+        size_t pos;
+        value = beltpp::stof(str_value, pos);
+
+        if (pos != str_value.length())
+            code = false;
+    }
+
+    return code;
+}
+bool analyze_json(double& value,
+                  beltpp::json::expression_tree* pexp,
+                  utils const&)
+{
+    bool code = true;
+    if (nullptr == pexp ||
+        pexp->lexem.rtt != json::value_number::rtt)
+        code = false;
+    else
+    {
+        std::string const& str_value = pexp->lexem.value;
+        size_t pos;
+        value = beltpp::stod(str_value, pos);
+
+        if (pos != str_value.length())
+            code = false;
+    }
+
+    return code;
+}
 }
 
-using std::string;
 {expand_message_classes}
 
 namespace detail
@@ -265,7 +497,7 @@ bool analyze_colon(beltpp::json::expression_tree* pexp,
         {
             size_t pos;
             auto const& value = pexp->children.back()->lexem.value;
-            rtt = beltpp::stoull(value, pos);
+            rtt = beltpp::stoui32(value, pos);
             if (pos != value.size())
                 rtt = -1;
         }

@@ -95,9 +95,10 @@ int main(int argc, char* argv[])
         if (ptr_expression->depth() > 30)
             throw runtime_error("expected tree max depth 30 is exceeded");
 
+        state_holder state;
         //cout << beltpp::dump(ptr_expression.get()) << endl;
         string file_contents = resources::file_template;
-        string generated = analyze(ptr_expression.get());
+        string generated = analyze(state, ptr_expression.get());
         file_contents = replace(file_contents, "{namespace_name}", "beltpp");
         file_contents = replace(file_contents, "{expand_message_classes}", generated);
 

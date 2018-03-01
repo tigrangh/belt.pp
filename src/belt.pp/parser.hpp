@@ -721,7 +721,7 @@ private:
         size_t pos = 0;
         beltpp::stod(v, pos);
         if (pos != v.length())
-            beltpp::stoll(v, pos);
+            beltpp::stoi64(v, pos);
 
         if (pos != v.length())
             return false;

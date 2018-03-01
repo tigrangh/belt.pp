@@ -24,8 +24,7 @@ public:
 
     std::pair<bool, bool> check(char ch)
     {
-        if ((ch >= 'a' && ch <= 'z') ||
-            (ch >= 'A' && ch <= 'Z'))
+        if (ch >= 'a' && ch <= 'z')
             return std::make_pair(true, false);
         return std::make_pair(false, false);
     }
@@ -48,8 +47,7 @@ public:
 
     std::pair<bool, bool> check(char ch)
     {
-        if ((ch >= 'a' && ch <= 'z') ||
-            (ch >= 'A' && ch <= 'Z'))
+        if (ch >= 'a' && ch <= 'z')
             return std::make_pair(true, false);
         return std::make_pair(false, false);
     }
@@ -121,12 +119,14 @@ public:
 
 class identifier : public beltpp::value_lexer_base<identifier, lexers>
 {
+    size_t index = -1;
 public:
     std::pair<bool, bool> check(char ch)
     {
+        ++index;
         if ((ch >= 'a' && ch <= 'z') ||
-            (ch >= 'A' && ch <= 'Z') ||
-            ch == '_')
+            ch == '_' ||
+            (ch >= '0' && ch <= '9' && index > 0))
             return std::make_pair(true, false);
         return std::make_pair(false, false);
     }

@@ -8,7 +8,25 @@ using std::string;
 using std::vector;
 using std::runtime_error;
 
-string analyze(expression_tree const* pexpression)
+state_holder::state_holder()
+    : map_types{{"string", "std::string"},
+                {"bool", "bool"},
+                {"int8", "int8_t"},
+                {"uint8", "uint8_t"},
+                {"int16", "int16_t"},
+                {"uint16", "uint16_t"},
+                {"int32", "int32_t"},
+                {"uint32", "uint32_t"},
+                {"int64", "int64_t"},
+                {"uint64", "uint64_t"},
+                {"float32", "float"},
+                {"float64", "double"}}
+{
+
+}
+
+string analyze(state_holder& state,
+               expression_tree const* pexpression)
 {
     size_t rtt = 0;
     string result;
@@ -27,7 +45,7 @@ string analyze(expression_tree const* pexpression)
     {
         for (auto item : pexpression->children.back()->children)
         {
-            result += analyze_class(item, rtt++, class_name);
+            result += analyze_class(state, item, rtt++, class_name);
             class_names.push_back(class_name);
         }
     }
@@ -70,7 +88,8 @@ string analyze(expression_tree const* pexpression)
     return result;
 }
 
-string analyze_class(expression_tree const* pexpression,
+string analyze_class(state_holder& state,
+                     expression_tree const* pexpression,
                      size_t rtt,
                      string& class_name)
 {
@@ -118,7 +137,12 @@ string analyze_class(expression_tree const* pexpression,
                 identifier::rtt)
             throw runtime_error("use \"variable : type\" syntax please");
 
-        result += "    " + member_type.value + " " +
+        string type_name = member_type.value;
+        auto it_type_name = state.map_types.find(type_name);
+        if (it_type_name != state.map_types.end())
+            type_name = it_type_name->second;
+
+        result += "    " + type_name + " " +
                 member_name.value + ";\n";
     }
 
