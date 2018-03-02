@@ -16,6 +16,7 @@ namespace json
 using lexers = beltpp::typelist::type_list<
 class operator_comma,
 class scope_brace,
+class scope_bracket,
 class operator_colon,
 class value_string,
 class value_number,
@@ -104,6 +105,44 @@ public:
     {
         std::string value(it_begin, it_end);
         if (value == "{" || value == "}")
+            return true;
+        return false;
+    }
+};
+
+class scope_bracket : public beltpp::operator_lexer_base<scope_bracket, lexers>
+{
+public:
+    size_t right = 1;
+    size_t left_max = 0;
+    size_t left_min = 0;
+    enum { grow_priority = 1 };
+
+    std::pair<bool, bool> check(char ch)
+    {
+        if (ch == '[')
+        {
+            right = -1;
+            left_min = 0;
+            left_max = 0;
+            return std::make_pair(true, true);
+        }
+        if (ch == ']')
+        {
+            right = 0;
+            left_min = 0;
+            left_max = 1;
+            return std::make_pair(true, true);
+        }
+        return std::make_pair(false, false);
+    }
+
+    template <typename T_iterator>
+    bool final_check(T_iterator const& it_begin,
+                     T_iterator const& it_end) const
+    {
+        std::string value(it_begin, it_end);
+        if (value == "[" || value == "]")
             return true;
         return false;
     }

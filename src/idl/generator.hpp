@@ -17,7 +17,7 @@ public:
 std::string analyze(state_holder& state,
                     expression_tree const* pexpression);
 
-std::string analyze_class(state_holder& state,
-                          expression_tree const* pexpression,
-                          size_t rtt,
-                          std::string& class_name);
+std::string analyze_struct(state_holder& state,
+                           expression_tree const* pexpression,
+                           size_t rtt,
+                           std::string const& type_name);

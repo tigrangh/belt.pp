@@ -6,18 +6,52 @@
 #include <string>
 
 using lexers = beltpp::typelist::type_list<
-class keyword_namespace,
-class keyword_class,
+class operator_semicolon,
+class keyword_package,
+class keyword_type,
+class keyword_struct,
 class scope_brace,
-class operator_colon,
+class scope_bracket,
 class identifier,
 class discard
 >;
 
-class keyword_namespace : public beltpp::operator_lexer_base<keyword_namespace, lexers>
+class operator_semicolon : public beltpp::operator_lexer_base<operator_semicolon, lexers>
 {
 public:
-    size_t right = 2;
+    size_t right = 1;
+    size_t left_max = -1;
+    size_t left_min = 1;
+    enum { grow_priority = 1 };
+
+    std::pair<bool, bool> check(char)
+    {
+        return std::make_pair(false, false);
+    }
+
+    template <typename T_iterator>
+    bool final_check(T_iterator const&,
+                     T_iterator const&) const
+    {
+        return false;
+    }
+
+    bool get_default(beltpp::detail::token<std::string>& result) const
+    {
+        result.priority = operator_semicolon::priority;
+        result.rtt = operator_semicolon::rtt;
+        result.value = ";";
+        result.right = right;
+        result.left_min = left_min;
+        result.left_max = left_max;
+
+        return true;
+    }
+};
+class keyword_package : public beltpp::operator_lexer_base<keyword_package, lexers>
+{
+public:
+    size_t right = 1;
     size_t left_max = 0;
     size_t left_min = 0;
     enum { grow_priority = 1 };
@@ -33,11 +67,11 @@ public:
     bool final_check(T_iterator const& it_begin,
                      T_iterator const& it_end) const
     {
-        return std::string(it_begin, it_end) == "namespace";
+        return std::string(it_begin, it_end) == "package";
     }
 };
 
-class keyword_class : public beltpp::operator_lexer_base<keyword_class, lexers>
+class keyword_type : public beltpp::operator_lexer_base<keyword_type, lexers>
 {
 public:
     size_t right = 2;
@@ -56,7 +90,30 @@ public:
     bool final_check(T_iterator const& it_begin,
                      T_iterator const& it_end) const
     {
-        return std::string(it_begin, it_end) == "class";
+        return std::string(it_begin, it_end) == "type";
+    }
+};
+
+class keyword_struct : public beltpp::operator_lexer_base<keyword_struct, lexers>
+{
+public:
+    size_t right = 1;
+    size_t left_max = 0;
+    size_t left_min = 0;
+    enum { grow_priority = 1 };
+
+    std::pair<bool, bool> check(char ch)
+    {
+        if (ch >= 'a' && ch <= 'z')
+            return std::make_pair(true, false);
+        return std::make_pair(false, false);
+    }
+
+    template <typename T_iterator>
+    bool final_check(T_iterator const& it_begin,
+                     T_iterator const& it_end) const
+    {
+        return std::string(it_begin, it_end) == "struct";
     }
 };
 
@@ -96,24 +153,40 @@ public:
     }
 };
 
-class operator_colon : public beltpp::operator_lexer_base<operator_colon, lexers>
+class scope_bracket :
+        public beltpp::operator_lexer_base<scope_bracket, lexers>
 {
 public:
-    size_t right = 1;
-    size_t left_max = 1;
-    size_t left_min = 1;
+    size_t right = -1;
+    size_t left_max = 0;
+    size_t left_min = 0;
     enum { grow_priority = 1 };
 
     std::pair<bool, bool> check(char ch)
     {
-        return beltpp::standard_operator_check<beltpp::standard_operator_set<void>>(ch);
+        if (ch == '[')
+        {
+            right = -1;
+            left_min = 0;
+            left_max = 0;
+            return std::make_pair(true, true);
+        }
+        if (ch == ']')
+        {
+            right = 1;
+            left_min = 0;
+            left_max = 1;
+            return std::make_pair(true, true);
+        }
+        return std::make_pair(false, false);
     }
 
     template <typename T_iterator>
     bool final_check(T_iterator const& it_begin,
                      T_iterator const& it_end) const
     {
-        return std::string(it_begin, it_end) == ":";
+        std::string temp(it_begin, it_end);
+        return (temp == "[" || temp == "]");
     }
 };
 

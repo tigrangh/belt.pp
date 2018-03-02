@@ -105,7 +105,7 @@ public:
     std::string message_saver() const
     {
         std::string type;
-        switch (address.type)
+        switch (address.ip_type)
         {
         case ip_address::e_type::any:
             type = "any";
@@ -220,11 +220,11 @@ public:
             if (message.empty())
                 whole = false;
             else if (message == "ip4")
-                address.type = ip_address::e_type::ipv4;
+                address.ip_type = ip_address::e_type::ipv4;
             else if (message == "ip6")
-                address.type = ip_address::e_type::ipv6;
+                address.ip_type = ip_address::e_type::ipv6;
             else if (message == "any")
-                address.type = ip_address::e_type::any;
+                address.ip_type = ip_address::e_type::any;
             else
                 error = true;
         }

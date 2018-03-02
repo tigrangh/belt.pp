@@ -134,6 +134,52 @@ std::string saver(double value)
 {
     return std::to_string(value);
 }
+template <typename T>
+bool analyze_json(std::vector<T>& value,
+                  beltpp::json::expression_tree* pexp,
+                  utils const& utl)
+{
+    value.clear();
+    bool code = true;
+    if (nullptr == pexp ||
+        pexp->lexem.rtt != json::scope_bracket::rtt)
+        code = false;
+    else
+    {
+        auto pscan = pexp;
+        if (pexp->children.size() == 1 &&
+            pexp->children.front()->lexem.rtt == json::operator_comma::rtt &&
+            false == pexp->children.front()->children.empty())
+            pscan = pexp->children.front();
+
+        for (auto const& item : pscan->children)
+        {
+            T item_value;
+            if (analyze_json(item_value, item, utl))
+                value.push_back(item_value);
+            else
+            {
+                code = false;
+                break;
+            }
+        }
+    }
+
+    return code;
+}
+template <typename T>
+std::string saver(std::vector<T> const& value)
+{
+    std::string result = "[";
+    for (size_t index = 0; index < value.size(); ++index)
+    {
+    result += saver(value[index]);
+    if (index + 1 != value.size())
+        result += ",";
+    }
+    result += "]";
+    return result;
+}
 bool analyze_json(std::string& value,
                   beltpp::json::expression_tree* pexp,
                   utils const& utl)

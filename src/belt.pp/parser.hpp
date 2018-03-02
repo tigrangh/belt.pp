@@ -153,14 +153,38 @@ expression_tree<T_lexers, T_string>::add_child(
 
 namespace detail
 {
+template <typename T_lexer,
+          typename T_string>
+class get_default_helper
+{
+    DECLARE_MF_INSPECTION(get_default, TT,
+                          bool (TT::*)(token<T_string>& result) const)
+public:
+    template <typename T,
+              typename TEST = typename std::enable_if<
+                  has_get_default<T>::value == 1, bool
+                  >::type>
+    static bool check(T const* p, token<T_string>* result)
+    {
+        return p->get_default(*result);
+    }
+    template <typename T = T_lexer,
+              typename TEST = typename std::enable_if<
+                  has_get_default<T>::value == 0, char
+                  >::type>
+    static bool check(...)
+    {
+        return false;
+    }
+};
 template <typename T_lexers, typename T_string, typename T_iterator, typename INDEX>
 class dummy
 {
 public:
-static
-bool read(T_iterator& it_begin,
-          T_iterator it_end,
-          detail::token<T_string>& result)
+    static
+    bool read(T_iterator& it_begin,
+              T_iterator it_end,
+              detail::token<T_string>& result)
     {
         auto it_copy = it_begin;
         auto const discard_result = detail::token<T_string>();
@@ -211,6 +235,42 @@ bool read(T_iterator& it_begin,
             }
         }
     }
+
+    static
+    bool get_default_operator(detail::token<T_string>& result)
+    {
+        auto const discard_result = detail::token<T_string>();
+        if (INDEX::value >= T_lexers::count)
+            return false;
+        else
+        {
+            using T_lexer =
+                typename typelist::type_list_get<INDEX::value, T_lexers>::type;
+
+            T_lexer lexer;
+            auto current_result = discard_result;
+            bool current_code =
+                detail::get_default_helper<T_lexer, T_string>::check(&lexer,
+                                                                     &current_result);
+
+            if (current_code)
+            {
+                result = current_result;
+                return true;
+            }
+            else if (INDEX::value + 1 == T_lexers::count)
+            {
+                return false;
+            }
+            else    // if (INDEX::value + 1 < T_list::count)
+            {
+                using cdummy = dummy<T_lexers, T_string, T_iterator,
+                std::integral_constant<size_t, INDEX::value + 1>>;
+
+                return cdummy::get_default_operator(result);
+            }
+        }
+    }
 };
 
 template <typename T_lexers, typename T_string, typename T_iterator>
@@ -225,6 +285,12 @@ public:
     {
         return false;
     }
+
+    static
+    bool get_default_operator(detail::token<T_string>& result)
+    {
+        return false;
+    }
 };
 }
 
@@ -235,6 +301,7 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
            T_iterator it_end)
 {
     auto read_result = typename T_expression_tree::ctoken();
+    auto default_operator = typename T_expression_tree::ctoken();
 
     using cdummy =
         detail::dummy<
@@ -245,7 +312,9 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
 
     auto it_copy = it_begin;
 
+    bool has_default_operator = cdummy::get_default_operator(default_operator);
     bool read_op_code = cdummy::read(it_copy, it_end, read_result);
+
     if (read_op_code && it_copy != it_begin)
     {   //  try to place the operator token in the expression tree
         //  if successful then update it_begin and return
@@ -354,10 +423,14 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
         else if (token_type_value == ttype)
         {
             T_expression_tree* pparent = ptr_expression.get();
+            T_expression_tree* pparent_previous = pparent;
             while (pparent &&
                    false == pparent->is_operator() &&
                    pparent->is_value())
+            {
+                pparent_previous = pparent;
                 pparent = pparent->parent;
+            }
 
             if (nullptr == ptr_expression)
             {
@@ -377,6 +450,38 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
                 ptr_expression.reset(ptemp);
                 --pparent->lexem.right;
                 success = true;
+            }
+            else if (has_default_operator)
+            {
+                assert(pparent_previous);
+                assert(nullptr == pparent_previous->parent);
+                pparent = pparent_previous;
+
+                if (pparent->lexem.rtt == default_operator.rtt)
+                {
+                    T_expression_tree* ptemp = nullptr;
+                    ptemp = &pparent->add_child(read_result);
+                    ptr_expression.release();
+                    ptr_expression.reset(ptemp);
+                    success = true;
+                }
+                else
+                {
+                    std::unique_ptr<T_expression_tree>
+                            ptr_root(new T_expression_tree);
+                    ptr_root->lexem = default_operator;
+
+                    ptr_expression.release();
+                    ptr_expression.reset(pparent);
+
+                    T_expression_tree* ptemp = nullptr;
+                    ptemp = &ptr_root->add_child(std::move(ptr_expression));
+                    ptemp = &ptr_root->add_child(read_result);
+                    ptr_expression.release();
+                    ptr_expression.reset(ptemp);
+                    ptr_root.release();
+                    success = true;
+                }
             }
         }
         }

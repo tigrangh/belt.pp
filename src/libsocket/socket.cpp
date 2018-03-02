@@ -215,7 +215,7 @@ peer_ids socket::listen(ip_address const& address,
     beltpp::scope_helper servinfo_cleaner;
 
     detail::getaddressinfo(servinfo,
-                           address.type,
+                           address.ip_type,
                            address.local.address,
                            address.local.port,
                            servinfo_cleaner);
@@ -283,7 +283,7 @@ void socket::open(ip_address address,
     bool bind = (false == address.local.empty());
 
     detail::getaddressinfo(localinfo,
-                           address.type,
+                           address.ip_type,
                            address.local.address,
                            address.local.port,
                            localinfo_cleaner);
@@ -306,7 +306,7 @@ void socket::open(ip_address address,
         str_temp_address += "\t";
 
         bool hold_exception = false;
-        if (address.type == ip_address::e_type::any)
+        if (address.ip_type == ip_address::e_type::any)
             hold_exception = true;
 
         addrinfo* remoteinfo = nullptr;
@@ -777,7 +777,7 @@ ip_address dumpaddr(sockaddr &address)
 
         addr.local.port = ntohs(addressv4->sin_port);
         addr.local.address = ipstr;
-        addr.type = ip_address::e_type::ipv4;
+        addr.ip_type = ip_address::e_type::ipv4;
     }
     else if (address.sa_family == AF_INET6)
     {
@@ -788,7 +788,7 @@ ip_address dumpaddr(sockaddr &address)
 
         addr.local.port = ntohs(addressv6->sin6_port);
         addr.local.address = ipstr;
-        addr.type = ip_address::e_type::ipv6;
+        addr.ip_type = ip_address::e_type::ipv6;
     }
     else
     {
