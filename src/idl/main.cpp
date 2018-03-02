@@ -57,12 +57,11 @@ int main(int argc, char* argv[])
 
         if (definition.empty())
         {
-            definition = "namespace beltpp{"
-                         "class message_join{}"
-                         "class message_drop{}"
-                         "class message_error{}"
-                         "class message_timer_out{}"
-                         "}";
+            definition = "package beltpp "
+                         "type message_join struct {}"
+                         "type message_drop struct {}"
+                         "type message_error struct {}"
+                         "type message_timer_out struct {}";
         }
 
         auto it_begin = definition.begin();
