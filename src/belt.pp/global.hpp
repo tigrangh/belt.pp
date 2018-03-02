@@ -21,6 +21,7 @@
 #define BELT_IMPORT
 #endif
 
+#include <cstdlib>
 #include <string>
 #include <memory>
 
@@ -64,44 +65,116 @@ inline void_unique_ptr make_void_unique_ptr(T const& other)
     return result;
 }
 
+inline float stof(std::string const& value, size_t& pos)
+{
+    float result = 0;
+    char const* sz = value.c_str();
+    char* endptr = nullptr;
+    result = std::strtof(sz, &endptr);
+    pos = endptr - sz;
+
+    return result;
+}
 inline double stod(std::string const& value, size_t& pos)
 {
-    double result;
-    try
-    {
-        result = std::stod(value, &pos);
-    }
-    catch(...)
-    {
-        pos = 0;
-    }
+    double result = 0;
+    char const* sz = value.c_str();
+    char* endptr = nullptr;
+    result = std::strtod(sz, &endptr);
+    pos = endptr - sz;
 
     return result;
 }
-inline int64_t stoll(std::string const& value, size_t& pos)
+inline int64_t stoi64(std::string const& value, size_t& pos)
 {
+    static_assert(sizeof(int64_t) == sizeof(long long), "check type sizes");
     int64_t result = 0;
-    try
-    {
-        result = std::stoll(value, &pos);
-    }
-    catch(...)
+    char const* sz = value.c_str();
+    char* endptr = nullptr;
+    result = std::strtoll(sz, &endptr, 0);
+    pos = endptr - sz;
+
+    return result;
+}
+inline uint64_t stoui64(std::string const& value, size_t& pos)
+{
+    static_assert(sizeof(uint64_t) == sizeof(unsigned long long), "check type sizes");
+    uint64_t result = 0;
+    char const* sz = value.c_str();
+    char* endptr = nullptr;
+    result = std::strtoull(sz, &endptr, 0);
+    pos = endptr - sz;
+
+    return result;
+}
+inline int32_t stoi32(std::string const& value, size_t& pos)
+{
+    int64_t temp = stoi64(value, pos);
+    int32_t result = temp;
+    if (int64_t(result) != temp)
     {
         pos = 0;
+        result = 0;
     }
 
     return result;
 }
-inline uint64_t stoull(std::string const& value, size_t& pos)
+inline uint32_t stoui32(std::string const& value, size_t& pos)
 {
-    uint64_t result = 0;
-    try
-    {
-        result = std::stoull(value, &pos);
-    }
-    catch(...)
+    uint64_t temp = stoui64(value, pos);
+    uint32_t result = temp;
+    if (uint64_t(result) != temp)
     {
         pos = 0;
+        result = 0;
+    }
+
+    return result;
+}
+inline int16_t stoi16(std::string const& value, size_t& pos)
+{
+    int64_t temp = stoi64(value, pos);
+    int16_t result = temp;
+    if (int64_t(result) != temp)
+    {
+        pos = 0;
+        result = 0;
+    }
+
+    return result;
+}
+inline uint16_t stoui16(std::string const& value, size_t& pos)
+{
+    uint64_t temp = stoui64(value, pos);
+    uint16_t result = temp;
+    if (uint64_t(result) != temp)
+    {
+        pos = 0;
+        result = 0;
+    }
+
+    return result;
+}
+inline int8_t stoi8(std::string const& value, size_t& pos)
+{
+    int64_t temp = stoi64(value, pos);
+    int8_t result = temp;
+    if (int64_t(result) != temp)
+    {
+        pos = 0;
+        result = 0;
+    }
+
+    return result;
+}
+inline uint8_t stoui8(std::string const& value, size_t& pos)
+{
+    uint64_t temp = stoui64(value, pos);
+    uint8_t result = temp;
+    if (uint64_t(result) != temp)
+    {
+        pos = 0;
+        result = 0;
     }
 
     return result;

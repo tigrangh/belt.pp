@@ -32,7 +32,7 @@ public:
                std::string const& str_remote_address = std::string(),
                unsigned short remote_port = 0,
                e_type en_type = e_type::any)
-        : type(en_type)
+        : ip_type(en_type)
         , local{str_local_address, local_port}
         , remote{str_remote_address, remote_port}
     {}
@@ -40,14 +40,14 @@ public:
     ip_address(std::string const& str_local_address,
                unsigned short local_port,
                e_type en_type)
-        : type(en_type)
+        : ip_type(en_type)
         , local{str_local_address, local_port}
         , remote()
     {}
 
     ip_address(ip_destination const& dest,
                e_type en_type)
-        : type(en_type)
+        : ip_type(en_type)
         , local{dest.address, dest.port}
         , remote()
     {}
@@ -68,12 +68,12 @@ public:
             else
             {
                 std::string op, cl;
-                if (type == e_type::ipv6)
+                if (ip_type == e_type::ipv6)
                 {
                     op = "[";
                     cl = "]";
                 }
-                else if (type == e_type::any)
+                else if (ip_type == e_type::any)
                 {
                     op = "{";
                     cl = "}";
@@ -85,7 +85,7 @@ public:
         }
     }
 
-    e_type type;
+    e_type ip_type;
     ip_destination local;
     ip_destination remote;
 };

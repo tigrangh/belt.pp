@@ -3,32 +3,85 @@
 #include <cassert>
 #include <vector>
 #include <exception>
+#include <utility>
 
 using std::string;
 using std::vector;
+using std::pair;
 using std::runtime_error;
 
-string analyze(expression_tree const* pexpression)
+state_holder::state_holder()
+    : map_types{{"string", "std::string"},
+                {"bool", "bool"},
+                {"int8", "int8_t"},
+                {"uint8", "uint8_t"},
+                {"int16", "int16_t"},
+                {"uint16", "uint16_t"},
+                {"int", "uint32_t"},
+                {"int32", "int32_t"},
+                {"uint32", "uint32_t"},
+                {"int64", "int64_t"},
+                {"uint64", "uint64_t"},
+                {"float32", "float"},
+                {"float64", "double"}}
+{
+
+}
+
+string analyze(state_holder& state,
+               expression_tree const* pexpression)
 {
     size_t rtt = 0;
     string result;
     assert(pexpression);
 
     vector<string> class_names;
-    string class_name;
 
-    if (pexpression->lexem.rtt != keyword_namespace::rtt)
-        throw runtime_error("use one and only one namespace");
-    else if (pexpression->children.size() != 2 ||
-             pexpression->children.front()->lexem.rtt != identifier::rtt ||
-             pexpression->children.back()->lexem.rtt != scope_brace::rtt)
-        throw runtime_error("namespace syntax error");
+    if (pexpression->lexem.rtt != operator_semicolon::rtt ||
+        pexpression->children.empty() ||
+        pexpression->children.front()->lexem.rtt != keyword_package::rtt)
+        throw runtime_error("wtf");
     else
     {
-        for (auto item : pexpression->children.back()->children)
+        string package_name;
+        for (auto item : pexpression->children)
         {
-            result += analyze_class(item, rtt++, class_name);
-            class_names.push_back(class_name);
+            if (item->lexem.rtt == keyword_package::rtt)
+            {
+                if (item->children.size() != 1 ||
+                    item->children.front()->lexem.rtt != identifier::rtt)
+                    throw runtime_error("use \"package name\"");
+                string get_package_name = item->children.front()->lexem.value;
+                if (package_name.empty())
+                    package_name = get_package_name;
+                else
+                    throw runtime_error("can specify the package name only once");
+            }
+            else if (item->lexem.rtt == keyword_type::rtt)
+            {
+                if (item->children.size() != 2 ||
+                    item->children.front()->lexem.rtt != identifier::rtt)
+                    throw runtime_error("type syntax is wrong");
+
+                string type_name = item->children.front()->lexem.value;
+                auto pexpression_type = item->children.back();
+
+                if (pexpression_type->lexem.rtt == keyword_struct::rtt)
+                {
+                    if (pexpression_type->children.size() != 1 ||
+                        pexpression_type->children.front()->lexem.rtt !=
+                            scope_brace::rtt)
+                        throw runtime_error("struct syntax error");
+
+                    result += analyze_struct(state,
+                                             pexpression_type->children.front(),
+                                             rtt++,
+                                             type_name);
+                    class_names.push_back(type_name);
+                }
+                else
+                    throw runtime_error("type syntax error");
+            }
         }
     }
 
@@ -70,66 +123,82 @@ string analyze(expression_tree const* pexpression)
     return result;
 }
 
-string analyze_class(expression_tree const* pexpression,
-                     size_t rtt,
-                     string& class_name)
+string analyze_struct(state_holder& state,
+                      expression_tree const* pexpression,
+                      size_t rtt,
+                      string const& type_name)
 {
     string result;
     assert(pexpression);
 
-    if (pexpression->children.size() != 2 ||
-        pexpression->children.front()->lexem.rtt != identifier::rtt ||
-        pexpression->children.back()->lexem.rtt != scope_brace::rtt)
-        throw runtime_error("class syntax error");
-
-    class_name = pexpression->children.front()->lexem.value;
-
-    result += "class " + class_name + ";\n";
+    result += "class " + type_name + ";\n";
     result += "namespace detail\n";
     result += "{\n";
-    result += "std::string saver(" + class_name + " const& self);\n";
+    result += "std::string saver(" + type_name + " const& self);\n";
     result += "}\n";
 
-    result += "class " + class_name + "\n";
+    result += "class " + type_name + "\n";
     result += "{\npublic:\n";
 
-    vector<expression_tree const*> members;
-    auto pexpression_brace = pexpression->children.back();
+    vector<pair<expression_tree const*, expression_tree const*>> members;
 
-    for (auto item : pexpression_brace->children)
+    if (pexpression->children.size() % 2 != 0)
+        throw runtime_error("inside class syntax error, wtf");
+
+    auto it = pexpression->children.begin();
+    for (size_t index = 0;
+         it != pexpression->children.end();
+         ++index, ++it)
     {
-        if (item->lexem.rtt == operator_colon::rtt)
-            members.push_back(item);
-        else
+        auto const* member_name = *it;
+        ++it;
+        auto const* member_type = *it;
+
+        if (member_name->lexem.rtt != identifier::rtt)
             throw runtime_error("inside class syntax error, wtf");
+
+        members.push_back(std::make_pair(member_name, member_type));
     }
 
     result += "    enum {rtt = " + std::to_string(rtt) + "};\n";
 
-    for (auto member_colon : members)
+    for (auto member_pair : members)
     {
-        assert(member_colon->children.size() == 2);
+        auto const& member_name = member_pair.first->lexem;
+        auto const& member_type = member_pair.second;
+        if (member_name.rtt != identifier::rtt)
+            throw runtime_error("use \"variable type\" syntax please");
 
-        auto const& member_name = member_colon->children.front()->lexem;
-        auto const& member_type = member_colon->children.back()->lexem;
-        if (member_name.rtt !=
-                identifier::rtt ||
-            member_type.rtt !=
-                identifier::rtt)
-            throw runtime_error("use \"variable : type\" syntax please");
+        auto convert_type = [&state](string const& type_name)
+        {
+            auto it_type_name = state.map_types.find(type_name);
+            if (it_type_name != state.map_types.end())
+                return it_type_name->second;
+            return type_name;
+        };
 
-        result += "    " + member_type.value + " " +
+        string type_name;
+        if (member_type->lexem.rtt == identifier::rtt)
+            type_name = convert_type(member_type->lexem.value);
+        else if (member_type->lexem.rtt == scope_bracket::rtt &&
+                 member_type->children.size() == 1 &&
+                 member_type->children.front()->lexem.rtt == identifier::rtt)
+        {
+            type_name = convert_type(member_type->children.front()->lexem.value);
+            type_name = "std::vector<" + type_name + ">";
+        }
+
+        result += "    " + type_name + " " +
                 member_name.value + ";\n";
     }
 
     {
     bool first = true;
-    for (auto member_colon : members)
+    for (auto member_pair : members)
     {
-        auto const& member_name = member_colon->children.front()->lexem;
-        //auto const& member_type = member_colon->children.back()->lexem;
+        auto const& member_name = member_pair.first->lexem;
         if (first)
-            result += "    " + class_name + "()\n"
+            result += "    " + type_name + "()\n"
                     "      : " + member_name.value + "()\n";
         else
             result += "      , " + member_name.value + "()\n";
@@ -143,13 +212,13 @@ string analyze_class(expression_tree const* pexpression,
     if (false == members.empty())
     {
         result += "    template <typename T>\n";
-        result += "    explicit " + class_name + "(T const& other)\n";
+        result += "    explicit " + type_name + "(T const& other)\n";
         result += "    {\n";
         result += "        assign(*this, other);\n";
         result += "    }\n";
 
         result += "    template <typename T>\n";
-        result += "    " + class_name + "& operator = (T const& other)\n";
+        result += "    " + type_name + "& operator = (T const& other)\n";
         result += "    {\n";
         result += "        assign(*this, other);\n";
         result += "        return *this;\n";
@@ -158,7 +227,7 @@ string analyze_class(expression_tree const* pexpression,
 
     result += "    static std::vector<char> saver(void* p)\n";
     result += "    {\n";
-    result += "        " + class_name + "* pmc = static_cast<" + class_name + "*>(p);\n";
+    result += "        " + type_name + "* pmc = static_cast<" + type_name + "*>(p);\n";
     result += "        std::vector<char> result;\n";
     result += "        std::string str_value = detail::saver(*pmc);\n";
     result += "        std::copy(str_value.begin(), str_value.end(), std::back_inserter(result));\n";
@@ -170,23 +239,21 @@ string analyze_class(expression_tree const* pexpression,
     if (false == members.empty())
     {
         result += "template <typename T>\n";
-        result += "void assign(" + class_name + "& self, T const& other)\n";
+        result += "void assign(" + type_name + "& self, T const& other)\n";
         result += "{\n";
-        for (auto member_colon : members)
+        for (auto member_pair : members)
         {
-        auto const& member_name = member_colon->children.front()->lexem;
-        //auto const& member_type = member_colon->children.back()->lexem;
+        auto const& member_name = member_pair.first->lexem;
         result += "    assign(self." + member_name.value + ", other." + member_name.value + ");\n";
         }
         result += "}\n";
 
         result += "template <typename T>\n";
-        result += "void assign(T& self, " + class_name + " const& other)\n";
+        result += "void assign(T& self, " + type_name + " const& other)\n";
         result += "{\n";
-        for (auto member_colon : members)
+        for (auto member_pair : members)
         {
-        auto const& member_name = member_colon->children.front()->lexem;
-        //auto const& member_type = member_colon->children.back()->lexem;
+        auto const& member_name = member_pair.first->lexem;
         result += "    assign(self." + member_name.value + ", other." + member_name.value + ");\n";
         }
         result += "}\n";
@@ -194,7 +261,7 @@ string analyze_class(expression_tree const* pexpression,
 
     result += "namespace detail\n";
     result += "{\n";
-    result += "bool analyze_json(" + class_name + "& msgcode,\n";
+    result += "bool analyze_json(" + type_name + "& msgcode,\n";
     result += "                  beltpp::json::expression_tree* pexp,\n";
     result += "                  utils const& utl)\n";
     result += "{\n";
@@ -202,14 +269,13 @@ string analyze_class(expression_tree const* pexpression,
     result += "    std::unordered_map<std::string, beltpp::json::expression_tree*> members;\n";
     result += "    size_t rtt = -1;\n";
     result += "    if (false == analyze_json_common(rtt, pexp, members) ||\n";
-    result += "        rtt != " + class_name + "::rtt)\n";
+    result += "        rtt != " + type_name + "::rtt)\n";
     result += "        code = false;\n";
     result += "    else\n";
     result += "    {\n";
-    for (auto member_colon : members)
+    for (auto member_pair : members)
     {
-    auto const& member_name = member_colon->children.front()->lexem;
-    //auto const& member_type = member_colon->children.back()->lexem;
+    auto const& member_name = member_pair.first->lexem;
     result += "        if (code)\n";
     result += "        {\n";
     result += "            auto it_find = members.find(\"\\\"" + member_name.value + "\\\"\");\n";
@@ -225,15 +291,14 @@ string analyze_class(expression_tree const* pexpression,
     result += "    return code;\n";
     result += "}\n";
 
-    result += "std::string saver(" + class_name + " const& self)\n";
+    result += "std::string saver(" + type_name + " const& self)\n";
     result += "{\n";
     result += "    std::string result;\n";
     result += "    result += \"{\";\n";
-    result += "    result += \"\\\"rtt\\\" : \" + saver(" + class_name + "::rtt);\n";
-    for (auto member_colon : members)
+    result += "    result += \"\\\"rtt\\\" : \" + saver(" + type_name + "::rtt);\n";
+    for (auto member_pair : members)
     {
-    auto const& member_name = member_colon->children.front()->lexem;
-    //auto const& member_type = member_colon->children.back()->lexem;
+    auto const& member_name = member_pair.first->lexem;
     result += "    result += \",\\\"" + member_name.value + "\\\" : \" + saver(self." + member_name.value + ");\n";
     }
     result += "    result += \"}\";\n";

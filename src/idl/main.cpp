@@ -57,12 +57,11 @@ int main(int argc, char* argv[])
 
         if (definition.empty())
         {
-            definition = "namespace beltpp{"
-                         "class message_join{}"
-                         "class message_drop{}"
-                         "class message_error{}"
-                         "class message_timer_out{}"
-                         "}";
+            definition = "package beltpp "
+                         "type message_join struct {}"
+                         "type message_drop struct {}"
+                         "type message_error struct {}"
+                         "type message_timer_out struct {}";
         }
 
         auto it_begin = definition.begin();
@@ -95,9 +94,10 @@ int main(int argc, char* argv[])
         if (ptr_expression->depth() > 30)
             throw runtime_error("expected tree max depth 30 is exceeded");
 
+        state_holder state;
         //cout << beltpp::dump(ptr_expression.get()) << endl;
         string file_contents = resources::file_template;
-        string generated = analyze(ptr_expression.get());
+        string generated = analyze(state, ptr_expression.get());
         file_contents = replace(file_contents, "{namespace_name}", "beltpp");
         file_contents = replace(file_contents, "{expand_message_classes}", generated);
 
