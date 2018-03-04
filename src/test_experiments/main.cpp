@@ -48,15 +48,6 @@ int main(int argc, char** argv)
 
         std::cout << sk.dump() << std::endl;
 #elif (VERSION == 2)
-        auto converter = [](uint32_t cp, std::string& value)
-        {
-            if (cp == 0x0576)
-            {
-                value = "ն";
-                return true;
-            }
-            return false;
-        };
         std::vector<std::string> strings_encode =
         {
             "ն, \n\t\x10ա",
@@ -88,7 +79,7 @@ int main(int argc, char** argv)
             "\"\\\\",
             "\"\\x\"",
             "\"not closed bmp\\u1111bmp\\u0022a",
-            "\"bmp\\u0576 bmp\\u0022\\u0c01b\"",
+            "\"bmp\\u0576 bmp\\u0022\\u044Eb\"",
             "\"a bmp \\u0c01b\\u0055\\u007f\\u007e\"",
             "\"a low \\udc01b\"",
             "\"a low not closed \\\\\\udc01b",
@@ -104,7 +95,7 @@ int main(int argc, char** argv)
             std::cout << "---\n";
             std::string decoded;
             std::cout << item;
-            if (beltpp::json::value_string::decode(item, decoded, converter))
+            if (beltpp::json::value_string::decode(item, decoded))
             {
                 std::cout << std::endl << ":" << decoded << ":" << std::endl;
                 std::string encoded = beltpp::json::value_string::encode(decoded);

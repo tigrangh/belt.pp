@@ -169,21 +169,44 @@ static_assert(0x10000 + 0x400*(uint16_t(0xD801) - 0xD800) +
               (uint16_t(0xDC01) - 0xDC00) == 0x10401, "sure?");
 static_assert(0x10000 + 0x400*(uint16_t(0xDBFF) - 0xD800) +
               (uint16_t(0xDFFF) - 0xDC00) == 0x10FFFF, "sure?");
-inline std::string utf32_to_utf8(uint32_t cp)
-{
-    std::string result;
-    if (cp < 256)
-    {
-        char ch = static_cast<char>(cp);
-        result += ch;
-    }
-    else    //  this assumes that a module depending on a proper
-            //  utf8 implementation will be able to override this
-            //  simple implementation. need to check if c++11 has
-            //  enough portable solution for this
-        result = "?";
 
-    return result;
+inline size_t utf32_to_utf8(uint32_t cp, char (&buffer)[4]) noexcept
+{
+    if (cp <= 0x7F)
+    {
+        buffer[0] = static_cast<char>(cp);      //  0xxxxxxx
+        return 1;
+    }
+    if (cp <= 0x7FF)
+    {
+        buffer[0] = 0xC0 | (cp >> 6);           //  110xxxxx
+        buffer[1] = 0x80 | (cp & 0x3F);         //  10xxxxxx
+        return 2;
+    }
+    if (cp <= 0xFFFF)
+    {
+        buffer[0] = 0xE0 | (cp >> 12);          //  1110xxxx
+        buffer[1] = 0x80 | ((cp >> 6) & 0x3F);  //  10xxxxxx
+        buffer[2] = 0x80 | (cp & 0x3F);         //  10xxxxxx
+        return 3;
+    }
+    if (cp <= 0x10FFFF)
+    {
+        buffer[0] = 0xF0 | (cp >> 18);          //  11110xxx
+        buffer[1] = 0x80 | ((cp >> 12) & 0x3F); //  10xxxxxx
+        buffer[2] = 0x80 | ((cp >> 6) & 0x3F);  //  10xxxxxx
+        buffer[3] = 0x80 | (cp & 0x3F);         //  10xxxxxx
+        return 4;
+    }
+
+    assert(false);
+    //  the input to this function is either a code such as \uABCD
+    //  or a resulting code of a surrogate pair
+    //  so reaching here is not possible
+    //  this function is noexept, so below throw will terminate
+    throw std::runtime_error("not possible");
+
+    return 0;
 }
 }
 
@@ -316,8 +339,7 @@ public:
     }
 
     static bool decode(std::string const& utf8_encoded,
-                       std::string& utf8_value,
-                       bool(*fp_utf32_to_utf8)(uint32_t, std::string&) = nullptr)
+                       std::string& utf8_value)
     {
         bool code = true;
         std::ostringstream out;
@@ -459,12 +481,11 @@ public:
                 if (code &&
                     uint32_t(-1) != code_point_encoded)
                 {
-                    std::string temp_item;
-                    if (fp_utf32_to_utf8 &&
-                        fp_utf32_to_utf8(code_point_encoded, temp_item))
-                        item = temp_item;
-                    else
-                        item = detail::utf32_to_utf8(code_point_encoded);
+                    char buffer[4];
+                    size_t utf8size = detail::utf32_to_utf8(code_point_encoded, buffer);
+                    for (size_t index = 0; index < utf8size; ++index)
+                        item += buffer[index];
+
                     code_point_encoded = -1;
                 }
 
