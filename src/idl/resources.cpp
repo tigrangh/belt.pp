@@ -21,7 +21,7 @@ bool analyze_json_object(beltpp::json::expression_tree* pexp,
                          size_t& rtt);
 bool analyze_json_object(beltpp::json::expression_tree* pexp,
                          pmsg_all& return_value,
-                         utils const& utl);
+                         utils const&);
 bool analyze_json_common(size_t& rtt,
                          beltpp::json::expression_tree* pexp,
                          std::unordered_map<std::string, beltpp::json::expression_tree*>& members);
@@ -32,11 +32,8 @@ bool analyze_colon(beltpp::json::expression_tree* pexp,
 typedef bool(*fptr_utf32_to_utf8)(uint32_t, std::string&);
 class utils
 {
-public:
- fptr_utf32_to_utf8 fp_utf32_to_utf8;
 };
 }
-template <detail::fptr_utf32_to_utf8 fp_utf32_to_utf8>
 detail::pmsg_all message_list_load(
         beltpp::iterator_wrapper<char const>& iter_scan_begin,
         beltpp::iterator_wrapper<char const> const& iter_scan_end)
@@ -47,7 +44,6 @@ detail::pmsg_all message_list_load(
     json::expression_tree* proot = nullptr;
 
     detail::utils utl;
-    utl.fp_utf32_to_utf8 = fp_utf32_to_utf8;
 
     detail::pmsg_all return_value (size_t(-1),
                                    detail::ptr_msg(nullptr, [](void*&){}),
@@ -182,14 +178,14 @@ std::string saver(std::vector<T> const& value)
 }
 bool analyze_json(std::string& value,
                   beltpp::json::expression_tree* pexp,
-                  utils const& utl)
+                  utils const&)
 {
     bool code = true;
     if (nullptr == pexp ||
         pexp->lexem.rtt != json::value_string::rtt)
         code = false;
     else
-        code = beltpp::json::value_string::decode(pexp->lexem.value, value, utl.fp_utf32_to_utf8);
+        code = beltpp::json::value_string::decode(pexp->lexem.value, value);
 
     return code;
 }
