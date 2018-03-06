@@ -98,7 +98,7 @@ int main(int argc, char* argv[])
         //cout << beltpp::dump(ptr_expression.get()) << endl;
         string file_contents = resources::file_template;
         string generated = analyze(state, ptr_expression.get());
-        file_contents = replace(file_contents, "{namespace_name}", "beltpp");
+        file_contents = replace(file_contents, "{namespace_name}", state.namespace_name);
         file_contents = replace(file_contents, "{expand_message_classes}", generated);
 
         bool generation_success = false;
