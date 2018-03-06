@@ -249,21 +249,21 @@ string analyze_struct(state_holder& state,
         result += "    }\n";
     }
 
-    result += "bool operator == (" + type_name + " const& other) const\n";
-    result += "{\n";
+    result += "    bool operator == (" + type_name + " const& other) const\n";
+    result += "    {\n";
     for (auto member_pair : members)
     {
     auto const& member_name = member_pair.first->lexem;
-    result += "    if (" + member_name.value + " != other." + member_name.value + ")\n";
-    result += "        return false;\n";
+    result += "        if (" + member_name.value + " != other." + member_name.value + ")\n";
+    result += "            return false;\n";
     }
-    result += "    return true;\n";
-    result += "}\n";
+    result += "        return true;\n";
+    result += "    }\n";
 
-    result += "bool operator != (" + type_name + " const& other) const\n";
-    result += "{\n";
-    result += "    return false == (operator == (other));\n";
-    result += "}\n";
+    result += "    bool operator != (" + type_name + " const& other) const\n";
+    result += "    {\n";
+    result += "        return false == (operator == (other));\n";
+    result += "    }\n";
 
     result += "    static std::vector<char> saver(void* p)\n";
     result += "    {\n";
