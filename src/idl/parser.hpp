@@ -10,6 +10,7 @@ class operator_semicolon,
 class keyword_package,
 class keyword_type,
 class keyword_struct,
+class keyword_map,
 class scope_brace,
 class scope_bracket,
 class identifier,
@@ -114,6 +115,29 @@ public:
                      T_iterator const& it_end) const
     {
         return std::string(it_begin, it_end) == "struct";
+    }
+};
+
+class keyword_map : public beltpp::operator_lexer_base<keyword_map, lexers>
+{
+public:
+    size_t right = 1;
+    size_t left_max = 0;
+    size_t left_min = 0;
+    enum { grow_priority = 1 };
+
+    std::pair<bool, bool> check(char ch)
+    {
+        if (ch >= 'a' && ch <= 'z')
+            return std::make_pair(true, false);
+        return std::make_pair(false, false);
+    }
+
+    template <typename T_iterator>
+    bool final_check(T_iterator const& it_begin,
+                     T_iterator const& it_end) const
+    {
+        return std::string(it_begin, it_end) == "map";
     }
 };
 

@@ -11,7 +11,8 @@ using std::pair;
 using std::runtime_error;
 
 state_holder::state_holder()
-    : map_types{{"string", "std::string"},
+    : namespace_name()
+    , map_types{{"string", "std::string"},
                 {"bool", "bool"},
                 {"int8", "int8_t"},
                 {"uint8", "uint8_t"},
@@ -25,9 +26,48 @@ state_holder::state_holder()
                 {"float32", "float"},
                 {"float64", "double"}}
 {
-
 }
 
+namespace
+{
+
+string convert_type (string const& type_name, state_holder& state)
+{
+    auto it_type_name = state.map_types.find(type_name);
+    if (it_type_name != state.map_types.end())
+        return it_type_name->second;
+    return type_name;
+};
+
+string construct_type_name (expression_tree const* member_type, state_holder& state)
+{
+    if (member_type->lexem.rtt == identifier::rtt)
+        return convert_type(member_type->lexem.value, state);
+    else if (member_type->lexem.rtt == scope_bracket::rtt &&
+             member_type->children.size() == 1 &&
+             member_type->children.front()->lexem.rtt == identifier::rtt)
+    {
+        string type_name = convert_type(member_type->children.front()->lexem.value,
+                                        state);
+        return "std::vector<" + type_name + ">";
+    }
+    else if (member_type->lexem.rtt == keyword_map::rtt &&
+             member_type->children.size() == 1 &&
+             member_type->children.front()->lexem.rtt == scope_bracket::rtt &&
+             member_type->children.front()->children.size() == 2)
+    {
+        string key_type_name =
+                construct_type_name(member_type->children.front()->children.front(),
+                                    state);
+        string value_type_name =
+                construct_type_name(member_type->children.front()->children.back(),
+                                    state);
+        return "std::unordered_map<" + key_type_name  + ", " + value_type_name + ">";
+    }
+    else
+        throw runtime_error("can't get type definition, wtf!");
+}
+}
 string analyze(state_holder& state,
                expression_tree const* pexpression)
 {
@@ -73,6 +113,7 @@ string analyze(state_holder& state,
                             scope_brace::rtt)
                         throw runtime_error("struct syntax error");
 
+                    state.namespace_name = package_name;
                     result += analyze_struct(state,
                                              pexpression_type->children.front(),
                                              rtt++,
@@ -103,7 +144,7 @@ string analyze(state_holder& state,
     result += "    {\n";
     result += "        return_value =\n";
     result += "                beltpp::detail::pmsg_all(   " + class_name + "::rtt,\n";
-    result += "                                            make_void_unique_ptr<" + class_name + ">(),\n";
+    result += "                                            ::beltpp::make_void_unique_ptr<" + class_name + ">(),\n";
     result += "                                            &" + class_name + "::saver);\n";
     result += "        " + class_name + "* pmsgcode =\n";
     result += "                static_cast<" + class_name + "*>(return_value.pmsg.get());\n";
@@ -128,6 +169,8 @@ string analyze_struct(state_holder& state,
                       size_t rtt,
                       string const& type_name)
 {
+    if (state.namespace_name.empty())
+        throw runtime_error("please specify package name");
     string result;
     assert(pexpression);
 
@@ -169,26 +212,7 @@ string analyze_struct(state_holder& state,
         if (member_name.rtt != identifier::rtt)
             throw runtime_error("use \"variable type\" syntax please");
 
-        auto convert_type = [&state](string const& type_name)
-        {
-            auto it_type_name = state.map_types.find(type_name);
-            if (it_type_name != state.map_types.end())
-                return it_type_name->second;
-            return type_name;
-        };
-
-        string type_name;
-        if (member_type->lexem.rtt == identifier::rtt)
-            type_name = convert_type(member_type->lexem.value);
-        else if (member_type->lexem.rtt == scope_bracket::rtt &&
-                 member_type->children.size() == 1 &&
-                 member_type->children.front()->lexem.rtt == identifier::rtt)
-        {
-            type_name = convert_type(member_type->children.front()->lexem.value);
-            type_name = "std::vector<" + type_name + ">";
-        }
-
-        result += "    " + type_name + " " +
+        result += "    " + construct_type_name(member_type, state) + " " +
                 member_name.value + ";\n";
     }
 
@@ -214,16 +238,32 @@ string analyze_struct(state_holder& state,
         result += "    template <typename T>\n";
         result += "    explicit " + type_name + "(T const& other)\n";
         result += "    {\n";
-        result += "        assign(*this, other);\n";
+        result += "        ::beltpp::assign(*this, other);\n";
         result += "    }\n";
 
         result += "    template <typename T>\n";
         result += "    " + type_name + "& operator = (T const& other)\n";
         result += "    {\n";
-        result += "        assign(*this, other);\n";
+        result += "        ::beltpp::assign(*this, other);\n";
         result += "        return *this;\n";
         result += "    }\n";
     }
+
+    result += "    bool operator == (" + type_name + " const& other) const\n";
+    result += "    {\n";
+    for (auto member_pair : members)
+    {
+    auto const& member_name = member_pair.first->lexem;
+    result += "        if (" + member_name.value + " != other." + member_name.value + ")\n";
+    result += "            return false;\n";
+    }
+    result += "        return true;\n";
+    result += "    }\n";
+
+    result += "    bool operator != (" + type_name + " const& other) const\n";
+    result += "    {\n";
+    result += "        return false == (operator == (other));\n";
+    result += "    }\n";
 
     result += "    static std::vector<char> saver(void* p)\n";
     result += "    {\n";
@@ -234,31 +274,38 @@ string analyze_struct(state_holder& state,
     result += "        return result;\n";
     result += "    }\n";
 
-    result += "};\n";
+    result += "};  // end of class\n";
 
+    result += "}   // end of namespace " + state.namespace_name + "\n";
+
+    result += "namespace beltpp\n";
+    result += "{\n";
     if (false == members.empty())
     {
         result += "template <typename T>\n";
-        result += "void assign(" + type_name + "& self, T const& other)\n";
+        result += "void assign(" + state.namespace_name + "::" + type_name + "& self, T const& other)\n";
         result += "{\n";
         for (auto member_pair : members)
         {
         auto const& member_name = member_pair.first->lexem;
-        result += "    assign(self." + member_name.value + ", other." + member_name.value + ");\n";
+        result += "    ::beltpp::assign(self." + member_name.value + ", other." + member_name.value + ");\n";
         }
         result += "}\n";
 
         result += "template <typename T>\n";
-        result += "void assign(T& self, " + type_name + " const& other)\n";
+        result += "void assign(T& self, " + state.namespace_name + "::" + type_name + " const& other)\n";
         result += "{\n";
         for (auto member_pair : members)
         {
         auto const& member_name = member_pair.first->lexem;
-        result += "    assign(self." + member_name.value + ", other." + member_name.value + ");\n";
+        result += "    ::beltpp::assign(self." + member_name.value + ", other." + member_name.value + ");\n";
         }
         result += "}\n";
     }
+    result += "}   // end of namespace beltpp\n";
 
+    result += "namespace " + state.namespace_name + "\n";
+    result += "{\n";
     result += "namespace detail\n";
     result += "{\n";
     result += "bool analyze_json(" + type_name + "& msgcode,\n";
@@ -295,18 +342,54 @@ string analyze_struct(state_holder& state,
     result += "{\n";
     result += "    std::string result;\n";
     result += "    result += \"{\";\n";
-    result += "    result += \"\\\"rtt\\\" : \" + saver(" + type_name + "::rtt);\n";
+    result += "    result += \"\\\"rtt\\\":\" + saver(" + type_name + "::rtt);\n";
     for (auto member_pair : members)
     {
     auto const& member_name = member_pair.first->lexem;
-    result += "    result += \",\\\"" + member_name.value + "\\\" : \" + saver(self." + member_name.value + ");\n";
+    result += "    result += \",\\\"" + member_name.value + "\\\":\" + saver(self." + member_name.value + ");\n";
     }
     result += "    result += \"}\";\n";
     result += "    return result;\n";
     result += "}\n";
+
+    result += "bool loader(" + type_name + "& self, std::string const& encoded)\n";
+    result += "{\n";
+    result += "    ::beltpp::iterator_wrapper<char const> b(encoded.begin());\n";
+    result += "    ::beltpp::iterator_wrapper<char const> e(encoded.end());\n";
+    result += "    ::beltpp::detail::pmsg_all pmsg = ::" + state.namespace_name + "::message_list_load(b, e);\n";
+    result += "    if (pmsg.pmsg)\n";
+    result += "    {\n";
+    result += "        ::beltpp::packet p;\n";
+    result += "        p.set(pmsg.rtt, std::move(pmsg.pmsg), pmsg.fsaver);\n";
+    result += "        if (p.type() == ::" + state.namespace_name + "::" + type_name + "::rtt);\n";
+    result += "        {\n";
+    result += "            p.get(self);\n";
+    result += "            return true;\n";
+    result += "        }\n";
+    result += "    }\n";
+    result += "    return false;\n";
     result += "}\n";
+    result += "}\n //  end of namespace detail";
     result += "\n";
+
+    result += "} //  end of namespace " + state.namespace_name + "\n";
+    result += "namespace std\n";
+    result += "{\n";
+    result += "//  provide a simple hash, required by std::unordered_map\n";
+    result += "template <>\n";
+    result += "class hash<" + state.namespace_name + "::" + type_name + ">\n";
+    result += "{\n";
+    result += "    public:\n";
+    result += "        size_t operator()(" + state.namespace_name + "::" + type_name + " const& value) const noexcept\n";
+    result += "        {\n";
+    result += "            std::hash<string> hasher;\n";
+    result += "            return hasher(" + state.namespace_name + "::detail::saver(value));\n";
+    result += "        }\n";
+    result += "};\n";
+    result += "}   //end of namespace std\n";
     result += "\n";
+    result += "namespace " + state.namespace_name + "\n";
+    result += "{\n";
 
     return result;
 }
