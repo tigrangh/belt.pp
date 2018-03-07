@@ -12,6 +12,9 @@ std::string const resources::file_template = R"file_template(/*
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
+#include <utility>
+#include <algorithm>
+#include <functional>
 
 namespace {namespace_name}
 {
@@ -100,7 +103,14 @@ class utils
 
 namespace detail
 {
+template <typename T>
+bool loader(T& value,
+            std::string const& encoded);
 std::string saver(int value)
+{
+    return std::to_string(value);
+}
+std::string saver(unsigned int value)
 {
     return std::to_string(value);
 }
@@ -383,15 +393,59 @@ template <typename T_key, typename T_value>
 bool analyze_json(std::unordered_map<T_key, T_value>& value,
                   ::beltpp::json::expression_tree* pexp,
                   utils const& utl);
+template <typename T_value>
+bool analyze_json(std::unordered_map<std::string, T_value>& value,
+                  ::beltpp::json::expression_tree* pexp,
+                  utils const& utl);
 template <typename T_key, typename T_value>
 std::string saver(std::unordered_map<T_key, T_value> const& value);
+template <typename T_value>
+std::string saver(std::unordered_map<std::string, T_value> const& value);
+
+template <typename T>
+bool less(T const& first, T const& second)
+{
+    std::less<T> c;
+    return c(first, second);
+}
+template <typename T_key, typename T_value>
+bool less(std::unordered_map<T_key, T_value> const& first,
+          std::unordered_map<T_key, T_value> const& second)
+{
+    std::less<std::string> c;
+    return c(saver(first), saver(second));
+}
+template <typename T>
+bool less(std::vector<T> const& first,
+          std::vector<T> const& second)
+{
+    std::less<std::string> c;
+    return c(saver(first), saver(second));
+}
 }
 
 {expand_message_classes}
 
 namespace detail
 {
-
+template <typename T>
+std::string stringsaver(T const& value);
+template <typename T>
+bool stringloader(T& value,
+                  std::string const& encoded);
+template <typename T>
+std::string saver(std::vector<T> const& value)
+{
+    std::string result = "[";
+    for (size_t index = 0; index < value.size(); ++index)
+    {
+        result += saver(value[index]);
+        if (index + 1 != value.size())
+            result += ",";
+    }
+    result += "]";
+    return result;
+}
 template <typename T>
 bool analyze_json(std::vector<T>& value,
                   ::beltpp::json::expression_tree* pexp,
@@ -425,21 +479,125 @@ bool analyze_json(std::vector<T>& value,
 
     return code;
 }
-template <typename T>
-std::string saver(std::vector<T> const& value)
+template <typename T_first, typename T_second>
+std::string saver(std::pair<T_first, T_second> const& value)
 {
     std::string result = "[";
-    for (size_t index = 0; index < value.size(); ++index)
+    result += saver(value.first);
+    result += ",";
+    result += saver(value.second);
+    result += "]";
+    return result;
+}
+template <typename T_first, typename T_second>
+bool analyze_json(std::pair<T_first, T_second>& value,
+                  ::beltpp::json::expression_tree* pexp,
+                  utils const& utl)
+{
+    bool code = true;
+    if (nullptr == pexp ||
+        pexp->lexem.rtt != ::beltpp::json::scope_bracket::rtt ||
+        pexp->children.size() != 1 ||
+        pexp->children.front()->lexem.rtt != ::beltpp::json::operator_comma::rtt ||
+        pexp->children.front()->children.size() != 2)
+        code = false;
+    else
     {
-        result += saver(value[index]);
-        if (index + 1 != value.size())
+        auto const& pair_item = pexp->children.front();
+        if (false == analyze_json(value.first, pair_item->children.front(), utl) ||
+            false == analyze_json(value.second, pair_item->children.back(), utl))
+            code = false;
+    }
+
+    return code;
+}
+template <typename T_key, typename T_value>
+std::vector<std::pair<T_key, T_value>>
+    map2vector(std::unordered_map<T_key, T_value> const& value)
+{
+    std::vector<std::pair<T_key, T_value>> result;
+    result.reserve(value.size());
+    for (auto const& item : value)
+        result.push_back(item);
+
+    std::sort(result.begin(), result.end());
+
+    return result;
+}
+template <typename T_key, typename T_value>
+std::string saver(std::unordered_map<T_key, T_value> const& value)
+{
+    auto arr_value = map2vector(value);
+
+    std::string result = "[";
+    auto it = arr_value.begin();
+    for (; it != arr_value.end(); ++it)
+    {
+        result += saver(*it);
+        auto it_temp = it;
+        ++it_temp;
+        if (it_temp != arr_value.end())
             result += ",";
     }
     result += "]";
     return result;
 }
+template <typename T_value>
+std::string saver(std::unordered_map<std::string, T_value> const& value)
+{
+    auto arr_value = map2vector(value);
+
+    std::string result = "{";
+    auto it = arr_value.begin();
+    for (; it != arr_value.end(); ++it)
+    {
+        result += stringsaver(it->first);
+        result += ":";
+        result += saver(it->second);
+        auto it_temp = it;
+        ++it_temp;
+        if (it_temp != arr_value.end())
+            result += ",";
+    }
+    result += "}";
+    return result;
+}
 template <typename T_key, typename T_value>
 bool analyze_json(std::unordered_map<T_key, T_value>& value,
+                  ::beltpp::json::expression_tree* pexp,
+                  utils const& utl)
+{
+    value.clear();
+    bool code = true;
+    if (nullptr == pexp ||
+        pexp->lexem.rtt != ::beltpp::json::scope_bracket::rtt)
+        code = false;
+    else
+    {
+        auto pscan = pexp;
+        if (pexp->children.size() == 1 &&
+            pexp->children.front()->lexem.rtt == ::beltpp::json::operator_comma::rtt &&
+            false == pexp->children.front()->children.empty())
+            pscan = pexp->children.front();
+
+        for (auto const& item : pscan->children)
+        {
+            std::pair<T_key, T_value> item_value;
+            if (analyze_json(item_value, item, utl))
+                value.insert(item_value);
+            else
+            {
+                code = false;
+                break;
+            }
+        }
+    }
+
+    return code;
+}
+
+template <typename T_value>
+bool analyze_json(std::unordered_map<std::string, T_value>& value,
                   ::beltpp::json::expression_tree* pexp,
                   utils const& utl)
 {
@@ -461,10 +619,12 @@ bool analyze_json(std::unordered_map<T_key, T_value>& value,
             if (item->lexem.rtt == ::beltpp::json::operator_colon::rtt &&
                 item->children.size() == 2)
             {
-                T_key item_key;
+                std::string item_key;
                 T_value item_value;
-                if (analyze_json(item_value, item->children.back(), utl) &&
-                    analyze_json(item_key, item->children.front(), utl))
+                std::string decoded;
+                if (item->children.front()->lexem.rtt == ::beltpp::json::value_string::rtt &&
+                    stringloader(item_key, item->children.front()->lexem.value) &&
+                    analyze_json(item_value, item->children.back(), utl))
                     value.insert(std::make_pair(item_key, item_value));
                 else
                 {
@@ -482,25 +642,57 @@ bool analyze_json(std::unordered_map<T_key, T_value>& value,
 
     return code;
 }
-template <typename T_key, typename T_value>
-std::string saver(std::unordered_map<T_key, T_value> const& value)
+
+template <typename T>
+bool loader(T& value,
+            std::string const& encoded)
 {
-    std::string result = "{";
-    auto it = value.begin();
-    for (; it != value.end(); ++it)
-    {
-        result += saver(it->first);
-        result += ":";
-        result += saver(it->second);
-        auto it_temp = it;
-        ++it_temp;
-        if (it_temp != value.end())
-            result += ",";
-    }
-    result += "}";
-    return result;
+    //  add space, because parser assumes a stream, and may not parse last symbols
+    std::string encoded2 = encoded + " ";
+    ::beltpp::iterator_wrapper<char const> iter_scan_begin(encoded2.begin());
+    ::beltpp::iterator_wrapper<char const> iter_scan_end(encoded2.end());
+
+    ::beltpp::json::ptr_expression_tree pexp;
+    ::beltpp::json::expression_tree* proot = nullptr;
+
+    detail::utils utl;
+    auto code = ::beltpp::json::parse_stream(pexp, iter_scan_begin,
+                                             iter_scan_end, 1024*1024, proot);
+
+    if (code != ::beltpp::e_three_state_result::success)
+        return false;
+    if (nullptr == pexp)
+        return false;
+
+    return analyze_json(value, pexp.get(), utl);
 }
 
+template <typename T>
+std::string stringsaver(T const& value)
+{
+    return saver(saver(value));
+}
+template <>
+std::string stringsaver(std::string const& value)
+{
+    return saver(value);
+}
+template <typename T>
+bool stringloader(T& value,
+                  std::string const& encoded)
+{
+    std::string decoded;
+    if (loader(decoded, encoded) &&
+        loader(value, decoded))
+        return true;
+    return false;
+}
+template <>
+bool stringloader(std::string& value,
+                  std::string const& encoded)
+{
+    return loader(value, encoded);
+}
 
 bool analyze_json_common(size_t& rtt,
                          ::beltpp::json::expression_tree* pexp,

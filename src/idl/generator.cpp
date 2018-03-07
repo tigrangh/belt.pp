@@ -265,6 +265,25 @@ string analyze_struct(state_holder& state,
     result += "        return false == (operator == (other));\n";
     result += "    }\n";
 
+    result += "    bool operator < (" + type_name + " const& other) const\n";
+    result += "    {\n";
+    for (auto member_pair : members)
+    {
+    auto const& member_name = member_pair.first->lexem;
+    result += "        if (false == detail::less(" + member_name.value + ", other." + member_name.value + "))\n";
+    result += "            return false;\n";
+    }
+    if (false == members.empty())
+    result += "        return true;\n";
+    else
+    result += "        return false;\n";
+    result += "    }\n";
+
+    result += "    bool operator > (" + type_name + " const& other) const\n";
+    result += "    {\n";
+    result += "        return other < *this;\n";
+    result += "    }\n";
+
     result += "    static std::vector<char> saver(void* p)\n";
     result += "    {\n";
     result += "        " + type_name + "* pmc = static_cast<" + type_name + "*>(p);\n";
@@ -350,24 +369,6 @@ string analyze_struct(state_holder& state,
     }
     result += "    result += \"}\";\n";
     result += "    return result;\n";
-    result += "}\n";
-
-    result += "bool loader(" + type_name + "& self, std::string const& encoded)\n";
-    result += "{\n";
-    result += "    ::beltpp::iterator_wrapper<char const> b(encoded.begin());\n";
-    result += "    ::beltpp::iterator_wrapper<char const> e(encoded.end());\n";
-    result += "    ::beltpp::detail::pmsg_all pmsg = ::" + state.namespace_name + "::message_list_load(b, e);\n";
-    result += "    if (pmsg.pmsg)\n";
-    result += "    {\n";
-    result += "        ::beltpp::packet p;\n";
-    result += "        p.set(pmsg.rtt, std::move(pmsg.pmsg), pmsg.fsaver);\n";
-    result += "        if (p.type() == ::" + state.namespace_name + "::" + type_name + "::rtt);\n";
-    result += "        {\n";
-    result += "            p.get(self);\n";
-    result += "            return true;\n";
-    result += "        }\n";
-    result += "    }\n";
-    result += "    return false;\n";
     result += "}\n";
     result += "}\n //  end of namespace detail";
     result += "\n";
