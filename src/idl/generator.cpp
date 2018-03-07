@@ -297,10 +297,10 @@ string analyze_struct(state_holder& state,
 
     result += "}   // end of namespace " + state.namespace_name + "\n";
 
-    result += "namespace beltpp\n";
-    result += "{\n";
     if (false == members.empty())
     {
+        result += "namespace beltpp\n";
+        result += "{\n";
         result += "template <typename T>\n";
         result += "void assign(" + state.namespace_name + "::" + type_name + "& self, T const& other)\n";
         result += "{\n";
@@ -320,8 +320,8 @@ string analyze_struct(state_holder& state,
         result += "    ::beltpp::assign(self." + member_name.value + ", other." + member_name.value + ");\n";
         }
         result += "}\n";
+        result += "}   // end of namespace beltpp\n";
     }
-    result += "}   // end of namespace beltpp\n";
 
     result += "namespace " + state.namespace_name + "\n";
     result += "{\n";
@@ -370,10 +370,10 @@ string analyze_struct(state_holder& state,
     result += "    result += \"}\";\n";
     result += "    return result;\n";
     result += "}\n";
-    result += "}\n //  end of namespace detail";
+    result += "}   //  end of namespace detail\n";
     result += "\n";
 
-    result += "} //  end of namespace " + state.namespace_name + "\n";
+    result += "}   //  end of namespace " + state.namespace_name + "\n";
     result += "namespace std\n";
     result += "{\n";
     result += "//  provide a simple hash, required by std::unordered_map\n";
