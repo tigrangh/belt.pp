@@ -24,7 +24,8 @@ state_holder::state_holder()
                 {"int64", "int64_t"},
                 {"uint64", "uint64_t"},
                 {"float32", "float"},
-                {"float64", "double"}}
+                {"float64", "double"},
+                {"time.Time", "ctime"}}
 {
 }
 
@@ -282,6 +283,16 @@ string analyze_struct(state_holder& state,
     result += "    bool operator > (" + type_name + " const& other) const\n";
     result += "    {\n";
     result += "        return other < *this;\n";
+    result += "    }\n";
+
+    result += "    bool operator >= (" + type_name + " const& other) const\n";
+    result += "    {\n";
+    result += "        return false == (*this < other);\n";
+    result += "    }\n";
+
+    result += "    bool operator <= (" + type_name + " const& other) const\n";
+    result += "    {\n";
+    result += "        return false == (*this > other);\n";
     result += "    }\n";
 
     result += "    static std::vector<char> saver(void* p)\n";

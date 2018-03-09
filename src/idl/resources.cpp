@@ -8,6 +8,7 @@ std::string const resources::file_template = R"file_template(/*
 #include <belt.pp/message_global.hpp>
 #include <belt.pp/json.hpp>
 #include <belt.pp/packet.hpp>
+#include <belt.pp/utility.hpp>
 #include <string>
 #include <cstdint>
 #include <unordered_map>
@@ -15,6 +16,7 @@ std::string const resources::file_template = R"file_template(/*
 #include <utility>
 #include <algorithm>
 #include <functional>
+#include <ctime>
 
 namespace {namespace_name}
 {
@@ -101,6 +103,19 @@ class utils
     return return_value;
 }
 
+class ctime
+{
+public:
+    ctime() : tm() {}
+    time_t tm;
+    bool operator == (ctime const& other) const { return tm == other.tm; }
+    bool operator != (ctime const& other) const { return tm != other.tm; }
+    bool operator < (ctime const& other) const { return tm < other.tm; }
+    bool operator > (ctime const& other) const { return tm > other.tm; }
+    bool operator <= (ctime const& other) const { return tm <= other.tm; }
+    bool operator >= (ctime const& other) const { return tm >= other.tm; }
+};
+
 namespace detail
 {
 template <typename T>
@@ -140,6 +155,10 @@ std::string saver(float value)
 std::string saver(double value)
 {
     return std::to_string(value);
+}
+std::string saver(ctime const& value)
+{
+    return saver(::beltpp::gm_time_t_to_gm_string(value.tm));
 }
 bool analyze_json(std::string& value,
                   ::beltpp::json::expression_tree* pexp,
@@ -382,6 +401,16 @@ bool analyze_json(double& value,
     }
 
     return code;
+}
+bool analyze_json(ctime& value,
+                  ::beltpp::json::expression_tree* pexp,
+                  utils const& utl)
+{
+    std::string str_value;
+    if (analyze_json(str_value, pexp, utl) &&
+        ::beltpp::gm_string_to_gm_time_t(str_value, value.tm))
+        return true;
+    return false;
 }
 template <typename T>
 bool analyze_json(std::vector<T>& value,

@@ -30,8 +30,7 @@ public:
     virtual ~packet();
 
     template <typename T_message>
-    packet(T_message&& msg) :
-        packet()
+    packet(T_message&& msg) : packet()
     {
         set(std::forward<T_message>(msg));
     }
