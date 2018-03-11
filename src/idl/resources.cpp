@@ -8,6 +8,7 @@ std::string const resources::file_template = R"file_template(/*
 #include <belt.pp/message_global.hpp>
 #include <belt.pp/json.hpp>
 #include <belt.pp/packet.hpp>
+#include <belt.pp/utility.hpp>
 #include <string>
 #include <cstdint>
 #include <unordered_map>
@@ -15,6 +16,7 @@ std::string const resources::file_template = R"file_template(/*
 #include <utility>
 #include <algorithm>
 #include <functional>
+#include <ctime>
 
 namespace {namespace_name}
 {
@@ -37,6 +39,22 @@ typedef bool(*fptr_utf32_to_utf8)(uint32_t, std::string&);
 class utils
 {
 };
+bool message_list_load_helper(::beltpp::json::expression_tree* pexp,
+                              ::beltpp::detail::pmsg_all& return_value,
+                              detail::utils const& utl)
+{
+    if (false == analyze_json_object(pexp,
+                                     return_value.rtt))
+    {
+        //  this can happen if a different application is
+        //  trying to fool us, by sending incorrect json structures
+        return false;
+    }
+    else if (false == detail::analyze_json_object(pexp, return_value, utl))
+        return false;
+
+    return true;
+}
 }
 ::beltpp::detail::pmsg_all message_list_load(
         beltpp::iterator_wrapper<char const>& iter_scan_begin,
@@ -49,12 +67,15 @@ class utils
 
     detail::utils utl;
 
-    ::beltpp::detail::pmsg_all return_value (size_t(-1),
-                                   ::beltpp::detail::ptr_msg(nullptr, [](void*&){}),
-                                   nullptr);
+    ::beltpp::detail::pmsg_all return_value(size_t(-1),
+                            ::beltpp::detail::ptr_msg(nullptr, [](void*&){}),
+                            nullptr);
 
-    auto code = ::beltpp::json::parse_stream(pexp, iter_scan_begin,
-                                   iter_scan_end, 1024*1024, proot);
+    auto code = ::beltpp::json::parse_stream(pexp,
+                                             iter_scan_begin,
+                                             iter_scan_end,
+                                             1024*1024,
+                                             proot);
 
     if (::beltpp::e_three_state_result::success == code &&
         nullptr == pexp)
@@ -66,18 +87,8 @@ class utils
         code = ::beltpp::e_three_state_result::error;
     }
     else if (::beltpp::e_three_state_result::success == code &&
-             false == detail::analyze_json_object(pexp.get(),
-                                                  return_value.rtt))
-    {
-        //  this can happen if a different application is
-        //  trying to fool us, by sending incorrect json structures
+             false == detail::message_list_load_helper(pexp.get(), return_value, utl))
         code = ::beltpp::e_three_state_result::error;
-    }
-    else if (::beltpp::e_three_state_result::success == code &&
-             false == detail::analyze_json_object(pexp.get(), return_value, utl))
-    {
-        code = ::beltpp::e_three_state_result::error;
-    }
     //
     //
     if (::beltpp::e_three_state_result::error == code)
@@ -100,6 +111,19 @@ class utils
 
     return return_value;
 }
+
+class ctime
+{
+public:
+    ctime() : tm() {}
+    time_t tm;
+    bool operator == (ctime const& other) const { return tm == other.tm; }
+    bool operator != (ctime const& other) const { return tm != other.tm; }
+    bool operator < (ctime const& other) const { return tm < other.tm; }
+    bool operator > (ctime const& other) const { return tm > other.tm; }
+    bool operator <= (ctime const& other) const { return tm <= other.tm; }
+    bool operator >= (ctime const& other) const { return tm >= other.tm; }
+};
 
 namespace detail
 {
@@ -140,6 +164,10 @@ std::string saver(float value)
 std::string saver(double value)
 {
     return std::to_string(value);
+}
+std::string saver(ctime const& value)
+{
+    return saver(::beltpp::gm_time_t_to_gm_string(value.tm));
 }
 bool analyze_json(std::string& value,
                   ::beltpp::json::expression_tree* pexp,
@@ -383,6 +411,37 @@ bool analyze_json(double& value,
 
     return code;
 }
+bool analyze_json(ctime& value,
+                  ::beltpp::json::expression_tree* pexp,
+                  utils const& utl)
+{
+    std::string str_value;
+    if (analyze_json(str_value, pexp, utl) &&
+        ::beltpp::gm_string_to_gm_time_t(str_value, value.tm))
+        return true;
+    return false;
+}
+std::string saver(::beltpp::packet const& value)
+{
+    auto buffer = value.save();
+    return std::string(buffer.begin(), buffer.end());
+}
+bool analyze_json(::beltpp::packet& value,
+                  ::beltpp::json::expression_tree* pexp,
+                  utils const& utl)
+{
+    ::beltpp::detail::pmsg_all return_value(size_t(-1),
+                            ::beltpp::detail::ptr_msg(nullptr, [](void*&){}),
+                            nullptr);
+    if (false == detail::message_list_load_helper(pexp, return_value, utl))
+        return false;
+
+    value.set(return_value.rtt,
+              std::move(return_value.pmsg),
+              return_value.fsaver);
+
+    return true;
+}
 template <typename T>
 bool analyze_json(std::vector<T>& value,
                   ::beltpp::json::expression_tree* pexp,
@@ -422,7 +481,22 @@ bool less(std::vector<T> const& first,
     std::less<std::string> c;
     return c(saver(first), saver(second));
 }
+bool less(::beltpp::packet const& first,
+          ::beltpp::packet const& second)
+{
+    std::less<std::string> c;
+    return c(saver(first), saver(second));
 }
+}   // end namespace detail
+}   // end namespace {namespace_name}
+
+namespace beltpp
+{
+    void assign(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
+}
+
+namespace {namespace_name}
+{
 
 {expand_message_classes}
 
@@ -839,6 +913,21 @@ bool analyze_colon(::beltpp::json::expression_tree* pexp,
 
     return code;
 }
+}   //  end namespace detail
+}   //  end namespace {namespace_name}
+
+namespace beltpp
+{
+void assign(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
+{
+    if ({namespace_name}::detail::storage::s_arr_fptr.size() <= other.type())
+        throw std::runtime_error("let it terminate");
+
+    auto const& item = {namespace_name}::detail::storage::s_arr_fptr[other.type()];
+
+    self.set(other.type(),
+             item.fp_new_void_unique_ptr_copy(other.data()),
+             item.fp_saver);
 }
 }
 

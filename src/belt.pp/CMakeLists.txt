@@ -28,7 +28,8 @@ set(SRC_FILES
     processor.hpp
     queue.hpp
     scope_helper.hpp
-    socket.hpp)
+    socket.hpp
+    utility.hpp)
 
 install(FILES
     ${SRC_FILES}
