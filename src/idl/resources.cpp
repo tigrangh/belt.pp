@@ -461,8 +461,6 @@ std::string saver(std::unordered_map<T_key, T_value> const& value);
 template <typename T_value>
 std::string saver(std::unordered_map<std::string, T_value> const& value);
 
-void assign_packet(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
-
 template <typename T>
 bool less(T const& first, T const& second)
 {
@@ -489,7 +487,16 @@ bool less(::beltpp::packet const& first,
     std::less<std::string> c;
     return c(saver(first), saver(second));
 }
+}   // end namespace detail
+}   // end namespace {namespace_name}
+
+namespace beltpp
+{
+    void assign(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
 }
+
+namespace {namespace_name}
+{
 
 {expand_message_classes}
 
@@ -710,18 +717,6 @@ bool analyze_json(std::unordered_map<std::string, T_value>& value,
     return code;
 }
 
-void assign_packet(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
-{
-    if (storage::s_arr_fptr.size() <= other.type())
-        throw std::runtime_error("let it terminate");
-
-    auto const& item = storage::s_arr_fptr[other.type()];
-
-    self.set(other.type(),
-             item.fp_new_void_unique_ptr_copy(other.data()),
-             item.fp_saver);
-}
-
 template <typename T>
 bool loader(T& value,
             std::string const& encoded)
@@ -918,6 +913,21 @@ bool analyze_colon(::beltpp::json::expression_tree* pexp,
 
     return code;
 }
+}   //  end namespace detail
+}   //  end namespace {namespace_name}
+
+namespace beltpp
+{
+void assign(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
+{
+    if ({namespace_name}::detail::storage::s_arr_fptr.size() <= other.type())
+        throw std::runtime_error("let it terminate");
+
+    auto const& item = {namespace_name}::detail::storage::s_arr_fptr[other.type()];
+
+    self.set(other.type(),
+             item.fp_new_void_unique_ptr_copy(other.data()),
+             item.fp_saver);
 }
 }
 

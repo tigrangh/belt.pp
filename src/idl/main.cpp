@@ -23,12 +23,26 @@ string replace(string const& source,
                string const& lookup,
                string const& replace)
 {
-    string result;
+    string result = source;
     size_t pos = source.find(lookup);
     if (pos != string::npos)
-    {
-        result = source;
         result.replace(pos, lookup.length(), replace);
+
+    return result;
+}
+
+string replace_all(string const& source,
+                   string const& lookup,
+                   string const& replace)
+{
+    string result = source;
+    while (true)
+    {
+        size_t pos = result.find(lookup);
+        if (pos != string::npos)
+            result.replace(pos, lookup.length(), replace);
+        else
+            break;
     }
 
     return result;
@@ -98,7 +112,7 @@ int main(int argc, char* argv[])
         //cout << beltpp::dump(ptr_expression.get()) << endl;
         string file_contents = resources::file_template;
         string generated = analyze(state, ptr_expression.get());
-        file_contents = replace(file_contents, "{namespace_name}", state.namespace_name);
+        file_contents = replace_all(file_contents, "{namespace_name}", state.namespace_name);
         file_contents = replace(file_contents, "{expand_message_classes}", generated);
 
         bool generation_success = false;

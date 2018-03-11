@@ -332,7 +332,7 @@ string analyze_struct(state_holder& state,
         {
             result += "    {\n";
             for (auto const& item : set_object_name)
-                result += "        detail::assign_packet(" + item + ", other." + item + ");\n";
+                result += "        ::beltpp::assign(" + item + ", other." + item + ");\n";
             result += "    }\n";
         }
     }
@@ -346,10 +346,7 @@ string analyze_struct(state_holder& state,
         for (auto member_pair : members)
         {
             auto const& member_name = member_pair.first->lexem;
-            if (set_object_name.find(member_name.value) == set_object_name.end())
-                result += "        ::beltpp::assign(" + member_name.value + ", other." + member_name.value + ");\n";
-            else
-                result += "        detail::assign_packet(" + member_name.value + ", other." + member_name.value + ");\n";
+            result += "        ::beltpp::assign(" + member_name.value + ", other." + member_name.value + ");\n";
         }
         result += "    }\n";
 
@@ -358,10 +355,7 @@ string analyze_struct(state_holder& state,
         for (auto member_pair : members)
         {
             auto const& member_name = member_pair.first->lexem;
-            if (set_object_name.find(member_name.value) == set_object_name.end())
-                result += "        ::beltpp::assign(" + member_name.value + ", other." + member_name.value + ");\n";
-            else
-                result += "        detail::assign_packet(" + member_name.value + ", other." + member_name.value + ");\n";
+            result += "        ::beltpp::assign(" + member_name.value + ", other." + member_name.value + ");\n";
         }
         result += "        return *this;\n";
         result += "    }\n";
@@ -372,10 +366,7 @@ string analyze_struct(state_holder& state,
         for (auto member_pair : members)
         {
             auto const& member_name = member_pair.first->lexem;
-            if (set_object_name.find(member_name.value) == set_object_name.end())
-                result += "        ::beltpp::assign(" + member_name.value + ", other." + member_name.value + ");\n";
-            else
-                result += "        detail::assign_packet(" + member_name.value + ", other." + member_name.value + ");\n";
+            result += "        ::beltpp::assign(" + member_name.value + ", other." + member_name.value + ");\n";
         }
         result += "        return *this;\n";
         result += "    }\n";
@@ -453,10 +444,7 @@ string analyze_struct(state_holder& state,
         for (auto member_pair : members)
         {
         auto const& member_name = member_pair.first->lexem;
-        if (set_object_name.find(member_name.value) == set_object_name.end())
-            result += "    ::beltpp::assign(self." + member_name.value + ", other." + member_name.value + ");\n";
-        else
-            result += "    " + state.namespace_name + "::detail::assign_packet(self." + member_name.value + ", other." + member_name.value + ");\n";
+        result += "    ::beltpp::assign(self." + member_name.value + ", other." + member_name.value + ");\n";
         }
         result += "}\n";
 
@@ -467,10 +455,7 @@ string analyze_struct(state_holder& state,
         for (auto member_pair : members)
         {
         auto const& member_name = member_pair.first->lexem;
-        if (set_object_name.find(member_name.value) == set_object_name.end())
-            result += "    ::beltpp::assign(self." + member_name.value + ", other." + member_name.value + ");\n";
-        else
-            result += "    " + state.namespace_name + "::detail::assign_packet(self." + member_name.value + ", other." + member_name.value + ");\n";
+        result += "    ::beltpp::assign(self." + member_name.value + ", other." + member_name.value + ");\n";
         }
         result += "}\n";
         result += "}   // end of namespace beltpp\n";

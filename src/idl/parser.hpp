@@ -221,7 +221,7 @@ public:
     std::pair<bool, bool> check(char ch)
     {
         ++index;
-        if ((tolower(ch) >= 'a' && tolower(ch) <= 'z') ||
+        if ((ch >= 'a' && ch <= 'z') ||
             ch == '_' ||
             (ch >= '0' && ch <= '9' && index > 0))
             return std::make_pair(true, false);
