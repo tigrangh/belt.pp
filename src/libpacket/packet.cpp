@@ -80,6 +80,11 @@ void packet::set(size_t rtt,
                   fsaver);
 }
 
+void const* packet::data() const noexcept
+{
+    return _get_internal();
+}
+
 void const* packet::_get_internal() const noexcept
 {
     return m_pimpl->m_ptr_message_code.get();

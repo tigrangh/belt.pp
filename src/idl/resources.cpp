@@ -39,6 +39,22 @@ typedef bool(*fptr_utf32_to_utf8)(uint32_t, std::string&);
 class utils
 {
 };
+bool message_list_load_helper(::beltpp::json::expression_tree* pexp,
+                              ::beltpp::detail::pmsg_all& return_value,
+                              detail::utils const& utl)
+{
+    if (false == analyze_json_object(pexp,
+                                     return_value.rtt))
+    {
+        //  this can happen if a different application is
+        //  trying to fool us, by sending incorrect json structures
+        return false;
+    }
+    else if (false == detail::analyze_json_object(pexp, return_value, utl))
+        return false;
+
+    return true;
+}
 }
 ::beltpp::detail::pmsg_all message_list_load(
         beltpp::iterator_wrapper<char const>& iter_scan_begin,
@@ -51,12 +67,15 @@ class utils
 
     detail::utils utl;
 
-    ::beltpp::detail::pmsg_all return_value (size_t(-1),
-                                   ::beltpp::detail::ptr_msg(nullptr, [](void*&){}),
-                                   nullptr);
+    ::beltpp::detail::pmsg_all return_value(size_t(-1),
+                            ::beltpp::detail::ptr_msg(nullptr, [](void*&){}),
+                            nullptr);
 
-    auto code = ::beltpp::json::parse_stream(pexp, iter_scan_begin,
-                                   iter_scan_end, 1024*1024, proot);
+    auto code = ::beltpp::json::parse_stream(pexp,
+                                             iter_scan_begin,
+                                             iter_scan_end,
+                                             1024*1024,
+                                             proot);
 
     if (::beltpp::e_three_state_result::success == code &&
         nullptr == pexp)
@@ -68,18 +87,8 @@ class utils
         code = ::beltpp::e_three_state_result::error;
     }
     else if (::beltpp::e_three_state_result::success == code &&
-             false == detail::analyze_json_object(pexp.get(),
-                                                  return_value.rtt))
-    {
-        //  this can happen if a different application is
-        //  trying to fool us, by sending incorrect json structures
+             false == detail::message_list_load_helper(pexp.get(), return_value, utl))
         code = ::beltpp::e_three_state_result::error;
-    }
-    else if (::beltpp::e_three_state_result::success == code &&
-             false == detail::analyze_json_object(pexp.get(), return_value, utl))
-    {
-        code = ::beltpp::e_three_state_result::error;
-    }
     //
     //
     if (::beltpp::e_three_state_result::error == code)
@@ -412,6 +421,27 @@ bool analyze_json(ctime& value,
         return true;
     return false;
 }
+std::string saver(::beltpp::packet const& value)
+{
+    auto buffer = value.save();
+    return std::string(buffer.begin(), buffer.end());
+}
+bool analyze_json(::beltpp::packet& value,
+                  ::beltpp::json::expression_tree* pexp,
+                  utils const& utl)
+{
+    ::beltpp::detail::pmsg_all return_value(size_t(-1),
+                            ::beltpp::detail::ptr_msg(nullptr, [](void*&){}),
+                            nullptr);
+    if (false == detail::message_list_load_helper(pexp, return_value, utl))
+        return false;
+
+    value.set(return_value.rtt,
+              std::move(return_value.pmsg),
+              return_value.fsaver);
+
+    return true;
+}
 template <typename T>
 bool analyze_json(std::vector<T>& value,
                   ::beltpp::json::expression_tree* pexp,
@@ -431,6 +461,8 @@ std::string saver(std::unordered_map<T_key, T_value> const& value);
 template <typename T_value>
 std::string saver(std::unordered_map<std::string, T_value> const& value);
 
+void assign_packet(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
+
 template <typename T>
 bool less(T const& first, T const& second)
 {
@@ -447,6 +479,12 @@ bool less(std::unordered_map<T_key, T_value> const& first,
 template <typename T>
 bool less(std::vector<T> const& first,
           std::vector<T> const& second)
+{
+    std::less<std::string> c;
+    return c(saver(first), saver(second));
+}
+bool less(::beltpp::packet const& first,
+          ::beltpp::packet const& second)
 {
     std::less<std::string> c;
     return c(saver(first), saver(second));
@@ -670,6 +708,18 @@ bool analyze_json(std::unordered_map<std::string, T_value>& value,
     }
 
     return code;
+}
+
+void assign_packet(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
+{
+    if (storage::s_arr_fptr.size() <= other.type())
+        throw std::runtime_error("let it terminate");
+
+    auto const& item = storage::s_arr_fptr[other.type()];
+
+    self.set(other.type(),
+             item.fp_new_void_unique_ptr_copy(other.data()),
+             item.fp_saver);
 }
 
 template <typename T>

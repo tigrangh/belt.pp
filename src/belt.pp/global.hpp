@@ -36,7 +36,7 @@ using fptr_deleter = void(*)(void*&);
 using void_unique_ptr = std::unique_ptr<void, detail::fptr_deleter>;
 
 template <typename T>
-inline void_unique_ptr make_void_unique_ptr()
+inline void_unique_ptr new_void_unique_ptr()
 {
     void_unique_ptr result(nullptr,
                            [](void* &p)
@@ -51,7 +51,7 @@ inline void_unique_ptr make_void_unique_ptr()
 }
 
 template <typename T>
-inline void_unique_ptr make_void_unique_ptr(T const& other)
+inline void_unique_ptr new_void_unique_ptr(void const* pother)
 {
     void_unique_ptr result(nullptr,
                            [](void* &p)
@@ -61,6 +61,7 @@ inline void_unique_ptr make_void_unique_ptr(T const& other)
                                 p = nullptr;
                             });
 
+    T const& other = *static_cast<T const*>(pother);
     result.reset(new T(other));
     return result;
 }

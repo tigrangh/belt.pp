@@ -51,6 +51,8 @@ public:
     template <typename T_message>
     void get(T_message& msg) const;
 
+    void const* data() const noexcept;
+
 protected:
     void const* _get_internal() const noexcept;
     void _set_internal(size_t rtt,
@@ -64,7 +66,7 @@ template <typename T_message>
 void packet::set(T_message&& msg)
 {
     using MessageValueT = typename std::remove_reference<T_message>::type;
-    ptr_msg pmsg(make_void_unique_ptr<MessageValueT>());
+    ptr_msg pmsg(new_void_unique_ptr<MessageValueT>());
     void* pv = pmsg.get();
     MessageValueT* pmv = static_cast<MessageValueT*>(pv);
     MessageValueT& ref = *pmv;

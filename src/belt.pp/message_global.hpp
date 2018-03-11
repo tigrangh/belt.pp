@@ -24,7 +24,7 @@ class pmsg_all
 {
 public:
     pmsg_all(size_t a_rtt,
-             ptr_msg a_pmsg,
+             ptr_msg&& a_pmsg,
              fptr_saver a_fsaver)
         : rtt(a_rtt)
         , pmsg(std::move(a_pmsg))
@@ -140,7 +140,7 @@ protected:
 template <typename T_message, typename T_MessageList>
 int message_base<T_message, T_MessageList>::s_dummy =
         detail::store_fptr<message_base::rtt,
-                            &make_void_unique_ptr<T_message>,
+                            &new_void_unique_ptr<T_message>,
                             &message_base::scanner,
                             &message_base::saver,
                             detail::message_store<T_MessageList>>();

@@ -223,8 +223,7 @@ public:
         ++index;
         if ((tolower(ch) >= 'a' && tolower(ch) <= 'z') ||
             ch == '_' ||
-            (ch >= '0' && ch <= '9' && index > 0) ||
-            (ch == '.' && index > 0))
+            (ch >= '0' && ch <= '9' && index > 0))
             return std::make_pair(true, false);
         return std::make_pair(false, false);
     }
@@ -233,8 +232,7 @@ public:
     bool final_check(T_iterator const& it_begin,
                      T_iterator const& it_end) const
     {
-        std::string temp(it_begin, it_end);
-        return (false == temp.empty()) && (temp[temp.length() - 1] != '.');
+        return it_begin != it_end;
     }
 
     bool scan_beyond() const
