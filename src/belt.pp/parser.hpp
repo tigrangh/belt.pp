@@ -113,8 +113,7 @@ expression_tree<T_lexers, T_string>::~expression_tree() noexcept
     }
 }
 
-template <typename T_lexers, typename T_string
-          >
+template <typename T_lexers, typename T_string>
 size_t expression_tree<T_lexers, T_string>::depth() const
 {
     size_t depth = -1;
@@ -216,6 +215,7 @@ class storage
 {
 public:
     using fptr_reader = bool (*)(T_iterator&, T_iterator, token<T_string>&);
+    enum { count = T_lexers::count };
 public:
     storage() {++s_initializer;}
     ~storage() {--s_initializer;}
@@ -411,10 +411,16 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
     auto it_copy = it_begin;
 
     bool has_default_operator = cdummy::get_default_operator(default_operator);
-    bool read_op_code = cdummy::read(it_copy, it_end, read_result);
+
+    for (size_t reader_index = 0; reader_index < storage::count; ++reader_index)
+    {
+    //bool read_op_code = cdummy::read(it_copy, it_end, read_result);
+    bool read_op_code = readers[reader_index](it_copy, it_end, read_result);
     if (read_op_code && it_copy != it_begin)
     {   //  try to place the operator token in the expression tree
         //  if successful then update it_begin and return
+        auto ptr_expression_backup = ptr_expression.get();
+
         if (detail::parse_helper(ptr_expression, read_result, has_default_operator, default_operator))
         {
             it_begin = it_copy;
@@ -422,11 +428,11 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
         }
         else
         {   //  otherwise don't forget to reset it_copy to it_begin
-            //  and set read_op_code to false
             it_copy = it_begin;
-            read_op_code = false;
-            return false;
+            assert(ptr_expression.get() == ptr_expression_backup);
+            //return false;
         }
+    }
     }
     return false;
 }
