@@ -26,6 +26,40 @@ public:
     size_t property = -1;
     T_string value;
 };
+
+
+inline bool property_check(size_t property_first, size_t property_second) noexcept
+{
+    if (0 == property_second &&
+        0 != property_first)
+        return true;
+    if (0 == property_first % property_second &&
+        (property_first != property_second ||
+         property_first != 1))
+        return true;
+    return false;
+}
+
+inline size_t property_combine(size_t property_first, size_t property_second) noexcept
+{
+    if (0 == property_second)
+        return 0;
+    return property_first / property_second;
+}
+
+inline bool property_final(size_t property) noexcept
+{
+    bool result = false;
+    switch (property)
+    {
+    case 0: case 1: case 2: case 3: case 5: case 7:
+        result = true;
+        break;
+    default:
+        result = false;
+    }
+    return result;
+}
 }
 
 template <typename T_lexers, typename T_string>
@@ -108,7 +142,7 @@ size_t expression_tree<T_lexers, T_string>::depth() const
 template <typename T_lexers, typename T_string>
 bool expression_tree<T_lexers, T_string>::is_value() const noexcept
 {
-    return lexem.right == 0;
+    return (lexem.right == 0 && detail::property_final(lexem.property));
 }
 
 template <typename T_lexers, typename T_string>
@@ -181,7 +215,7 @@ template <typename T_lexers, typename T_string, typename T_iterator, typename IN
 class dummy
 {
 public:
-    static
+    inline static
     bool read(T_iterator& it_begin,
               T_iterator it_end,
               detail::token<T_string>& result)
@@ -236,7 +270,7 @@ public:
         }
     }
 
-    static
+    inline static
     bool get_default_operator(detail::token<T_string>& result)
     {
         auto const discard_result = detail::token<T_string>();
@@ -278,7 +312,7 @@ class dummy<T_lexers, T_string, T_iterator,
         std::integral_constant<size_t, T_lexers::count>>
 {
 public:
-    static
+    inline static
     bool read(T_iterator& it_begin,
               T_iterator it_end,
               detail::token<T_string>& result)
@@ -286,13 +320,13 @@ public:
         return false;
     }
 
-    static
+    inline static
     bool get_default_operator(detail::token<T_string>& result)
     {
         return false;
     }
 };
-}
+}   //  end detail
 
 template <typename T_iterator,
           typename T_expression_tree>
@@ -375,8 +409,8 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
 
             bool fix_the_same_possible = false;
             if (pparent->lexem.rtt == read_result.rtt &&
-                0 == pparent->lexem.property % read_result.property &&
-                size_t(-1) != read_result.property)
+                detail::property_check(pparent->lexem.property,
+                                       read_result.property))
                 fix_the_same_possible = true;
 
             size_t left_count = 1;
@@ -403,7 +437,8 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
                     ptr_expression->lexem.value =
                             value_backup + ptr_expression->lexem.value;
                     ptr_expression->lexem.property =
-                            property_backup / ptr_expression->lexem.property;
+                            detail::property_combine(property_backup,
+                                                     ptr_expression->lexem.property);
                 }
                 else
                 {
@@ -745,6 +780,7 @@ public:
             result.right = 0;
             result.left_min = 0;
             result.left_max = 0;
+            result.property = 1;
             result.value.assign(it_begin, it_copy);
             it_begin = it_copy;
         }

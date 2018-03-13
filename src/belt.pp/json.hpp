@@ -58,7 +58,7 @@ public:
     size_t right = 1;
     size_t left_min = 1;
     size_t left_max = 1;
-    size_t property = -1;
+    size_t property = 2;
     enum { grow_priority = 1 };
 
     std::pair<bool, bool> check(char ch)
@@ -80,7 +80,7 @@ public:
     size_t right = -1;
     size_t left_max = 0;
     size_t left_min = 0;
-    size_t property = 2;
+    size_t property = 8;
     enum { grow_priority = 1 };
 
     std::pair<bool, bool> check(char ch)
@@ -90,7 +90,7 @@ public:
             right = -1;
             left_min = 0;
             left_max = 0;
-            property = 2;
+            property = 8;
             return std::make_pair(true, true);
         }
         if (ch == '}')
@@ -98,7 +98,7 @@ public:
             right = 0;
             left_min = 0;
             left_max = 1;
-            property = 2;
+            property = 4;
             return std::make_pair(true, true);
         }
         return std::make_pair(false, false);
@@ -121,7 +121,7 @@ public:
     size_t right = -1;
     size_t left_max = 0;
     size_t left_min = 0;
-    size_t property = 2;
+    size_t property = 8;
     enum { grow_priority = 1 };
 
     std::pair<bool, bool> check(char ch)
@@ -131,7 +131,7 @@ public:
             right = -1;
             left_min = 0;
             left_max = 0;
-            property = 2;
+            property = 8;
             return std::make_pair(true, true);
         }
         if (ch == ']')
@@ -139,7 +139,7 @@ public:
             right = 0;
             left_min = 0;
             left_max = 1;
-            property = 2;
+            property = 4;
             return std::make_pair(true, true);
         }
         return std::make_pair(false, false);
