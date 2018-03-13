@@ -23,6 +23,7 @@ public:
     size_t right = -1;
     size_t left_min = -1;
     size_t left_max = -1;
+    size_t property = -1;
     T_string value;
 };
 }
@@ -104,8 +105,7 @@ size_t expression_tree<T_lexers, T_string>::depth() const
     return depth;
 }
 
-template <typename T_lexers, typename T_string
-          >
+template <typename T_lexers, typename T_string>
 bool expression_tree<T_lexers, T_string>::is_value() const noexcept
 {
     return lexem.right == 0;
@@ -374,7 +374,9 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
             }
 
             bool fix_the_same_possible = false;
-            if (pparent->lexem.rtt == read_result.rtt)
+            if (pparent->lexem.rtt == read_result.rtt &&
+                0 == pparent->lexem.property % read_result.property &&
+                size_t(-1) != read_result.property)
                 fix_the_same_possible = true;
 
             size_t left_count = 1;
@@ -395,10 +397,13 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
 
                 if (fix_the_same_possible)
                 {
+                    auto property_backup = ptr_expression->lexem.property;
                     auto value_backup = ptr_expression->lexem.value;
                     ptr_expression->lexem = read_result;
                     ptr_expression->lexem.value =
                             value_backup + ptr_expression->lexem.value;
+                    ptr_expression->lexem.property =
+                            property_backup / ptr_expression->lexem.property;
                 }
                 else
                 {
@@ -688,6 +693,7 @@ public:
             result.right = lexer.right;
             result.left_min = lexer.left_min;
             result.left_max = lexer.left_max;
+            result.property = lexer.property;
             it_begin = it_copy;
         }
 
@@ -865,6 +871,7 @@ public:
     size_t right = 1;
     size_t left_max = -1;
     size_t left_min = 1;
+    size_t property = 1;
 
     enum { grow_priority = 1 };
 

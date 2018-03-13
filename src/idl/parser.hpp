@@ -23,6 +23,7 @@ public:
     size_t right = 1;
     size_t left_max = -1;
     size_t left_min = 1;
+    size_t property = 1;
     enum { grow_priority = 1 };
 
     std::pair<bool, bool> check(char)
@@ -45,6 +46,7 @@ public:
         result.right = right;
         result.left_min = left_min;
         result.left_max = left_max;
+        result.property = property;
 
         return true;
     }
@@ -55,6 +57,7 @@ public:
     size_t right = 1;
     size_t left_max = 0;
     size_t left_min = 0;
+    size_t property = 1;
     enum { grow_priority = 1 };
 
     std::pair<bool, bool> check(char ch)
@@ -78,6 +81,7 @@ public:
     size_t right = 2;
     size_t left_max = 0;
     size_t left_min = 0;
+    size_t property = 1;
     enum { grow_priority = 1 };
 
     std::pair<bool, bool> check(char ch)
@@ -101,6 +105,7 @@ public:
     size_t right = 1;
     size_t left_max = 0;
     size_t left_min = 0;
+    size_t property = 1;
     enum { grow_priority = 1 };
 
     std::pair<bool, bool> check(char ch)
@@ -124,6 +129,7 @@ public:
     size_t right = 1;
     size_t left_max = 0;
     size_t left_min = 0;
+    size_t property = 1;
     enum { grow_priority = 1 };
 
     std::pair<bool, bool> check(char ch)
@@ -144,9 +150,10 @@ public:
 class scope_brace : public beltpp::operator_lexer_base<scope_brace, lexers>
 {
 public:
-    size_t right = 1;
+    size_t right = -1;
     size_t left_max = 0;
     size_t left_min = 0;
+    size_t property = 2;
     enum { grow_priority = 1 };
 
     std::pair<bool, bool> check(char ch)
@@ -156,6 +163,7 @@ public:
             right = -1;
             left_min = 0;
             left_max = 0;
+            property = 2;
             return std::make_pair(true, true);
         }
         if (ch == '}')
@@ -163,6 +171,7 @@ public:
             right = 0;
             left_min = 0;
             left_max = -1;
+            property = 2;
             return std::make_pair(true, true);
         }
         return std::make_pair(false, false);
@@ -184,6 +193,7 @@ public:
     size_t right = -1;
     size_t left_max = 0;
     size_t left_min = 0;
+    size_t property = 2;
     enum { grow_priority = 1 };
 
     std::pair<bool, bool> check(char ch)
@@ -193,6 +203,7 @@ public:
             right = -1;
             left_min = 0;
             left_max = 0;
+            property = 2;
             return std::make_pair(true, true);
         }
         if (ch == ']')
@@ -200,6 +211,7 @@ public:
             right = 1;
             left_min = 0;
             left_max = 1;
+            property = 2;
             return std::make_pair(true, true);
         }
         return std::make_pair(false, false);
