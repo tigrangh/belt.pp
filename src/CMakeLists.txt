@@ -11,8 +11,6 @@ SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib/belt.pp")
 # which point to directories outside the build tree to the install RPATH
 SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-set(BELT_PP_LOADED TRUE)
-
 add_subdirectory(belt.pp)
 add_subdirectory(idl)
 add_subdirectory(libmessages)
