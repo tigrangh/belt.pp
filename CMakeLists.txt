@@ -8,4 +8,6 @@ set( CMAKE_CXX_STANDARD_REQUIRED YES )
 add_compile_options(-Wall)
 add_compile_options(-Werror)
 
+set(BELT_PP_LOADED TRUE PARENT_SCOPE)
+
 add_subdirectory(src)
