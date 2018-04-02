@@ -25,6 +25,8 @@
 #include <string>
 #include <memory>
 
+#define B_UNUSED(x) (void)x;
+
 namespace beltpp
 {
 enum class e_three_state_result {success, attempt, error};

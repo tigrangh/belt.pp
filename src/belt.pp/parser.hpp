@@ -420,6 +420,7 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
     {   //  try to place the operator token in the expression tree
         //  if successful then update it_begin and return
         auto ptr_expression_backup = ptr_expression.get();
+        B_UNUSED(ptr_expression_backup);
 
         if (detail::parse_helper(ptr_expression, read_result, has_default_operator, default_operator))
         {
