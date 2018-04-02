@@ -921,7 +921,10 @@ namespace beltpp
 void assign(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
 {
     if ({namespace_name}::detail::storage::s_arr_fptr.size() <= other.type())
-        throw std::runtime_error("let it terminate");
+    {
+        assert(false);
+        std::terminate();
+    }
 
     auto const& item = {namespace_name}::detail::storage::s_arr_fptr[other.type()];
 
