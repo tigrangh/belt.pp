@@ -26,9 +26,9 @@ public:
     size_t property = 1;
     enum { grow_priority = 1 };
 
-    std::pair<bool, bool> check(char)
+    beltpp::e_three_state_result check(char)
     {
-        return std::make_pair(false, false);
+        return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
@@ -60,11 +60,11 @@ public:
     size_t property = 1;
     enum { grow_priority = 1 };
 
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         if (ch >= 'a' && ch <= 'z')
-            return std::make_pair(true, false);
-        return std::make_pair(false, false);
+            return beltpp::e_three_state_result::attempt;
+        return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
@@ -84,11 +84,11 @@ public:
     size_t property = 1;
     enum { grow_priority = 1 };
 
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         if (ch >= 'a' && ch <= 'z')
-            return std::make_pair(true, false);
-        return std::make_pair(false, false);
+            return beltpp::e_three_state_result::attempt;
+        return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
@@ -108,11 +108,11 @@ public:
     size_t property = 1;
     enum { grow_priority = 1 };
 
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         if (ch >= 'a' && ch <= 'z')
-            return std::make_pair(true, false);
-        return std::make_pair(false, false);
+            return beltpp::e_three_state_result::attempt;
+        return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
@@ -132,11 +132,11 @@ public:
     size_t property = 1;
     enum { grow_priority = 1 };
 
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         if (tolower(ch) >= 'a' && tolower(ch) <= 'z')
-            return std::make_pair(true, false);
-        return std::make_pair(false, false);
+            return beltpp::e_three_state_result::attempt;
+        return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
@@ -156,11 +156,11 @@ public:
     size_t property = 1;
     enum { grow_priority = 1 };
 
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         if (tolower(ch) >= 'a' && tolower(ch) <= 'z')
-            return std::make_pair(true, false);
-        return std::make_pair(false, false);
+            return beltpp::e_three_state_result::attempt;
+        return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
@@ -180,7 +180,7 @@ public:
     size_t property = 8;
     enum { grow_priority = 1 };
 
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         if (ch == '{')
         {
@@ -188,7 +188,7 @@ public:
             left_min = 0;
             left_max = 0;
             property = 8;
-            return std::make_pair(true, true);
+            return beltpp::e_three_state_result::success;
         }
         if (ch == '}')
         {
@@ -196,9 +196,9 @@ public:
             left_min = 0;
             left_max = -1;
             property = 4;
-            return std::make_pair(true, true);
+            return beltpp::e_three_state_result::success;
         }
-        return std::make_pair(false, false);
+        return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
@@ -214,14 +214,14 @@ class identifier : public beltpp::value_lexer_base<identifier, lexers>
 {
     size_t index = -1;
 public:
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         ++index;
         if ((tolower(ch) >= 'a' && tolower(ch) <= 'z') ||
             ch == '_' ||
             (ch >= '0' && ch <= '9' && index > 0))
-            return std::make_pair(true, false);
-        return std::make_pair(false, false);
+            return beltpp::e_three_state_result::attempt;
+        return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
