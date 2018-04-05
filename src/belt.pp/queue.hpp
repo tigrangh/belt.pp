@@ -175,24 +175,18 @@ public:
 
     inline T& front() noexcept
     {
+        assert(m_i_size);
         if (0 == m_i_size)
-        {
-            assert(false);
-            //  this will terminate
-            throw std::runtime_error("front on empty queue");
-        }
+            std::terminate();
 
         return m_vec_queue[m_i_start];
     }
 
     inline T const& front() const noexcept
     {
+        assert(m_i_size);
         if (0 == m_i_size)
-        {
-            assert(false);
-            //  this will terminate
-            throw std::runtime_error("front on empty queue");
-        }
+            std::terminate();
 
         return m_vec_queue[m_i_start];
     }

@@ -22,7 +22,7 @@ public:
     bool empty() const noexcept {return port == 0 || address.empty();}
     bool operator == (ip_destination const& other) const noexcept
     {
-        return (address == other.address && port == port);
+        return (address == other.address && port == other.port);
     }
 };
 

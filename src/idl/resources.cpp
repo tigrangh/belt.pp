@@ -82,7 +82,7 @@ template <void (*ex_helper)(detail::utils&)>
 void extension_helper(detail::utils& utl)
 {
     utl.m_arr_fp_message_list_load_helper.push_back(&utils::template_message_list_load_helper<utils, &detail::message_list_load_helper>);
-    if (ex_helper)
+    if (nullptr != ex_helper)
         ex_helper(utl);
 }
 }
@@ -98,7 +98,7 @@ template <void (*ex_helper)(detail::utils&) = nullptr>
     ::beltpp::json::expression_tree* proot = nullptr;
 
     detail::utils utl;
-    if (ex_helper)
+    if (nullptr != ex_helper)
         ex_helper(utl);
 
     ::beltpp::detail::pmsg_all return_value(size_t(-1),
@@ -759,7 +759,7 @@ bool analyze_json(std::unordered_map<std::string, T_value>& value,
 }
 
 template <typename T,
-          void (*ex_helper)(detail::utils&) = nullptr>
+          void (*ex_helper)(detail::utils&)>
 bool loader(T& value,
             std::string const& encoded)
 {
@@ -772,7 +772,7 @@ bool loader(T& value,
     ::beltpp::json::expression_tree* proot = nullptr;
 
     detail::utils utl;
-    if (ex_helper)
+    if (nullptr != ex_helper)
         ex_helper(utl);
     auto code = ::beltpp::json::parse_stream(pexp, iter_scan_begin,
                                              iter_scan_end, 1024*1024, proot);
