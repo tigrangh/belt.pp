@@ -38,7 +38,7 @@ public:
     size_t property = 1;
     enum { grow_priority = 1 };
 
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         return beltpp::standard_operator_check<operator_set>(ch);
     }
@@ -61,7 +61,7 @@ public:
     size_t property = 2;
     enum { grow_priority = 1 };
 
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         return beltpp::standard_operator_check<operator_set>(ch);
     }
@@ -83,7 +83,7 @@ public:
     size_t property = 8;
     enum { grow_priority = 1 };
 
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         if (ch == '{')
         {
@@ -91,7 +91,7 @@ public:
             left_min = 0;
             left_max = 0;
             property = 8;
-            return std::make_pair(true, true);
+            return beltpp::e_three_state_result::success;
         }
         if (ch == '}')
         {
@@ -99,9 +99,9 @@ public:
             left_min = 0;
             left_max = 1;
             property = 4;
-            return std::make_pair(true, true);
+            return beltpp::e_three_state_result::success;
         }
-        return std::make_pair(false, false);
+        return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
@@ -124,7 +124,7 @@ public:
     size_t property = 8;
     enum { grow_priority = 1 };
 
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         if (ch == '[')
         {
@@ -132,7 +132,7 @@ public:
             left_min = 0;
             left_max = 0;
             property = 8;
-            return std::make_pair(true, true);
+            return beltpp::e_three_state_result::success;
         }
         if (ch == ']')
         {
@@ -140,9 +140,9 @@ public:
             left_min = 0;
             left_max = 1;
             property = 4;
-            return std::make_pair(true, true);
+            return beltpp::e_three_state_result::success;
         }
-        return std::make_pair(false, false);
+        return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
@@ -225,21 +225,21 @@ class value_string :
     size_t escape_sequence_remaining = 0;
     size_t index = -1;
 public:
-    std::pair<bool, bool> check(unsigned char ch)
+    beltpp::e_three_state_result check(unsigned char ch)
     {
         ++index;
         if (0 == index)
         {
             if (ch == '\"')
-                return std::make_pair(true, false);
+                return beltpp::e_three_state_result::attempt;
             if (ch != '\"')
-                return std::make_pair(false, false);
+                return beltpp::e_three_state_result::error;
         }
         if (0 == escape_sequence_remaining && ch == '\\')
         {
             ++escape_sequence_remaining;
             escape_sequence_index = 1;
-            return std::make_pair(true, false);
+            return beltpp::e_three_state_result::attempt;
         }
         if (0 < escape_sequence_remaining &&
             1 == escape_sequence_index)
@@ -251,16 +251,16 @@ public:
             {
                 escape_sequence_index = 0;
                 escape_sequence_remaining = 0;
-                return std::make_pair(true, false);
+                return beltpp::e_three_state_result::attempt;
             }
             else if ('u' == ch)
             {
                 ++escape_sequence_index;
                 escape_sequence_remaining = 4;
-                return std::make_pair(true, false);
+                return beltpp::e_three_state_result::attempt;
             }
             else    //  unsupported escape sequence
-                return std::make_pair(false, false);
+                return beltpp::e_three_state_result::error;
         }
         if (0 < escape_sequence_remaining)
         {
@@ -274,21 +274,21 @@ public:
                 ++escape_sequence_index;
                 if (0 == escape_sequence_remaining)
                     escape_sequence_index = 0;
-                return std::make_pair(true, false);
+                return beltpp::e_three_state_result::attempt;
             }
             else    //  unsupported escape sequence
-                return std::make_pair(false, false);
+                return beltpp::e_three_state_result::error;
         }
 
         assert(0 == escape_sequence_remaining);
         assert(0 == escape_sequence_index);
 
         if ('\"' == ch)
-            return std::make_pair(true, true);
+            return beltpp::e_three_state_result::success;
         if ('\x20' > ch)    //  unsupported charachter
-            return std::make_pair(false, false);
+            return beltpp::e_three_state_result::error;
 
-        return std::make_pair(true, false);
+        return beltpp::e_three_state_result::attempt;
     }
 
     static std::string encode(std::string const& utf8_value)
@@ -546,15 +546,15 @@ private:
         return false;
     }
 public:
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         value += ch;
         if ("." == value || "-" == value || "-." == value)
-            return std::make_pair(true, false);
+            return beltpp::e_three_state_result::attempt;
         else if (_check(value))
-            return std::make_pair(true, false);
+            return beltpp::e_three_state_result::attempt;
         else
-            return std::make_pair(false, false);
+            return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
@@ -568,11 +568,11 @@ public:
 class value_bool : public beltpp::value_lexer_base<value_bool, lexers>
 {
 public:
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         if (ch >= 'a' && ch <= 'z')
-            return std::make_pair(true, false);
-        return std::make_pair(false, false);
+            return beltpp::e_three_state_result::attempt;
+        return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
@@ -589,11 +589,11 @@ public:
 class value_null : public beltpp::value_lexer_base<value_null, lexers>
 {
 public:
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         if (ch >= 'a' && ch <= 'z')
-            return std::make_pair(true, false);
-        return std::make_pair(false, false);
+            return beltpp::e_three_state_result::attempt;
+        return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>

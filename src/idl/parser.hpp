@@ -6,18 +6,18 @@
 #include <string>
 
 using lexers = beltpp::typelist::type_list<
-class operator_semicolon,
-class keyword_package,
+//class operator_semicolon,
+class keyword_module,
 class keyword_type,
-class keyword_struct,
-class keyword_map,
+class keyword_class,
+class keyword_array,
+class keyword_hash,
 class scope_brace,
-class scope_bracket,
 class identifier,
 class discard
 >;
 
-class operator_semicolon : public beltpp::operator_lexer_base<operator_semicolon, lexers>
+/*class operator_semicolon : public beltpp::operator_lexer_base<operator_semicolon, lexers>
 {
 public:
     size_t right = 1;
@@ -26,9 +26,9 @@ public:
     size_t property = 1;
     enum { grow_priority = 1 };
 
-    std::pair<bool, bool> check(char)
+    beltpp::e_three_state_result check(char)
     {
-        return std::make_pair(false, false);
+        return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
@@ -50,28 +50,28 @@ public:
 
         return true;
     }
-};
-class keyword_package : public beltpp::operator_lexer_base<keyword_package, lexers>
+};*/
+class keyword_module : public beltpp::operator_lexer_base<keyword_module, lexers>
 {
 public:
-    size_t right = 1;
+    size_t right = 2;
     size_t left_max = 0;
     size_t left_min = 0;
     size_t property = 1;
     enum { grow_priority = 1 };
 
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         if (ch >= 'a' && ch <= 'z')
-            return std::make_pair(true, false);
-        return std::make_pair(false, false);
+            return beltpp::e_three_state_result::attempt;
+        return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
     bool final_check(T_iterator const& it_begin,
                      T_iterator const& it_end) const
     {
-        return std::string(it_begin, it_end) == "package";
+        return std::string(it_begin, it_end) == "module";
     }
 };
 
@@ -84,11 +84,11 @@ public:
     size_t property = 1;
     enum { grow_priority = 1 };
 
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         if (ch >= 'a' && ch <= 'z')
-            return std::make_pair(true, false);
-        return std::make_pair(false, false);
+            return beltpp::e_three_state_result::attempt;
+        return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
@@ -99,31 +99,31 @@ public:
     }
 };
 
-class keyword_struct : public beltpp::operator_lexer_base<keyword_struct, lexers>
+class keyword_class : public beltpp::operator_lexer_base<keyword_class, lexers>
 {
 public:
-    size_t right = 1;
+    size_t right = 2;
     size_t left_max = 0;
     size_t left_min = 0;
     size_t property = 1;
     enum { grow_priority = 1 };
 
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         if (ch >= 'a' && ch <= 'z')
-            return std::make_pair(true, false);
-        return std::make_pair(false, false);
+            return beltpp::e_three_state_result::attempt;
+        return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
     bool final_check(T_iterator const& it_begin,
                      T_iterator const& it_end) const
     {
-        return std::string(it_begin, it_end) == "struct";
+        return std::string(it_begin, it_end) == "class";
     }
 };
 
-class keyword_map : public beltpp::operator_lexer_base<keyword_map, lexers>
+class keyword_array : public beltpp::operator_lexer_base<keyword_array, lexers>
 {
 public:
     size_t right = 1;
@@ -132,18 +132,42 @@ public:
     size_t property = 1;
     enum { grow_priority = 1 };
 
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
-        if (ch >= 'a' && ch <= 'z')
-            return std::make_pair(true, false);
-        return std::make_pair(false, false);
+        if (tolower(ch) >= 'a' && tolower(ch) <= 'z')
+            return beltpp::e_three_state_result::attempt;
+        return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
     bool final_check(T_iterator const& it_begin,
                      T_iterator const& it_end) const
     {
-        return std::string(it_begin, it_end) == "map";
+        return std::string(it_begin, it_end) == "Array";
+    }
+};
+
+class keyword_hash : public beltpp::operator_lexer_base<keyword_hash, lexers>
+{
+public:
+    size_t right = 2;
+    size_t left_max = 0;
+    size_t left_min = 0;
+    size_t property = 1;
+    enum { grow_priority = 1 };
+
+    beltpp::e_three_state_result check(char ch)
+    {
+        if (tolower(ch) >= 'a' && tolower(ch) <= 'z')
+            return beltpp::e_three_state_result::attempt;
+        return beltpp::e_three_state_result::error;
+    }
+
+    template <typename T_iterator>
+    bool final_check(T_iterator const& it_begin,
+                     T_iterator const& it_end) const
+    {
+        return std::string(it_begin, it_end) == "Hash";
     }
 };
 
@@ -156,7 +180,7 @@ public:
     size_t property = 8;
     enum { grow_priority = 1 };
 
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         if (ch == '{')
         {
@@ -164,7 +188,7 @@ public:
             left_min = 0;
             left_max = 0;
             property = 8;
-            return std::make_pair(true, true);
+            return beltpp::e_three_state_result::success;
         }
         if (ch == '}')
         {
@@ -172,9 +196,9 @@ public:
             left_min = 0;
             left_max = -1;
             property = 4;
-            return std::make_pair(true, true);
+            return beltpp::e_three_state_result::success;
         }
-        return std::make_pair(false, false);
+        return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
@@ -186,58 +210,18 @@ public:
     }
 };
 
-class scope_bracket :
-        public beltpp::operator_lexer_base<scope_bracket, lexers>
-{
-public:
-    size_t right = -1;
-    size_t left_max = 0;
-    size_t left_min = 0;
-    size_t property = 8;
-    enum { grow_priority = 1 };
-
-    std::pair<bool, bool> check(char ch)
-    {
-        if (ch == '[')
-        {
-            right = -1;
-            left_min = 0;
-            left_max = 0;
-            property = 8;
-            return std::make_pair(true, true);
-        }
-        if (ch == ']')
-        {
-            right = 1;
-            left_min = 0;
-            left_max = 1;
-            property = 4;
-            return std::make_pair(true, true);
-        }
-        return std::make_pair(false, false);
-    }
-
-    template <typename T_iterator>
-    bool final_check(T_iterator const& it_begin,
-                     T_iterator const& it_end) const
-    {
-        std::string temp(it_begin, it_end);
-        return (temp == "[" || temp == "]");
-    }
-};
-
 class identifier : public beltpp::value_lexer_base<identifier, lexers>
 {
     size_t index = -1;
 public:
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         ++index;
-        if ((ch >= 'a' && ch <= 'z') ||
+        if ((tolower(ch) >= 'a' && tolower(ch) <= 'z') ||
             ch == '_' ||
             (ch >= '0' && ch <= '9' && index > 0))
-            return std::make_pair(true, false);
-        return std::make_pair(false, false);
+            return beltpp::e_three_state_result::attempt;
+        return beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>

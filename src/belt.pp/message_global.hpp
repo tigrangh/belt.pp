@@ -10,8 +10,7 @@ namespace beltpp
 {
 namespace detail
 {
-using ptr_msg = beltpp::void_unique_ptr;
-using fptr_creator = ptr_msg(*)();
+using fptr_creator = beltpp::void_unique_ptr(*)();
 //enum class e_scan_result {success, attempt, error};
 using e_scan_result = e_three_state_result;
 using scan_result = std::pair<e_scan_result, size_t>;
@@ -24,7 +23,7 @@ class pmsg_all
 {
 public:
     pmsg_all(size_t a_rtt,
-             ptr_msg&& a_pmsg,
+             beltpp::void_unique_ptr&& a_pmsg,
              fptr_saver a_fsaver)
         : rtt(a_rtt)
         , pmsg(std::move(a_pmsg))
@@ -32,7 +31,7 @@ public:
     {}
 
     size_t rtt;
-    ptr_msg pmsg;
+    beltpp::void_unique_ptr pmsg;
     fptr_saver fsaver;
 };
 

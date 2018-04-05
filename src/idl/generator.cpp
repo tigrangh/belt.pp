@@ -16,30 +16,45 @@ using std::runtime_error;
 
 state_holder::state_holder()
     : namespace_name()
-    , map_types{{"string", "std::string"},
-                {"bool", "bool"},
-                {"int8", "int8_t"},
-                {"uint8", "uint8_t"},
-                {"int16", "int16_t"},
-                {"uint16", "uint16_t"},
-                {"int", "uint32_t"},
-                {"int32", "int32_t"},
-                {"uint32", "uint32_t"},
-                {"int64", "int64_t"},
-                {"uint64", "uint64_t"},
-                {"float32", "float"},
-                {"float64", "double"},
-                {"time", "ctime"}}
+    , map_types{{"String", "std::string"},
+                {"Bool", "bool"},
+                {"Int8", "int8_t"},
+                {"UInt8", "uint8_t"},
+                {"Int16", "int16_t"},
+                {"UInt16", "uint16_t"},
+                {"Int", "uint32_t"},
+                {"Int32", "int32_t"},
+                {"UInt32", "uint32_t"},
+                {"Int64", "int64_t"},
+                {"UInt64", "uint64_t"},
+                {"Float32", "float"},
+                {"Float64", "double"},
+                {"TimePoint", "ctime"},
+                {"Object", "::beltpp::packet"},
+                {"Extension", "::beltpp::packet"}}
 {
 }
 
 namespace
 {
+enum type_info {type_empty = 0x0,
+                type_simple = 0x1,
+                type_object=0x2,
+                type_extension=0x4,
+                type_simple_object = type_simple | type_object,
+                type_simple_extension = type_simple | type_extension,
+                type_object_extension = type_object | type_extension,
+                type_simple_object_extension = type_simple | type_object_extension};
 
-string convert_type(string const& type_name, state_holder& state, bool& is_object)
+string convert_type(string const& type_name, state_holder& state, type_info& type_detail)
 {
-    if (state.namespace_name == type_name)
-        is_object = true;
+    type_detail = type_empty;
+    if ("Object" == type_name)
+        type_detail = type_object;
+    else if ("Extension" == type_name)
+        type_detail = type_extension;
+    else
+        type_detail = type_simple;
 
     auto it_type_name = state.map_types.find(type_name);
     if (it_type_name != state.map_types.end())
@@ -49,29 +64,37 @@ string convert_type(string const& type_name, state_holder& state, bool& is_objec
 
 string construct_type_name (expression_tree const* member_type,
                             state_holder& state,
-                            bool& has_object)
+                            type_info& type_detail)
 {
     if (member_type->lexem.rtt == identifier::rtt)
-        return convert_type(member_type->lexem.value, state, has_object);
-    else if (member_type->lexem.rtt == scope_bracket::rtt &&
+        return convert_type(member_type->lexem.value, state, type_detail);
+    else if (member_type->lexem.rtt == keyword_array::rtt &&
              member_type->children.size() == 1 &&
              member_type->children.front()->lexem.rtt == identifier::rtt)
     {
         string type_name = convert_type(member_type->children.front()->lexem.value,
-                                        state, has_object);
+                                        state, type_detail);
         return "std::vector<" + type_name + ">";
     }
-    else if (member_type->lexem.rtt == keyword_map::rtt &&
-             member_type->children.size() == 1 &&
-             member_type->children.front()->lexem.rtt == scope_bracket::rtt &&
-             member_type->children.front()->children.size() == 2)
+    else if (member_type->lexem.rtt == keyword_hash::rtt &&
+             member_type->children.size() == 2 &&
+             member_type->children.front()->lexem.rtt == identifier::rtt &&
+             member_type->children.back()->lexem.rtt == identifier::rtt)
     {
+        type_info type_detail_key, type_detail_value;
         string key_type_name =
-                construct_type_name(member_type->children.front()->children.front(),
-                                    state, has_object);
+                construct_type_name(member_type->children.front(),
+                                    state, type_detail_key);
         string value_type_name =
-                construct_type_name(member_type->children.front()->children.back(),
-                                    state, has_object);
+                construct_type_name(member_type->children.back(),
+                                    state, type_detail_value);
+
+        type_detail = static_cast<type_info>(type_detail_key | type_detail_value);
+
+        if ((type_detail & type_object) &&
+            (type_detail & type_extension))
+            throw runtime_error("hash object extension mix");
+
         return "std::unordered_map<" + key_type_name  + ", " + value_type_name + ">";
     }
     else
@@ -85,61 +108,49 @@ string analyze(state_holder& state,
     string result;
     assert(pexpression);
 
-    unordered_map<size_t, string> class_names;
+    unordered_map<size_t, string> class_names, type_names;
 
-    if (pexpression->lexem.rtt != operator_semicolon::rtt ||
-        pexpression->children.empty() ||
-        pexpression->children.front()->lexem.rtt != keyword_package::rtt)
+    if (pexpression->lexem.rtt != keyword_module::rtt ||
+        pexpression->children.size() != 2 ||
+        pexpression->children.front()->lexem.rtt != identifier::rtt ||
+        pexpression->children.back()->lexem.rtt != scope_brace::rtt ||
+        pexpression->children.back()->children.empty())
         throw runtime_error("wtf");
     else
     {
-        string package_name;
-        for (auto item : pexpression->children)
+        string module_name = pexpression->children.front()->lexem.value;
+        state.namespace_name = module_name;
+
+        for (auto item : pexpression->children.back()->children)
         {
-            if (item->lexem.rtt == keyword_package::rtt)
+            if (item->lexem.rtt == keyword_type::rtt ||
+                item->lexem.rtt == keyword_class::rtt)
             {
-                if (item->children.size() != 1 ||
-                    item->children.front()->lexem.rtt != identifier::rtt)
-                    throw runtime_error("use \"package name\"");
-                string get_package_name = item->children.front()->lexem.value;
-                if (package_name.empty())
-                    package_name = get_package_name;
-                else
-                    throw runtime_error("can specify the package name only once");
-            }
-            else if (item->lexem.rtt == keyword_type::rtt)
-            {
+                bool serializable = (item->lexem.rtt == keyword_class::rtt);
+
                 if (item->children.size() != 2 ||
-                    item->children.front()->lexem.rtt != identifier::rtt)
+                    item->children.front()->lexem.rtt != identifier::rtt ||
+                    item->children.back()->lexem.rtt != scope_brace::rtt)
                     throw runtime_error("type syntax is wrong");
 
                 string type_name = item->children.front()->lexem.value;
-                auto pexpression_type = item->children.back();
 
-                if (pexpression_type->lexem.rtt == keyword_struct::rtt)
-                {
-                    if (pexpression_type->children.size() != 1 ||
-                        pexpression_type->children.front()->lexem.rtt !=
-                            scope_brace::rtt)
-                        throw runtime_error("struct syntax error");
+                result += analyze_struct(state,
+                                         item->children.back(),
+                                         rtt,
+                                         type_name,
+                                         serializable);
 
-                    state.namespace_name = package_name;
-                    state.map_types.insert({package_name, "::beltpp::packet"});
-
-                    result += analyze_struct(state,
-                                             pexpression_type->children.front(),
-                                             rtt,
-                                             type_name);
+                if (serializable)
                     class_names.insert(std::make_pair(rtt, type_name));
-                    ++rtt;
-                }
                 else
-                    throw runtime_error("type syntax error");
+                    type_names.insert(std::make_pair(rtt, type_name));
+                ++rtt;
             }
         }
     }
 
-    if (class_names.empty())
+    if (class_names.empty() && type_names.empty())
         throw runtime_error("wtf, nothing to do");
 
     size_t max_rtt = 0;
@@ -147,6 +158,11 @@ string analyze(state_holder& state,
     {
         if (max_rtt < class_item.first)
             max_rtt = class_item.first;
+    }
+    for (auto const& type_item : type_names)
+    {
+        if (max_rtt < type_item.first)
+            max_rtt = type_item.first;
     }
 
     result += R"foo(
@@ -214,12 +230,16 @@ bool analyze_json_object(beltpp::json::expression_tree* pexp,
     {
         auto const& item = storage::s_arr_fptr[return_value.rtt];
 
-        return_value =
-                beltpp::detail::pmsg_all(   return_value.rtt,
-                                            item.fp_new_void_unique_ptr(),
-                                            item.fp_saver);
+        if (item.fp_analyze_json && item.fp_new_void_unique_ptr &&
+            item.fp_new_void_unique_ptr_copy && item.fp_saver)
+        {
+            return_value =
+                    beltpp::detail::pmsg_all(   return_value.rtt,
+                                                item.fp_new_void_unique_ptr(),
+                                                item.fp_saver);
 
-        code = item.fp_analyze_json(return_value.pmsg.get(), pexp, utl);
+            code = item.fp_analyze_json(return_value.pmsg.get(), pexp, utl);
+        }
     }
 
     return code;
@@ -232,7 +252,8 @@ bool analyze_json_object(beltpp::json::expression_tree* pexp,
 string analyze_struct(state_holder& state,
                       expression_tree const* pexpression,
                       size_t rtt,
-                      string const& type_name)
+                      string const& type_name,
+                      bool serializable)
 {
     if (state.namespace_name.empty())
         throw runtime_error("please specify package name");
@@ -251,19 +272,19 @@ string analyze_struct(state_holder& state,
     vector<pair<expression_tree const*, expression_tree const*>> members;
 
     if (pexpression->children.size() % 2 != 0)
-        throw runtime_error("inside class syntax error, wtf");
+        throw runtime_error("inside class syntax error, wtf - " + type_name);
 
     auto it = pexpression->children.begin();
     for (size_t index = 0;
          it != pexpression->children.end();
          ++index, ++it)
     {
-        auto const* member_name = *it;
-        ++it;
         auto const* member_type = *it;
+        ++it;
+        auto const* member_name = *it;
 
         if (member_name->lexem.rtt != identifier::rtt)
-            throw runtime_error("inside class syntax error, wtf");
+            throw runtime_error("inside class syntax error, wtf, still " + type_name);
 
         members.push_back(std::make_pair(member_name, member_type));
     }
@@ -271,6 +292,8 @@ string analyze_struct(state_holder& state,
     result += "    enum {rtt = " + std::to_string(rtt) + "};\n";
 
     unordered_set<string> set_object_name;
+    unordered_set<string> set_extension_name;
+
 
     for (auto member_pair : members)
     {
@@ -279,12 +302,14 @@ string analyze_struct(state_holder& state,
         if (member_name.rtt != identifier::rtt)
             throw runtime_error("use \"variable type\" syntax please");
 
-        bool member_has_object = false;
-        string member_type_name = construct_type_name(member_type, state, member_has_object);
+        type_info type_detail;
+        string member_type_name = construct_type_name(member_type, state, type_detail);
         result += "    " + member_type_name + " " + member_name.value + ";\n";
 
-        if (member_has_object)
+        if (type_detail & type_object)
             set_object_name.insert(member_name.value);
+        else if (type_detail & type_extension)
+            set_extension_name.insert(member_name.value);
     }
 
     {
@@ -313,7 +338,8 @@ string analyze_struct(state_holder& state,
 
         string copy_expr = member_name.value + "(other." + member_name.value + ")\n";
 
-        if (set_object_name.find(member_name.value) != set_object_name.end())
+        if (set_object_name.find(member_name.value) != set_object_name.end() ||
+            set_extension_name.find(member_name.value) != set_extension_name.end())
             copy_expr = member_name.value + "()\n";
 
         if (first)
@@ -326,12 +352,15 @@ string analyze_struct(state_holder& state,
     }
     if (false == members.empty())
     {
-        if (set_object_name.empty())
+        if (set_object_name.empty() &&
+            set_extension_name.empty())
             result += "    {}\n";
         else
         {
             result += "    {\n";
             for (auto const& item : set_object_name)
+                result += "        ::beltpp::assign(" + item + ", other." + item + ");\n";
+            for (auto const& item : set_extension_name)
                 result += "        ::beltpp::assign(" + item + ", other." + item + ");\n";
             result += "    }\n";
         }
@@ -377,8 +406,8 @@ string analyze_struct(state_holder& state,
     for (auto member_pair : members)
     {
     auto const& member_name = member_pair.first->lexem;
-    auto const& member_type = member_pair.second;
-    if (member_type->lexem.value == state.namespace_name)
+    if (set_object_name.find(member_name.value) != set_object_name.end() ||
+        set_extension_name.find(member_name.value) != set_extension_name.end())
         result += "        if (detail::saver(" + member_name.value + ") != detail::saver(other." + member_name.value + "))\n";
     else
         result += "        if (" + member_name.value + " != other." + member_name.value + ")\n";
@@ -423,11 +452,18 @@ string analyze_struct(state_holder& state,
 
     result += "    static std::vector<char> saver(void* p)\n";
     result += "    {\n";
+    if (serializable)
+    {
     result += "        " + type_name + "* pmc = static_cast<" + type_name + "*>(p);\n";
     result += "        std::vector<char> result;\n";
     result += "        std::string str_value = detail::saver(*pmc);\n";
     result += "        std::copy(str_value.begin(), str_value.end(), std::back_inserter(result));\n";
     result += "        return result;\n";
+    }
+    else
+    {
+    result += "        return std::vector<char>();\n";
+    }
     result += "    }\n";
 
     result += "};  // end of class\n";
@@ -460,7 +496,8 @@ string analyze_struct(state_holder& state,
         result += "}\n";
         result += "}   // end of namespace beltpp\n";
     }
-
+    if (serializable)
+    {
     result += "namespace " + state.namespace_name + "\n";
     result += "{\n";
     result += "namespace detail\n";
@@ -482,13 +519,33 @@ string analyze_struct(state_holder& state,
     auto const& member_name = member_pair.first->lexem;
     result += "        if (code)\n";
     result += "        {\n";
+    string utl_var_name = "utl";
+    bool is_extension = false;
+    if (set_extension_name.find(member_name.value) != set_extension_name.end())
+        is_extension = true;
+    if (is_extension)
+    {
+    utl_var_name = "utl2";
+    result += "            auto utl2 = utl;\n";
+    result += "            if (utl2.m_arr_fp_message_list_load_helper.empty() ||\n";
+    result += "                nullptr == utl2.m_arr_fp_message_list_load_helper.front())\n";
+    result += "                code = false;\n";
+    result += "            else\n";
+    result += "            {\n";
+    result += "            utl2.m_fp_message_list_load_helper = utl2.m_arr_fp_message_list_load_helper.front();\n";
+    result += "            utl2.m_arr_fp_message_list_load_helper.pop_front();\n";
+    }
     result += "            auto it_find = members.find(\"\\\"" + member_name.value + "\\\"\");\n";
     result += "            if (it_find != members.end())\n";
     result += "            {\n";
     result += "                beltpp::json::expression_tree* item = it_find->second;\n";
     result += "                assert(item);\n";
-    result += "                code = analyze_json(msgcode." + member_name.value + ", item, utl);\n";
+    result += "                code = analyze_json(msgcode." + member_name.value + ", item, " + utl_var_name + ");\n";
     result += "            }\n";
+    if (is_extension)
+    {
+    result += "            }\n";
+    }
     result += "        }\n";
     }
     result += "    }\n";
@@ -512,6 +569,7 @@ string analyze_struct(state_holder& state,
     result += "\n";
 
     result += "}   //  end of namespace " + state.namespace_name + "\n";
+    }   //  if serializable
     result += "namespace std\n";
     result += "{\n";
     result += "//  provide a simple hash, required by std::unordered_map\n";

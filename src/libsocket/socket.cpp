@@ -201,7 +201,10 @@ socket::~socket()
     for (auto const& channel_data : channels_item)
     {
         if (0 != ::close(channel_data.m_socket_descriptor))
-            throw std::runtime_error("let it terminate");
+        {
+            assert(false);
+            std::terminate();
+        }
     }
 }
 

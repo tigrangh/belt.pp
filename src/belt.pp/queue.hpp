@@ -145,9 +145,9 @@ public:
 
     inline void pop() noexcept
     {
+        assert(m_i_size);
         if (0 == m_i_size)
-            //  this will terminate
-            throw std::runtime_error("pop on empty queue");
+            std::terminate();
 
         --m_i_size;
         ++m_i_start;
@@ -175,24 +175,18 @@ public:
 
     inline T& front() noexcept
     {
+        assert(m_i_size);
         if (0 == m_i_size)
-        {
-            assert(false);
-            //  this will terminate
-            throw std::runtime_error("front on empty queue");
-        }
+            std::terminate();
 
         return m_vec_queue[m_i_start];
     }
 
     inline T const& front() const noexcept
     {
+        assert(m_i_size);
         if (0 == m_i_size)
-        {
-            assert(false);
-            //  this will terminate
-            throw std::runtime_error("front on empty queue");
-        }
+            std::terminate();
 
         return m_vec_queue[m_i_start];
     }
@@ -247,7 +241,7 @@ public:
         assert(valid_index(index));
 
         if (false == valid_index(index))
-            throw std::runtime_error("queue<>::operator[]");
+            std::terminate();
 
         return m_vec_queue[index % m_vec_queue.size()];
     }
@@ -257,7 +251,7 @@ public:
         assert(valid_index(index));
 
         if (false == valid_index(index))
-            throw std::runtime_error("queue<>::operator[]");
+            std::terminate();
 
         return m_vec_queue[index % m_vec_queue.size()];
     }
