@@ -20,6 +20,10 @@ public:
     unsigned short port;
 
     bool empty() const noexcept {return port == 0 || address.empty();}
+    bool operator == (ip_destination const& other) const noexcept
+    {
+        return (address == other.address && port == port);
+    }
 };
 
 class ip_address
@@ -83,6 +87,11 @@ public:
                         std::to_string(dest->port);
             }
         }
+    }
+
+    bool operator == (ip_address const& other) const noexcept
+    {
+        return (ip_type == other.ip_type && local == other.local && remote == other.remote);
     }
 
     e_type ip_type;

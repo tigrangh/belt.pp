@@ -23,7 +23,6 @@ class PACKETSHARED_EXPORT packet
 public:
     using fptr_deleter = detail::fptr_deleter;
     using fptr_saver = detail::fptr_saver;
-    using ptr_msg = detail::ptr_msg;
 
     packet();
     packet(packet&& other);
@@ -42,7 +41,7 @@ public:
     void clean();
     std::vector<char> save() const;
     void set(size_t rtt,
-             ptr_msg pmsg,
+             beltpp::void_unique_ptr pmsg,
              fptr_saver fsaver);
 
     template <typename T_message>
@@ -56,7 +55,7 @@ public:
 protected:
     void const* _get_internal() const noexcept;
     void _set_internal(size_t rtt,
-                       ptr_msg pmsg,
+                       beltpp::void_unique_ptr pmsg,
                        fptr_saver fsaver) noexcept;
 
     std::unique_ptr<detail::packet_internals> m_pimpl;
@@ -66,7 +65,7 @@ template <typename T_message>
 void packet::set(T_message&& msg)
 {
     using MessageValueT = typename std::remove_reference<T_message>::type;
-    ptr_msg pmsg(new_void_unique_ptr<MessageValueT>());
+    beltpp::void_unique_ptr pmsg(new_void_unique_ptr<MessageValueT>());
     void* pv = pmsg.get();
     MessageValueT* pmv = static_cast<MessageValueT*>(pv);
     MessageValueT& ref = *pmv;

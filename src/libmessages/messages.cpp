@@ -35,7 +35,7 @@ beltpp::detail::pmsg_all message_list_load(
                                               iter_scan_end);
 
     beltpp::detail::pmsg_all return_value (size_t(-1),
-                                           detail::ptr_msg(nullptr, [](void*&){}),
+                                           void_unique_ptr(nullptr, [](void*&){}),
                                            nullptr);
 
     if (message_code_rtt >= message_list::count)
@@ -43,7 +43,7 @@ beltpp::detail::pmsg_all message_list_load(
 
     if (result.first == detail::e_scan_result::success)
     {
-        beltpp::detail::ptr_msg pmsg =
+        void_unique_ptr pmsg =
                 message_code_store::s_creators[message_code_rtt]();
 
         beltpp::iterator_wrapper<char const> iter_scan = iter_scan_begin;
