@@ -68,7 +68,8 @@ public:
            detail::fptr_saver _fsaver_join,
            detail::fptr_saver _fsaver_drop,
            detail::fptr_saver _fsaver_timer_out,
-           detail::fptr_message_loader _fmessage_loader);
+           detail::fptr_message_loader _fmessage_loader,
+           beltpp::void_unique_ptr&& putl);
     socket(socket&& other);
     virtual ~socket();
 
@@ -94,7 +95,7 @@ private:
 };
 
 template <typename T_socket_family>
-socket SOCKETSHARED_EXPORT getsocket()
+socket SOCKETSHARED_EXPORT getsocket(beltpp::void_unique_ptr&& putl)
 {
     return
     socket(T_socket_family::rtt_error,
@@ -109,7 +110,15 @@ socket SOCKETSHARED_EXPORT getsocket()
            T_socket_family::fsaver_join,
            T_socket_family::fsaver_drop,
            T_socket_family::fsaver_timer_out,
-           T_socket_family::fmessage_loader);
+           T_socket_family::fmessage_loader,
+           std::move(putl));
+}
+
+template <typename T_socket_family>
+socket SOCKETSHARED_EXPORT getsocket()
+{
+    beltpp::void_unique_ptr putl = beltpp::new_void_unique_ptr<beltpp::message_loader_utility>();
+    return getsocket<T_socket_family>(std::move(putl));
 }
 
 }

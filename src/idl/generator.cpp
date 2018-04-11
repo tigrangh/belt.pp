@@ -172,7 +172,7 @@ class storage
 {
 public:
     using fptr_saver = ::beltpp::detail::fptr_saver;
-    using fptr_analyze_json = bool (*)(void*, beltpp::json::expression_tree*, utils const&);
+    using fptr_analyze_json = bool (*)(void*, beltpp::json::expression_tree*, ::beltpp::message_loader_utility const&);
     using fptr_new_void_unique_ptr = ::beltpp::void_unique_ptr (*)();
     using fptr_new_void_unique_ptr_copy = ::beltpp::void_unique_ptr (*)(void const*);
 
@@ -188,7 +188,7 @@ public:
     template <typename T_message_type>
     static bool analyze_json_template(void* pvalue,
                                       ::beltpp::json::expression_tree* pexp,
-                                      utils const& utl)
+                                      ::beltpp::message_loader_utility const& utl)
     {
         T_message_type* pmsgcode =
                 static_cast<T_message_type*>(pvalue);
@@ -222,7 +222,7 @@ std::vector<storage::storage_item> const storage::s_arr_fptr =
 
 bool analyze_json_object(beltpp::json::expression_tree* pexp,
                          beltpp::detail::pmsg_all& return_value,
-                         utils const& utl)
+                         ::beltpp::message_loader_utility const& utl)
 {
     bool code = false;
 
@@ -504,7 +504,7 @@ string analyze_struct(state_holder& state,
     result += "{\n";
     result += "bool analyze_json(" + type_name + "& msgcode,\n";
     result += "                  beltpp::json::expression_tree* pexp,\n";
-    result += "                  utils const& utl)\n";
+    result += "                  ::beltpp::message_loader_utility const& utl)\n";
     result += "{\n";
     result += "    bool code = true;\n";
     result += "    std::unordered_map<std::string, beltpp::json::expression_tree*> members;\n";

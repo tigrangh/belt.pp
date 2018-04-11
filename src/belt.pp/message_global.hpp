@@ -5,9 +5,11 @@
 #include "meta.hpp"
 
 #include <vector>
+#include <list>
 
 namespace beltpp
 {
+class message_loader_utility;
 namespace detail
 {
 using fptr_creator = beltpp::void_unique_ptr(*)();
@@ -37,7 +39,8 @@ public:
 
 using fptr_message_loader = detail::pmsg_all (*)(
         beltpp::iterator_wrapper<char const>&,
-        beltpp::iterator_wrapper<char const> const&);
+        beltpp::iterator_wrapper<char const> const&,
+        void*);
 
 template <size_t rtt,
           detail::fptr_creator fcreator,
@@ -59,6 +62,22 @@ DECLARE_MF_INSPECTION(message_scanner, TT,
                       (beltpp::iterator_wrapper<char const> const&,
                        beltpp::iterator_wrapper<char const> const&))
 }
+
+class message_loader_utility
+{
+public:
+    message_loader_utility()
+        : m_fp_message_list_load_helper()
+    {}
+
+    using fp_message_list_load_helper = bool (*)
+            (void* pexp,
+             detail::pmsg_all& return_value,
+             message_loader_utility const& utl);
+
+    fp_message_list_load_helper m_fp_message_list_load_helper;
+    std::list<fp_message_list_load_helper> m_arr_fp_message_list_load_helper;
+};
 
 template <typename T_message, typename T_MessageList>
 class message_base

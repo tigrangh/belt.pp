@@ -26,7 +26,8 @@ scan_result read(uint64_t& value,
 
 beltpp::detail::pmsg_all message_list_load(
         beltpp::iterator_wrapper<char const>& iter_scan_begin,
-        beltpp::iterator_wrapper<char const> const& iter_scan_end)
+        beltpp::iterator_wrapper<char const> const& iter_scan_end,
+        void*)
 {
     size_t clean_count = 0;
     uint64_t message_code_rtt(-1);
