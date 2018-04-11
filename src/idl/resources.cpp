@@ -13,6 +13,7 @@ std::string const resources::file_template = R"file_template(/*
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
+#include <list>
 #include <utility>
 #include <algorithm>
 #include <functional>
@@ -38,6 +39,27 @@ bool analyze_colon(beltpp::json::expression_tree* pexp,
 typedef bool(*fptr_utf32_to_utf8)(uint32_t, std::string&);
 class utils
 {
+public:
+    utils() : m_fp_message_list_load_helper() {}
+
+    template <typename T_util,
+              bool (*fpmessage_list_load_helper)
+                 (::beltpp::json::expression_tree* pexp,
+                  ::beltpp::detail::pmsg_all& return_value,
+                  T_util const& utl)>
+    static
+    bool template_message_list_load_helper(::beltpp::json::expression_tree* pexp,
+                                           ::beltpp::detail::pmsg_all& return_value,
+                                           void const* putl)
+    {
+        return fpmessage_list_load_helper(pexp, return_value, *static_cast<T_util const*>(putl));
+    }
+    using fp_message_list_load_helper = bool (*)
+            (::beltpp::json::expression_tree* pexp,
+             ::beltpp::detail::pmsg_all& return_value,
+             void const* putl);
+    fp_message_list_load_helper m_fp_message_list_load_helper;
+    std::list<fp_message_list_load_helper> m_arr_fp_message_list_load_helper;
 };
 bool message_list_load_helper(::beltpp::json::expression_tree* pexp,
                               ::beltpp::detail::pmsg_all& return_value,
@@ -55,7 +77,17 @@ bool message_list_load_helper(::beltpp::json::expression_tree* pexp,
 
     return true;
 }
+
+template <void (*ex_helper)(detail::utils&)>
+void extension_helper(detail::utils& utl)
+{
+    utl.m_arr_fp_message_list_load_helper.push_back(&utils::template_message_list_load_helper<utils, &detail::message_list_load_helper>);
+    if (nullptr != ex_helper)
+        ex_helper(utl);
 }
+}
+
+template <void (*ex_helper)(detail::utils&) = nullptr>
 ::beltpp::detail::pmsg_all message_list_load(
         beltpp::iterator_wrapper<char const>& iter_scan_begin,
         beltpp::iterator_wrapper<char const> const& iter_scan_end)
@@ -66,9 +98,11 @@ bool message_list_load_helper(::beltpp::json::expression_tree* pexp,
     ::beltpp::json::expression_tree* proot = nullptr;
 
     detail::utils utl;
+    if (nullptr != ex_helper)
+        ex_helper(utl);
 
     ::beltpp::detail::pmsg_all return_value(size_t(-1),
-                            ::beltpp::detail::ptr_msg(nullptr, [](void*&){}),
+                            ::beltpp::void_unique_ptr(nullptr, [](void*&){}),
                             nullptr);
 
     auto code = ::beltpp::json::parse_stream(pexp,
@@ -95,7 +129,7 @@ bool message_list_load_helper(::beltpp::json::expression_tree* pexp,
     {
         iter_scan_begin = iter_scan_end;
         return_value = ::beltpp::detail::pmsg_all(0,
-                                        ::beltpp::detail::ptr_msg(nullptr, [](void*&){}),
+                                        ::beltpp::void_unique_ptr(nullptr, [](void*&){}),
                                         nullptr);
     }
     else if (::beltpp::e_three_state_result::attempt == code)
@@ -105,7 +139,7 @@ bool message_list_load_helper(::beltpp::json::expression_tree* pexp,
         //  be needed
         iter_scan_begin = it_backup;
         return_value = ::beltpp::detail::pmsg_all(size_t(-1),
-                                        ::beltpp::detail::ptr_msg(nullptr, [](void*&){}),
+                                        ::beltpp::void_unique_ptr(nullptr, [](void*&){}),
                                         nullptr);
     }
 
@@ -127,7 +161,8 @@ public:
 
 namespace detail
 {
-template <typename T>
+template <typename T,
+          void (*ex_helper)(detail::utils&) = nullptr>
 bool loader(T& value,
             std::string const& encoded);
 std::string saver(int value)
@@ -431,9 +466,15 @@ bool analyze_json(::beltpp::packet& value,
                   utils const& utl)
 {
     ::beltpp::detail::pmsg_all return_value(size_t(-1),
-                            ::beltpp::detail::ptr_msg(nullptr, [](void*&){}),
+                            ::beltpp::void_unique_ptr(nullptr, [](void*&){}),
                             nullptr);
-    if (false == detail::message_list_load_helper(pexp, return_value, utl))
+
+    if (utl.m_fp_message_list_load_helper)
+    {
+        if (false == utl.m_fp_message_list_load_helper(pexp, return_value, &utl))
+            return false;
+    }
+    else if (false == detail::message_list_load_helper(pexp, return_value, utl))
         return false;
 
     value.set(return_value.rtt,
@@ -717,7 +758,8 @@ bool analyze_json(std::unordered_map<std::string, T_value>& value,
     return code;
 }
 
-template <typename T>
+template <typename T,
+          void (*ex_helper)(detail::utils&)>
 bool loader(T& value,
             std::string const& encoded)
 {
@@ -730,6 +772,8 @@ bool loader(T& value,
     ::beltpp::json::expression_tree* proot = nullptr;
 
     detail::utils utl;
+    if (nullptr != ex_helper)
+        ex_helper(utl);
     auto code = ::beltpp::json::parse_stream(pexp, iter_scan_begin,
                                              iter_scan_end, 1024*1024, proot);
 
@@ -921,7 +965,10 @@ namespace beltpp
 void assign(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
 {
     if ({namespace_name}::detail::storage::s_arr_fptr.size() <= other.type())
-        throw std::runtime_error("let it terminate");
+    {
+        assert(false);
+        std::terminate();
+    }
 
     auto const& item = {namespace_name}::detail::storage::s_arr_fptr[other.type()];
 

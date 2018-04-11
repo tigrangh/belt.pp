@@ -71,11 +71,12 @@ int main(int argc, char* argv[])
 
         if (definition.empty())
         {
-            definition = "package beltpp "
-                         "type message_join struct {}"
-                         "type message_drop struct {}"
-                         "type message_error struct {}"
-                         "type message_timer_out struct {}";
+            definition = "module beltpp {"
+                         "type message_join {}"
+                         "type message_drop {}"
+                         "type message_error {}"
+                         "type message_timer_out {}"
+                         "}";
         }
 
         auto it_begin = definition.begin();

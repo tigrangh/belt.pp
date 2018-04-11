@@ -420,6 +420,7 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
     {   //  try to place the operator token in the expression tree
         //  if successful then update it_begin and return
         auto ptr_expression_backup = ptr_expression.get();
+        B_UNUSED(ptr_expression_backup);
 
         if (detail::parse_helper(ptr_expression, read_result, has_default_operator, default_operator))
         {
@@ -690,8 +691,8 @@ bool lexer_helper(T_iterator& it_begin,
     T_lexer lexer;
     for (; it_copy != it_end; ++it_copy, ++index)
     {
-        std::pair<bool, bool> lexer_res = lexer.check(*it_copy);
-        if (false == lexer_res.first)
+        beltpp::e_three_state_result lexer_res = lexer.check(*it_copy);
+        if (beltpp::e_three_state_result::error == lexer_res)
         {   //  will stop, next symbol is not accepted anymore
             if (index == 0)
             {   //  empty, not accepted anything
@@ -705,7 +706,7 @@ bool lexer_helper(T_iterator& it_begin,
                 break;
             }
         }
-        else if (true == lexer_res.second)
+        else if (beltpp::e_three_state_result::success == lexer_res)
         {   //  next symbol is accepted and suggested to be final
             ++it_copy;
             it_begin = it_copy;
@@ -766,12 +767,12 @@ public:
         return code;
     }
 
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         auto value = T_white_space_set::value;
         if (value.find(ch) != std::string::npos)
-            return std::make_pair(true, false);
-        return std::make_pair(false, false);
+            return beltpp::e_three_state_result::attempt;
+        return beltpp::e_three_state_result::error;
     }
 };
 
@@ -824,11 +825,11 @@ operator_lexer_base<T_operator_lexer, T_lexers>::priority =
          (typelist::type_list_get<T_operator_lexer::previous_rtt, T_lexers>::type::priority));
 
 template <typename T_operator_set>
-std::pair<bool, bool> standard_operator_check(char ch)
+beltpp::e_three_state_result standard_operator_check(char ch)
 {
     if (T_operator_set::value.find(ch) != std::string::npos)
-        return std::make_pair(true, false);
-    return std::make_pair(false, false);
+        return beltpp::e_three_state_result::attempt;
+    return beltpp::e_three_state_result::error;
 }
 
 template <typename T_value_lexer, typename T_lexers>
@@ -899,37 +900,37 @@ class standard_value_string_lexer :
     int state = state_none;
     size_t index = -1;
 public:
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         ++index;
         if (0 == index && ch == '\'')
         {
             state |= state_single_quote_open;
-            return std::make_pair(true, false);
+            return beltpp::e_three_state_result::attempt;
         }
         if (0 == index && ch == '\"')
         {
             state |= state_double_quote_open;
-            return std::make_pair(true, false);
+            return beltpp::e_three_state_result::attempt;
         }
         if (0 == index && ch != '\'' && ch != '\"')
-            return std::make_pair(false, false);
+            return beltpp::e_three_state_result::error;
         if (0 != index && ch == '\'' &&
             (state & state_single_quote_open) &&
             !(state & state_escape_symbol))
-            return std::make_pair(true, true);
+            return beltpp::e_three_state_result::success;
         if (0 != index && ch == '\"' &&
             (state & state_double_quote_open) &&
             !(state & state_escape_symbol))
-            return std::make_pair(true, true);
+            return beltpp::e_three_state_result::success;
         if (0 != index && ch == '\\' &&
             !(state & state_escape_symbol))
         {
             state |= state_escape_symbol;
-            return std::make_pair(true, false);
+            return beltpp::e_three_state_result::attempt;
         }
         state &= ~state_escape_symbol;
-        return std::make_pair(true, false);
+        return beltpp::e_three_state_result::attempt;
     }
 };
 
@@ -952,15 +953,15 @@ private:
         return true;
     }
 public:
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         value += ch;
         if ("." == value || "-" == value || "-." == value)
-            return std::make_pair(true, false);
+            return beltpp::e_three_state_result::attempt;
         else if (_check(value))
-            return std::make_pair(true, false);
+            return beltpp::e_three_state_result::attempt;
         else
-            return std::make_pair(false, false);
+            return beltpp::e_three_state_result::error;
     }
 
     bool final_check(std::string::iterator it_begin,
@@ -988,7 +989,7 @@ public:
 
     enum { grow_priority = 1 };
 
-    std::pair<bool, bool> check(char ch)
+    beltpp::e_three_state_result check(char ch)
     {
         return standard_operator_check<beltpp::standard_operator_set<void>>(ch);
     }
