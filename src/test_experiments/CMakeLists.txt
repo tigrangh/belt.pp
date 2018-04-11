@@ -3,7 +3,7 @@ add_executable(test_experiments
     main.cpp)
 
 # libraries this module links to
-target_link_libraries(test_experiments PUBLIC
+target_link_libraries(test_experiments PRIVATE
     socket
     processor
     packet
