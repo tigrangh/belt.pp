@@ -92,7 +92,8 @@ public:
                      detail::fptr_saver fsaver_join,
                      detail::fptr_saver fsaver_drop,
                      detail::fptr_saver fsaver_timer_out,
-                     detail::fptr_message_loader fmessage_loader)
+                     detail::fptr_message_loader fmessage_loader,
+                     beltpp::void_unique_ptr&& putl)
         : m_rtt_error(rtt_error)
         , m_rtt_join(rtt_join)
         , m_rtt_drop(rtt_drop)
@@ -106,6 +107,7 @@ public:
         , m_fsaver_drop(fsaver_drop)
         , m_fsaver_timer_out(fsaver_timer_out)
         , m_fmessage_loader(fmessage_loader)
+        , m_putl(std::move(putl))
     {}
 
     size_t m_rtt_error;
@@ -121,6 +123,7 @@ public:
     detail::fptr_saver m_fsaver_drop;
     detail::fptr_saver m_fsaver_timer_out;
     detail::fptr_message_loader m_fmessage_loader;
+    beltpp::void_unique_ptr m_putl;
     std::list<channels> m_lst_channels;
     poll_master m_poll_master;
     timer_helper m_timer_helper;
@@ -174,7 +177,8 @@ socket::socket(size_t _rtt_error,
                detail::fptr_saver _fsaver_join,
                detail::fptr_saver _fsaver_drop,
                detail::fptr_saver _fsaver_timer_out,
-               detail::fptr_message_loader _fmessage_loader)
+               detail::fptr_message_loader _fmessage_loader,
+               beltpp::void_unique_ptr&& putl)
     : isocket()
     , m_pimpl(new detail::socket_internals(_rtt_error,
                                            _rtt_join,
@@ -188,7 +192,8 @@ socket::socket(size_t _rtt_error,
                                            _fsaver_join,
                                            _fsaver_drop,
                                            _fsaver_timer_out,
-                                           _fmessage_loader))
+                                           _fmessage_loader,
+                                           std::move(putl)))
 {
 
 }
@@ -569,7 +574,8 @@ packets socket::receive(peer_id& peer)
                     auto const& stm = current_channel.m_stream;
                     beltpp::iterator_wrapper<char const> it_begin = stm.cbegin();
                     auto pmsgall = m_pimpl->m_fmessage_loader(it_begin,
-                                                              stm.cend());
+                                                              stm.cend(),
+                                                              m_pimpl->m_putl.get());
 
                     while (false == current_channel.m_stream.empty() &&
                            beltpp::iterator_wrapper<char const>(stm.cbegin()) !=

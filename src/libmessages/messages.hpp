@@ -38,7 +38,8 @@ class message_timer_out
 
 detail::pmsg_all MESSAGESSHARED_EXPORT message_list_load(
         beltpp::iterator_wrapper<char const>& iter_scan_begin,
-        beltpp::iterator_wrapper<char const> const& iter_scan_end);
+        beltpp::iterator_wrapper<char const> const& iter_scan_end,
+        void*);
 
 class MESSAGESSHARED_EXPORT message_error :
         public message_base<message_error, message_list>

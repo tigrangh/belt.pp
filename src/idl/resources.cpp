@@ -23,12 +23,11 @@ namespace {namespace_name}
 {
 namespace detail
 {
-class utils;
 bool analyze_json_object(beltpp::json::expression_tree* pexp,
                          size_t& rtt);
 bool analyze_json_object(beltpp::json::expression_tree* pexp,
                          beltpp::detail::pmsg_all& return_value,
-                         utils const&);
+                         ::beltpp::message_loader_utility const&);
 bool analyze_json_common(size_t& rtt,
                          beltpp::json::expression_tree* pexp,
                          std::unordered_map<std::string, beltpp::json::expression_tree*>& members);
@@ -37,33 +36,21 @@ bool analyze_colon(beltpp::json::expression_tree* pexp,
 bool analyze_colon(beltpp::json::expression_tree* pexp,
                    std::unordered_map<std::string, beltpp::json::expression_tree*>& members);
 typedef bool(*fptr_utf32_to_utf8)(uint32_t, std::string&);
-class utils
-{
-public:
-    utils() : m_fp_message_list_load_helper() {}
 
-    template <typename T_util,
-              bool (*fpmessage_list_load_helper)
-                 (::beltpp::json::expression_tree* pexp,
-                  ::beltpp::detail::pmsg_all& return_value,
-                  T_util const& utl)>
-    static
-    bool template_message_list_load_helper(::beltpp::json::expression_tree* pexp,
-                                           ::beltpp::detail::pmsg_all& return_value,
-                                           void const* putl)
-    {
-        return fpmessage_list_load_helper(pexp, return_value, *static_cast<T_util const*>(putl));
-    }
-    using fp_message_list_load_helper = bool (*)
-            (::beltpp::json::expression_tree* pexp,
-             ::beltpp::detail::pmsg_all& return_value,
-             void const* putl);
-    fp_message_list_load_helper m_fp_message_list_load_helper;
-    std::list<fp_message_list_load_helper> m_arr_fp_message_list_load_helper;
+template <bool (*fpmessage_list_load_helper)
+             (::beltpp::json::expression_tree* pexp,
+              ::beltpp::detail::pmsg_all& return_value,
+              ::beltpp::message_loader_utility const& utl)>
+bool template_message_list_load_helper(void* pexp,
+                                       ::beltpp::detail::pmsg_all& return_value,
+                                       ::beltpp::message_loader_utility const& utl)
+{
+    return fpmessage_list_load_helper(static_cast<::beltpp::json::expression_tree*>(pexp), return_value, utl);
 };
+
 bool message_list_load_helper(::beltpp::json::expression_tree* pexp,
                               ::beltpp::detail::pmsg_all& return_value,
-                              detail::utils const& utl)
+                              ::beltpp::message_loader_utility const& utl)
 {
     if (false == analyze_json_object(pexp,
                                      return_value.rtt))
@@ -78,28 +65,25 @@ bool message_list_load_helper(::beltpp::json::expression_tree* pexp,
     return true;
 }
 
-template <void (*ex_helper)(detail::utils&)>
-void extension_helper(detail::utils& utl)
+void extension_helper(::beltpp::message_loader_utility& utl)
 {
-    utl.m_arr_fp_message_list_load_helper.push_back(&utils::template_message_list_load_helper<utils, &detail::message_list_load_helper>);
-    if (nullptr != ex_helper)
-        ex_helper(utl);
+    utl.m_arr_fp_message_list_load_helper.push_front(&template_message_list_load_helper<&detail::message_list_load_helper>);
 }
 }
 
-template <void (*ex_helper)(detail::utils&) = nullptr>
 ::beltpp::detail::pmsg_all message_list_load(
         beltpp::iterator_wrapper<char const>& iter_scan_begin,
-        beltpp::iterator_wrapper<char const> const& iter_scan_end)
+        beltpp::iterator_wrapper<char const> const& iter_scan_end,
+        void* putl)
 {
     auto const it_backup = iter_scan_begin;
 
     ::beltpp::json::ptr_expression_tree pexp;
     ::beltpp::json::expression_tree* proot = nullptr;
 
-    detail::utils utl;
-    if (nullptr != ex_helper)
-        ex_helper(utl);
+    ::beltpp::message_loader_utility utl;
+    if (putl)
+        utl = *static_cast<::beltpp::message_loader_utility*>(putl);
 
     ::beltpp::detail::pmsg_all return_value(size_t(-1),
                             ::beltpp::void_unique_ptr(nullptr, [](void*&){}),
@@ -161,10 +145,10 @@ public:
 
 namespace detail
 {
-template <typename T,
-          void (*ex_helper)(detail::utils&) = nullptr>
+template <typename T>
 bool loader(T& value,
-            std::string const& encoded);
+            std::string const& encoded,
+            void* putl = nullptr);
 std::string saver(int value)
 {
     return std::to_string(value);
@@ -206,7 +190,7 @@ std::string saver(ctime const& value)
 }
 bool analyze_json(std::string& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const&)
+                  ::beltpp::message_loader_utility const&)
 {
     bool code = true;
     if (nullptr == pexp ||
@@ -219,7 +203,7 @@ bool analyze_json(std::string& value,
 }
 bool analyze_json(bool& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const&)
+                  ::beltpp::message_loader_utility const&)
 {
     bool code = true;
     if (nullptr == pexp ||
@@ -248,7 +232,7 @@ bool analyze_json(bool& value,
 }
 bool analyze_json(int8_t& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const&)
+                  ::beltpp::message_loader_utility const&)
 {
     bool code = true;
     if (nullptr == pexp ||
@@ -268,7 +252,7 @@ bool analyze_json(int8_t& value,
 }
 bool analyze_json(uint8_t& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const&)
+                  ::beltpp::message_loader_utility const&)
 {
     bool code = true;
     if (nullptr == pexp ||
@@ -288,7 +272,7 @@ bool analyze_json(uint8_t& value,
 }
 bool analyze_json(int16_t& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const&)
+                  ::beltpp::message_loader_utility const&)
 {
     bool code = true;
     if (nullptr == pexp ||
@@ -308,7 +292,7 @@ bool analyze_json(int16_t& value,
 }
 bool analyze_json(uint16_t& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const&)
+                  ::beltpp::message_loader_utility const&)
 {
     bool code = true;
     if (nullptr == pexp ||
@@ -328,7 +312,7 @@ bool analyze_json(uint16_t& value,
 }
 bool analyze_json(int32_t& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const&)
+                  ::beltpp::message_loader_utility const&)
 {
     bool code = true;
     if (nullptr == pexp ||
@@ -348,7 +332,7 @@ bool analyze_json(int32_t& value,
 }
 bool analyze_json(uint32_t& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const&)
+                  ::beltpp::message_loader_utility const&)
 {
     bool code = true;
     if (nullptr == pexp ||
@@ -368,7 +352,7 @@ bool analyze_json(uint32_t& value,
 }
 bool analyze_json(int64_t& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const&)
+                  ::beltpp::message_loader_utility const&)
 {
     bool code = true;
     if (nullptr == pexp ||
@@ -388,7 +372,7 @@ bool analyze_json(int64_t& value,
 }
 bool analyze_json(uint64_t& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const&)
+                  ::beltpp::message_loader_utility const&)
 {
     bool code = true;
     if (nullptr == pexp ||
@@ -408,7 +392,7 @@ bool analyze_json(uint64_t& value,
 }
 bool analyze_json(float& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const&)
+                  ::beltpp::message_loader_utility const&)
 {
     bool code = true;
     if (nullptr == pexp ||
@@ -428,7 +412,7 @@ bool analyze_json(float& value,
 }
 bool analyze_json(double& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const&)
+                  ::beltpp::message_loader_utility const&)
 {
     bool code = true;
     if (nullptr == pexp ||
@@ -448,7 +432,7 @@ bool analyze_json(double& value,
 }
 bool analyze_json(ctime& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const& utl)
+                  ::beltpp::message_loader_utility const& utl)
 {
     std::string str_value;
     if (analyze_json(str_value, pexp, utl) &&
@@ -463,7 +447,7 @@ std::string saver(::beltpp::packet const& value)
 }
 bool analyze_json(::beltpp::packet& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const& utl)
+                  ::beltpp::message_loader_utility const& utl)
 {
     ::beltpp::detail::pmsg_all return_value(size_t(-1),
                             ::beltpp::void_unique_ptr(nullptr, [](void*&){}),
@@ -471,7 +455,7 @@ bool analyze_json(::beltpp::packet& value,
 
     if (utl.m_fp_message_list_load_helper)
     {
-        if (false == utl.m_fp_message_list_load_helper(pexp, return_value, &utl))
+        if (false == utl.m_fp_message_list_load_helper(pexp, return_value, utl))
             return false;
     }
     else if (false == detail::message_list_load_helper(pexp, return_value, utl))
@@ -486,17 +470,17 @@ bool analyze_json(::beltpp::packet& value,
 template <typename T>
 bool analyze_json(std::vector<T>& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const& utl);
+                  ::beltpp::message_loader_utility const& utl);
 template <typename T>
 std::string saver(std::vector<T> const& value);
 template <typename T_key, typename T_value>
 bool analyze_json(std::unordered_map<T_key, T_value>& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const& utl);
+                  ::beltpp::message_loader_utility const& utl);
 template <typename T_value>
 bool analyze_json(std::unordered_map<std::string, T_value>& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const& utl);
+                  ::beltpp::message_loader_utility const& utl);
 template <typename T_key, typename T_value>
 std::string saver(std::unordered_map<T_key, T_value> const& value);
 template <typename T_value>
@@ -564,7 +548,7 @@ std::string saver(std::vector<T> const& value)
 template <typename T>
 bool analyze_json(std::vector<T>& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const& utl)
+                  ::beltpp::message_loader_utility const& utl)
 {
     value.clear();
     bool code = true;
@@ -607,7 +591,7 @@ std::string saver(std::pair<T_first, T_second> const& value)
 template <typename T_first, typename T_second>
 bool analyze_json(std::pair<T_first, T_second>& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const& utl)
+                  ::beltpp::message_loader_utility const& utl)
 {
     bool code = true;
     if (nullptr == pexp ||
@@ -680,7 +664,7 @@ std::string saver(std::unordered_map<std::string, T_value> const& value)
 template <typename T_key, typename T_value>
 bool analyze_json(std::unordered_map<T_key, T_value>& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const& utl)
+                  ::beltpp::message_loader_utility const& utl)
 {
     value.clear();
     bool code = true;
@@ -714,7 +698,7 @@ bool analyze_json(std::unordered_map<T_key, T_value>& value,
 template <typename T_value>
 bool analyze_json(std::unordered_map<std::string, T_value>& value,
                   ::beltpp::json::expression_tree* pexp,
-                  utils const& utl)
+                  ::beltpp::message_loader_utility const& utl)
 {
     value.clear();
     bool code = true;
@@ -758,10 +742,10 @@ bool analyze_json(std::unordered_map<std::string, T_value>& value,
     return code;
 }
 
-template <typename T,
-          void (*ex_helper)(detail::utils&)>
+template <typename T>
 bool loader(T& value,
-            std::string const& encoded)
+            std::string const& encoded,
+            void* putl)
 {
     //  add space, because parser assumes a stream, and may not parse last symbols
     std::string encoded2 = encoded + " ";
@@ -771,9 +755,9 @@ bool loader(T& value,
     ::beltpp::json::ptr_expression_tree pexp;
     ::beltpp::json::expression_tree* proot = nullptr;
 
-    detail::utils utl;
-    if (nullptr != ex_helper)
-        ex_helper(utl);
+    ::beltpp::message_loader_utility utl =
+        *static_cast<::beltpp::message_loader_utility*>(putl);
+
     auto code = ::beltpp::json::parse_stream(pexp, iter_scan_begin,
                                              iter_scan_end, 1024*1024, proot);
 
