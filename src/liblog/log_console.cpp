@@ -53,21 +53,21 @@ public:
 
     void message_no_eol(string const& value) override
     {
-        cout << value;
+        cout << value << " ";
         fresh_line = false;
     }
     void warning_no_eol(string const& value) override
     {
         if (fresh_line)
             cout << "Warning: ";
-        cout << value;
+        cout << value << " ";
         fresh_line = false;
     }
     void error_no_eol(string const& value) override
     {
         if (fresh_line)
             cerr << "Error: ";
-        cerr << value;
+        cerr << value << " ";
         fresh_line = false;
     }
 

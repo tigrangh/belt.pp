@@ -4,6 +4,7 @@
 #include <string>
 #include <list>
 #include <exception>
+#include <chrono>
 
 namespace beltpp
 {
@@ -228,6 +229,8 @@ public:
 
     virtual void send(peer_id const& peer,
                       packet const& msg) = 0;
+
+    virtual void set_timer(std::chrono::steady_clock::duration const& period) = 0;
 };
 
 }

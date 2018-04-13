@@ -21,6 +21,7 @@ set(SRC_FILES
     isocket.hpp
     iterator_wrapper.hpp
     json.hpp
+    log.hpp
     message_global.hpp
     messages.hpp
     meta.hpp

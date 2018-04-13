@@ -8,7 +8,6 @@
 #include <string>
 #include <list>
 #include <vector>
-#include <chrono>
 
 namespace beltpp
 {
@@ -84,7 +83,7 @@ public:
     void send(peer_id const& peer,
               packet const& msg) override;
 
-    void set_timer(std::chrono::steady_clock::duration const& period);
+    void set_timer(std::chrono::steady_clock::duration const& period) override;
 
     ip_address info(peer_id const& peer) const;
 
