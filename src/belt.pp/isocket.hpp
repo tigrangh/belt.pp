@@ -1,7 +1,10 @@
 #pragma once
 
+#include "global.hpp"
 #include <string>
 #include <list>
+#include <exception>
+#include <chrono>
 
 namespace beltpp
 {
@@ -56,38 +59,152 @@ public:
         , remote()
     {}
 
-    std::string to_string(ip_destination const* dest = nullptr) const
+    std::string to_string() const
     {
-        if (nullptr == dest)
+        ip_address local_holder;
+        ip_address remote_holder;
+
+        local_holder.local = local;
+        local_holder.ip_type = ip_type;
+
+        remote_holder.local = remote;
+        remote_holder.ip_type = ip_type;
+
+        std::string result = local_holder.to_string_dest();
+        if (false == remote.empty())
+            result += "<=>" + remote_holder.to_string();
+        return result;
+    }
+
+private:
+    std::string to_string_dest() const
+    {
+        if (local.empty())
+            return std::string();
+        else
         {
-            std::string result = to_string(&local);
-            if (false == remote.empty())
-                result += "<=>" + to_string(&remote);
-            return result;
+            std::string op, cl;
+            if (ip_type == e_type::ipv6)
+            {
+                op = "[";
+                cl = "]";
+            }
+            else if (ip_type == e_type::any)
+            {
+                op = "{";
+                cl = "}";
+            }
+
+            return op + local.address + cl + ":" +
+                    std::to_string(local.port);
+        }
+    }
+
+public:
+    void from_string(std::string const& value)
+    {
+        ip_address local_holder;
+        ip_address remote_holder;
+
+        size_t delimiter_index = value.find("<=>");
+        if (std::string::npos != delimiter_index)
+        {
+            std::string str_local = value.substr(0, delimiter_index);
+            std::string str_remote = value.substr(delimiter_index + 3);
+
+            local_holder.from_string_dest(str_local);
+            remote_holder.from_string_dest(str_remote);
+
+            if (local_holder.ip_type == e_type::ipv6 ||
+                remote_holder.ip_type == e_type::ipv6)
+            {
+                if (local_holder.ip_type == e_type::ipv4 ||
+                    remote_holder.ip_type == e_type::ipv4)
+                    throw std::runtime_error("cannot mix ip4 and ip6 addresses"
+                                             " in a bundle");
+
+                ip_type = e_type::ipv6;
+            }
+            if (local_holder.ip_type == e_type::ipv4 ||
+                remote_holder.ip_type == e_type::ipv4)
+                ip_type = e_type::ipv4;
+
+            local = local_holder.local;
+            remote = remote_holder.local;
         }
         else
         {
-            if (dest->empty())
-                return std::string();
-            else
-            {
-                std::string op, cl;
-                if (ip_type == e_type::ipv6)
-                {
-                    op = "[";
-                    cl = "]";
-                }
-                else if (ip_type == e_type::any)
-                {
-                    op = "{";
-                    cl = "}";
-                }
-
-                return op + dest->address + cl + ":" +
-                        std::to_string(dest->port);
-            }
+            local_holder.from_string_dest(value);
+            *this = local_holder;
         }
     }
+
+private:
+    void from_string_dest(std::string const& value)
+    {
+        size_t op_bracket_index = value.find("[");
+        size_t cl_bracket_index = value.find("]");
+        size_t op_brace_index = value.find("{");
+        size_t cl_brace_index = value.find("}");
+
+        size_t scope_index = std::string::npos;
+
+        size_t bracket_index = std::string::npos;
+        if (0 == op_bracket_index &&
+            std::string::npos != cl_bracket_index)
+        {
+            bracket_index = cl_bracket_index;
+            scope_index = bracket_index;
+            ip_type = e_type::ipv6;
+        }
+
+        size_t brace_index = std::string::npos;
+        if (0 == op_brace_index &&
+            std::string::npos != cl_brace_index)
+        {
+            brace_index = cl_brace_index;
+            scope_index = brace_index;
+        }
+
+        std::string error_help = "cannot parse \"" + value +
+                "\". use host_name::port [or"
+                " [host_name]::port for ipv6] to specify ip address";
+
+        if (std::string::npos == brace_index &&
+            (std::string::npos != op_brace_index ||
+             std::string::npos != cl_brace_index))
+            throw std::runtime_error(error_help);
+        if (std::string::npos == bracket_index &&
+            (std::string::npos != op_bracket_index ||
+             std::string::npos != cl_bracket_index))
+            throw std::runtime_error(error_help);
+
+        size_t colon_index = std::string::npos;
+        if (std::string::npos == scope_index)
+            colon_index = value.find(":");
+        else
+            colon_index = value.find(":", scope_index);
+
+        if (std::string::npos == colon_index)
+            throw std::runtime_error(error_help);
+
+        std::string str_host;
+        if (std::string::npos == scope_index)
+            str_host = value.substr(0, colon_index);
+        else
+            str_host = value.substr(1, colon_index - 2);
+        std::string str_port = value.substr(colon_index + 1);
+
+        local.address = str_host;
+
+        size_t end = 0;
+        local.port = beltpp::stoui16(str_port, end);
+        if (end != str_port.length())
+            throw std::runtime_error("cannot parse \"" + str_port +
+                                     "\". ip port must be uint16");
+    }
+
+public:
 
     bool operator == (ip_address const& other) const noexcept
     {
@@ -111,7 +228,9 @@ public:
     virtual packets receive(peer_id& peer) = 0;
 
     virtual void send(peer_id const& peer,
-                      packet const& msg) = 0;
+                      packet&& pack) = 0;
+
+    virtual void set_timer(std::chrono::steady_clock::duration const& period) = 0;
 };
 
 }

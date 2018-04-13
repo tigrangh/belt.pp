@@ -33,39 +33,84 @@ enum class e_three_state_result {success, attempt, error};
 
 namespace detail
 {
-using fptr_deleter = void(*)(void*&);
+template <typename T>
+using fptr_deleter = void(*)(T*&);
 }
-using void_unique_ptr = std::unique_ptr<void, detail::fptr_deleter>;
 
 template <typename T>
-inline void_unique_ptr new_void_unique_ptr()
+using t_unique_ptr = std::unique_ptr<T, detail::fptr_deleter<T>>;
+using void_unique_ptr = t_unique_ptr<void>;
+
+template <typename T1, typename T2>
+inline t_unique_ptr<T1> new_dc_unique_ptr()
 {
-    void_unique_ptr result(nullptr,
-                           [](void* &p)
+    t_unique_ptr<T1> result(nullptr,
+                            [](T1* &p)
                             {
-                                T* pmc = static_cast<T*>(p);
+                                T2* pmc = dynamic_cast<T2*>(p);
                                 delete pmc;
                                 p = nullptr;
                             });
 
-    result.reset(new T());
+    result.reset(dynamic_cast<T1*>(new T2()));
     return result;
+}
+template <typename T1, typename T2>
+inline t_unique_ptr<T1> new_dc_unique_ptr(void const* pother)
+{
+    t_unique_ptr<T1> result(nullptr,
+                            [](T1* &p)
+                            {
+                                T2* pmc = static_cast<T2*>(p);
+                                delete pmc;
+                                p = nullptr;
+                            });
+
+    T2 const& other = *static_cast<T2 const*>(pother);
+    result.reset(static_cast<T1*>(new T2(other)));
+    return result;
+}
+
+template <typename T1, typename T2>
+inline t_unique_ptr<T1> new_sc_unique_ptr()
+{
+    t_unique_ptr<T1> result(nullptr,
+                            [](T1* &p)
+                            {
+                                T2* pmc = static_cast<T2*>(p);
+                                delete pmc;
+                                p = nullptr;
+                            });
+
+    result.reset(static_cast<T1*>(new T2()));
+    return result;
+}
+template <typename T1, typename T2>
+inline t_unique_ptr<T1> new_sc_unique_ptr(void const* pother)
+{
+    t_unique_ptr<T1> result(nullptr,
+                            [](T1* &p)
+                            {
+                                T2* pmc = static_cast<T2*>(p);
+                                delete pmc;
+                                p = nullptr;
+                            });
+
+    T2 const& other = *static_cast<T2 const*>(pother);
+    result.reset(static_cast<T1*>(new T2(other)));
+    return result;
+}
+
+template <typename T>
+inline void_unique_ptr new_void_unique_ptr()
+{
+    return new_sc_unique_ptr<void, T>();
 }
 
 template <typename T>
 inline void_unique_ptr new_void_unique_ptr(void const* pother)
 {
-    void_unique_ptr result(nullptr,
-                           [](void* &p)
-                            {
-                                T* pmc = static_cast<T*>(p);
-                                delete pmc;
-                                p = nullptr;
-                            });
-
-    T const& other = *static_cast<T const*>(pother);
-    result.reset(new T(other));
-    return result;
+    return new_sc_unique_ptr<void, T>(pother);
 }
 
 inline float stof(std::string const& value, size_t& pos)

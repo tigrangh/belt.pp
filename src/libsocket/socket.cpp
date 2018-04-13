@@ -202,13 +202,16 @@ socket::socket(socket&&) = default;
 
 socket::~socket()
 {
-    for (auto const& channels_item : m_pimpl->m_lst_channels)
-    for (auto const& channel_data : channels_item)
+    if (m_pimpl)    //  check if the socket has been moved out from
     {
-        if (0 != ::close(channel_data.m_socket_descriptor))
+        for (auto const& channels_item : m_pimpl->m_lst_channels)
+        for (auto const& channel_data : channels_item)
         {
-            assert(false);
-            std::terminate();
+            if (0 != ::close(channel_data.m_socket_descriptor))
+            {
+                assert(false);
+                std::terminate();
+            }
         }
     }
 }
@@ -396,12 +399,12 @@ packets socket::receive(peer_id& peer)
     if (m_pimpl->m_timer_helper.expired())
     {
         m_pimpl->m_timer_helper.update();
-        packet msg;
-        msg.set(m_pimpl->m_rtt_timer_out,
+        packet pack;
+        pack.set(m_pimpl->m_rtt_timer_out,
                 m_pimpl->m_fcreator_timer_out(),
                 m_pimpl->m_fsaver_timer_out);
 
-        result.emplace_back(std::move(msg));
+        result.emplace_back(std::move(pack));
     }
     else
     for (uint64_t current_id : set_ids)
@@ -456,13 +459,13 @@ packets socket::receive(peer_id& peer)
                                            false);
 
                 current_channel.m_attempts = 0;
-                packet msg;
+                packet pack;
 
-                msg.set(m_pimpl->m_rtt_join,
+                pack.set(m_pimpl->m_rtt_join,
                         m_pimpl->m_fcreator_join(),
                         m_pimpl->m_fsaver_join);
 
-                result.emplace_back(std::move(msg));
+                result.emplace_back(std::move(pack));
 
                 peer = detail::construct_peer_id(current_id,
                                                  current_channel.m_socket_bundle);
@@ -511,13 +514,13 @@ packets socket::receive(peer_id& peer)
                                        0,
                                        socket_bundle);
 
-            packet msg;
+            packet pack;
 
-            msg.set(m_pimpl->m_rtt_join,
+            pack.set(m_pimpl->m_rtt_join,
                     m_pimpl->m_fcreator_join(),
                     m_pimpl->m_fsaver_join);
 
-            result.emplace_back(std::move(msg));
+            result.emplace_back(std::move(pack));
             break;
         }
         else// if(current_channel.m_type == detail::channel::type::streaming)
@@ -550,14 +553,14 @@ packets socket::receive(peer_id& peer)
             {
                 peer = detail::construct_peer_id(current_id,
                                                  current_channel.m_socket_bundle);
-                packet msg;
-                msg.set(m_pimpl->m_rtt_drop,
+                packet pack;
+                pack.set(m_pimpl->m_rtt_drop,
                         m_pimpl->m_fcreator_drop(),
                         m_pimpl->m_fsaver_drop);
 
                 detail::delete_channel(m_pimpl.get(), current_id);
 
-                result.emplace_back(std::move(msg));
+                result.emplace_back(std::move(pack));
                 break;
             }
             else
@@ -588,21 +591,21 @@ packets socket::receive(peer_id& peer)
                         pmsgall.rtt == m_pimpl->m_rtt_join ||
                         pmsgall.rtt == m_pimpl->m_rtt_timer_out)
                     {
-                        packet msg;
-                        msg.set(m_pimpl->m_rtt_error,
+                        packet pack;
+                        pack.set(m_pimpl->m_rtt_error,
                                 m_pimpl->m_fcreator_error(),
                                 m_pimpl->m_fsaver_error);
 
-                        result.emplace_back(std::move(msg));
+                        result.emplace_back(std::move(pack));
                     }
                     else if (pmsgall.pmsg)
                     {
-                        packet msg;
-                        msg.set(pmsgall.rtt,
+                        packet pack;
+                        pack.set(pmsgall.rtt,
                                 std::move(pmsgall.pmsg),
                                 pmsgall.fsaver);
 
-                        result.emplace_back(std::move(msg));
+                        result.emplace_back(std::move(pack));
                     }
                     else
                         break;
@@ -622,10 +625,10 @@ packets socket::receive(peer_id& peer)
 }
 
 void socket::send(peer_id const& peer,
-                  packet const& msg)
+                  packet&& pack)
 {
     uint64_t current_id = detail::parse_peer_id(peer);
-    if (msg.type() == m_pimpl->m_rtt_drop)
+    if (pack.type() == m_pimpl->m_rtt_drop)
     {
         detail::delete_channel(m_pimpl.get(), current_id);
     }
@@ -638,7 +641,7 @@ void socket::send(peer_id const& peer,
         if (current_channel.m_type != detail::channel::type::streaming)
             throw std::runtime_error("send message on non streaming channel");
         {
-            vector<char> message_stream = msg.save();
+            vector<char> message_stream = pack.save();
             if (message_stream.empty())
                 throw std::runtime_error("send empty message");
 

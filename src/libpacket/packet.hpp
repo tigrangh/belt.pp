@@ -21,7 +21,6 @@ namespace detail
 class PACKETSHARED_EXPORT packet
 {
 public:
-    using fptr_deleter = detail::fptr_deleter;
     using fptr_saver = detail::fptr_saver;
 
     packet();
@@ -35,7 +34,7 @@ public:
     }
 
     packet& operator = (packet const&) = delete;
-    packet& operator = (packet&&) = delete;
+    packet& operator = (packet&&) noexcept;
 
     size_t type() const;
     void clean();

@@ -16,10 +16,12 @@ install(TARGETS belt.pp
 set(SRC_FILES
     delegate.hpp
     global.hpp
+    ilog.hpp
     iprocessor.hpp
     isocket.hpp
     iterator_wrapper.hpp
     json.hpp
+    log.hpp
     message_global.hpp
     messages.hpp
     meta.hpp
