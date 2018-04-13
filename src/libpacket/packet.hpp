@@ -21,7 +21,6 @@ namespace detail
 class PACKETSHARED_EXPORT packet
 {
 public:
-    using fptr_deleter = detail::fptr_deleter;
     using fptr_saver = detail::fptr_saver;
 
     packet();
