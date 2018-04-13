@@ -34,18 +34,24 @@ public:
 
     void message(std::string const& value) override
     {
+        if (false == enabled)
+            return;
         message_no_eol(value);
         cerr << endl;
         fresh_line = true;
     }
     void warning(std::string const& value) override
     {
+        if (false == enabled)
+            return;
         warning_no_eol(value);
         cerr << endl;
         fresh_line = true;
     }
     void error(std::string const& value) override
     {
+        if (false == enabled)
+            return;
         error_no_eol(value);
         cerr << endl;
         fresh_line = true;
@@ -53,11 +59,15 @@ public:
 
     void message_no_eol(string const& value) override
     {
+        if (false == enabled)
+            return;
         cout << value << " ";
         fresh_line = false;
     }
     void warning_no_eol(string const& value) override
     {
+        if (false == enabled)
+            return;
         if (fresh_line)
             cout << "Warning: ";
         cout << value << " ";
@@ -65,6 +75,8 @@ public:
     }
     void error_no_eol(string const& value) override
     {
+        if (false == enabled)
+            return;
         if (fresh_line)
             cerr << "Error: ";
         cerr << value << " ";
