@@ -13,7 +13,6 @@ std::string const resources::file_template = R"file_template(/*
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
-#include <list>
 #include <utility>
 #include <algorithm>
 #include <functional>

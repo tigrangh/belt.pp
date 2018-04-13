@@ -202,13 +202,16 @@ socket::socket(socket&&) = default;
 
 socket::~socket()
 {
-    for (auto const& channels_item : m_pimpl->m_lst_channels)
-    for (auto const& channel_data : channels_item)
+    if (m_pimpl)    //  check if the socket has been moved out from
     {
-        if (0 != ::close(channel_data.m_socket_descriptor))
+        for (auto const& channels_item : m_pimpl->m_lst_channels)
+        for (auto const& channel_data : channels_item)
         {
-            assert(false);
-            std::terminate();
+            if (0 != ::close(channel_data.m_socket_descriptor))
+            {
+                assert(false);
+                std::terminate();
+            }
         }
     }
 }
