@@ -81,7 +81,7 @@ public:
     packets receive(peer_id& peer) override;
 
     void send(peer_id const& peer,
-              packet const& msg) override;
+              packet&& pack) override;
 
     void set_timer(std::chrono::steady_clock::duration const& period) override;
 

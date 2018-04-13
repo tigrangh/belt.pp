@@ -34,7 +34,7 @@ public:
     }
 
     packet& operator = (packet const&) = delete;
-    packet& operator = (packet&&) = delete;
+    packet& operator = (packet&&) noexcept;
 
     size_t type() const;
     void clean();

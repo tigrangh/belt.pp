@@ -44,10 +44,19 @@ packet::packet()
 packet::packet(packet&& other)
     : m_pimpl(std::move(other.m_pimpl))
 {
+    other.clean();
 }
 
 packet::~packet()
 {
+}
+
+packet& packet::operator = (packet&& other) noexcept
+{
+    m_pimpl = std::move(other.m_pimpl);
+    other.clean();
+
+    return *this;
 }
 
 size_t packet::type() const

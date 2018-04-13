@@ -228,7 +228,7 @@ public:
     virtual packets receive(peer_id& peer) = 0;
 
     virtual void send(peer_id const& peer,
-                      packet const& msg) = 0;
+                      packet&& pack) = 0;
 
     virtual void set_timer(std::chrono::steady_clock::duration const& period) = 0;
 };
