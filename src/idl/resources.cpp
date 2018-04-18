@@ -17,6 +17,7 @@ std::string const resources::file_template = R"file_template(/*
 #include <algorithm>
 #include <functional>
 #include <ctime>
+#include <utility>
 
 namespace {namespace_name}
 {
@@ -516,7 +517,8 @@ bool less(::beltpp::packet const& first,
 
 namespace beltpp
 {
-    void assign(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
+    inline void assign(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
+    inline void assign(::beltpp::packet& self, ::beltpp::packet&& other) noexcept;
 }
 
 namespace {namespace_name}
@@ -945,7 +947,7 @@ bool analyze_colon(::beltpp::json::expression_tree* pexp,
 
 namespace beltpp
 {
-void assign(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
+inline void assign(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
 {
     if ({namespace_name}::detail::storage::s_arr_fptr.size() <= other.type())
     {
@@ -959,6 +961,11 @@ void assign(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
              item.fp_new_void_unique_ptr_copy(other.data()),
              item.fp_saver);
 }
+inline void assign(::beltpp::packet& self, ::beltpp::packet&& other) noexcept
+{
+    self = std::move(other);
 }
+}
+
 
 )file_template";

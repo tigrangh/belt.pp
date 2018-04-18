@@ -248,6 +248,14 @@ bool analyze_json_object(beltpp::json::expression_tree* pexp,
 
     return result;
 }
+template <typename T>
+inline bool set_contains(T const& value, unordered_set<T> const& set)
+{
+    auto it = set.find(value);
+    if (it == set.end())
+        return false;
+    return true;
+}
 
 string analyze_struct(state_holder& state,
                       expression_tree const* pexpression,
@@ -294,6 +302,7 @@ string analyze_struct(state_holder& state,
     unordered_set<string> set_object_name;
     unordered_set<string> set_extension_name;
 
+    unordered_map<string, string> map_member_name_type;
 
     for (auto member_pair : members)
     {
@@ -310,7 +319,14 @@ string analyze_struct(state_holder& state,
             set_object_name.insert(member_name.value);
         else if (type_detail & type_extension)
             set_extension_name.insert(member_name.value);
+
+        map_member_name_type.insert(std::make_pair(member_name.value, member_type_name));
     }
+
+    auto member_type_by_name = [&map_member_name_type](string const& name)
+    {
+        return map_member_name_type[name];
+    };
 
     {
     bool first = true;
@@ -338,8 +354,10 @@ string analyze_struct(state_holder& state,
 
         string copy_expr = member_name.value + "(other." + member_name.value + ")\n";
 
-        if (set_object_name.find(member_name.value) != set_object_name.end() ||
-            set_extension_name.find(member_name.value) != set_extension_name.end())
+        if (set_contains(member_name.value, set_object_name) ||
+            set_contains(member_name.value, set_extension_name))
+        /*if (set_object_name.find(member_name.value) != set_object_name.end() ||
+            set_extension_name.find(member_name.value) != set_extension_name.end())*/
             copy_expr = member_name.value + "()\n";
 
         if (first)
@@ -375,7 +393,14 @@ string analyze_struct(state_holder& state,
         for (auto member_pair : members)
         {
             auto const& member_name = member_pair.first->lexem;
-            result += "        ::beltpp::assign(" + member_name.value + ", other." + member_name.value + ");\n";
+            auto const& mn = member_name.value;
+            auto const mt = member_type_by_name(mn);
+            /*if (set_contains(member_name.value, set_object_name))
+                result += "        detail::assign_packet(" + member_name.value + ", other." + member_name.value + ");\n";
+            else if (set_contains(member_name.value, set_extension_name))
+                result += "        detail::assign_extension(" + member_name.value + ", other." + member_name.value + ");\n";
+            else*/
+                result += "        ::beltpp::assign(" + mn + ", other." + mn + ");\n";
         }
         result += "    }\n";
 
@@ -384,7 +409,27 @@ string analyze_struct(state_holder& state,
         for (auto member_pair : members)
         {
             auto const& member_name = member_pair.first->lexem;
-            result += "        ::beltpp::assign(" + member_name.value + ", other." + member_name.value + ");\n";
+            /*if (set_contains(member_name.value, set_object_name))
+                result += "        detail::assign_packet(" + member_name.value + ", other." + member_name.value + ");\n";
+            else if (set_contains(member_name.value, set_extension_name))
+                result += "        detail::assign_extension(" + member_name.value + ", other." + member_name.value + ");\n";
+            else*/
+                result += "        ::beltpp::assign(" + member_name.value + ", other." + member_name.value + ");\n";
+        }
+        result += "        return *this;\n";
+        result += "    }\n";
+
+        result += "    " + type_name + "& operator = (" + type_name + "&& other)\n";
+        result += "    {\n";
+        for (auto member_pair : members)
+        {
+            auto const& member_name = member_pair.first->lexem;
+            /*if (set_contains(member_name.value, set_object_name))
+                result += "        detail::assign_packet(" + member_name.value + ", other." + member_name.value + ");\n";
+            else if (set_contains(member_name.value, set_extension_name))
+                result += "        detail::assign_extension(" + member_name.value + ", other." + member_name.value + ");\n";
+            else*/
+                result += "        ::beltpp::assign(" + member_name.value + ", std::move(other." + member_name.value + "));\n";
         }
         result += "        return *this;\n";
         result += "    }\n";
@@ -395,7 +440,14 @@ string analyze_struct(state_holder& state,
         for (auto member_pair : members)
         {
             auto const& member_name = member_pair.first->lexem;
-            result += "        ::beltpp::assign(" + member_name.value + ", other." + member_name.value + ");\n";
+            auto const& mn = member_name.value;
+            auto const mt = member_type_by_name(mn);
+            /*if (set_contains(member_name.value, set_object_name))
+                result += "        detail::assign_packet(" + member_name.value + ", other." + member_name.value + ");\n";
+            else if (set_contains(member_name.value, set_extension_name))
+                result += "        detail::assign_extension(" + member_name.value + ", other." + member_name.value + ");\n";
+            else*/
+                result += "        ::beltpp::assign(" + mn + ", other." + mn + ");\n";
         }
         result += "        return *this;\n";
         result += "    }\n";
@@ -492,6 +544,16 @@ string analyze_struct(state_holder& state,
         {
         auto const& member_name = member_pair.first->lexem;
         result += "    ::beltpp::assign(self." + member_name.value + ", other." + member_name.value + ");\n";
+        }
+        result += "}\n";
+
+        result += "template <typename T>\n";
+        result += "void assign(T& self, " + state.namespace_name + "::" + type_name + "&& other)\n";
+        result += "{\n";
+        for (auto member_pair : members)
+        {
+        auto const& member_name = member_pair.first->lexem;
+        result += "    ::beltpp::assign(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
         }
         result += "}\n";
         result += "}   // end of namespace beltpp\n";
