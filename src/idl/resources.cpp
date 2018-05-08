@@ -1,6 +1,8 @@
 #include "resources.hpp"
 
-std::string const resources::file_template = R"file_template(/*
+std::string const resources::file_template = R"file_template(#pragma once
+
+/*
  * the following code is automatically generated
  * idl input/definition/file.idl output/cpp/file.hpp
  */
