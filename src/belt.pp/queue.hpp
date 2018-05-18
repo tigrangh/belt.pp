@@ -313,8 +313,7 @@ public:
             if (false == (this->operator != (m_parent->end())))
             {
                 assert(false);
-                //  this will terminate
-                throw std::runtime_error("dereference end");
+                std::terminate();
             }
 
             return m_parent->operator [](m_index);
@@ -325,8 +324,7 @@ public:
             if (false == (this->operator != (m_parent->end())))
             {
                 assert(false);
-                //  this will terminate
-                throw std::runtime_error("dereference end");
+                std::terminate();
             }
 
             return &m_parent->operator [](m_index);

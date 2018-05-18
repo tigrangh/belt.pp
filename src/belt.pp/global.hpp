@@ -2,7 +2,7 @@
 
 #if defined _MSC_VER
 
-#define B_OS_WIN
+#define B_OS_WINDOWS
 
 #define BELT_EXPORT     __declspec(dllexport)
 #define BELT_IMPORT     __declspec(dllimport)

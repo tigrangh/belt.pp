@@ -114,7 +114,7 @@ socket SOCKETSHARED_EXPORT getsocket(beltpp::void_unique_ptr&& putl)
 }
 
 template <typename T_socket_family>
-socket SOCKETSHARED_EXPORT getsocket()
+SOCKETSHARED_EXPORT socket getsocket()
 {
     beltpp::void_unique_ptr putl = beltpp::new_void_unique_ptr<beltpp::message_loader_utility>();
     return getsocket<T_socket_family>(std::move(putl));
