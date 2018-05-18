@@ -25,8 +25,10 @@ class value_null,
 class discard
 >;
 
+template <typename T=void>
 class operator_set { public: static const std::string value; };
-std::string const operator_set::value = ",:";
+template <typename T>
+std::string const operator_set<T>::value = ",:";
 
 class operator_comma :
         public beltpp::operator_lexer_base<operator_comma, lexers>
@@ -40,7 +42,7 @@ public:
 
     beltpp::e_three_state_result check(char ch)
     {
-        return beltpp::standard_operator_check<operator_set>(ch);
+        return beltpp::standard_operator_check<operator_set<>>(ch);
     }
 
     template <typename T_iterator>
@@ -63,7 +65,7 @@ public:
 
     beltpp::e_three_state_result check(char ch)
     {
-        return beltpp::standard_operator_check<operator_set>(ch);
+        return beltpp::standard_operator_check<operator_set<>>(ch);
     }
 
     template <typename T_iterator>
@@ -211,8 +213,7 @@ inline size_t utf32_to_utf8(uint32_t cp, char (&buffer)[4]) noexcept
     //  the input to this function is either a code such as \uABCD
     //  or a resulting code of a surrogate pair
     //  so reaching here is not possible
-    //  this function is noexept, so below throw will terminate
-    throw std::runtime_error("not possible");
+    std::terminate();
 
     return 0;
 }

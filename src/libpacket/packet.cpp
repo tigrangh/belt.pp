@@ -98,6 +98,11 @@ void const* packet::_get_internal() const noexcept
     return m_pimpl->m_ptr_message.get();
 }
 
+void* packet::_get_internal() noexcept
+{
+    return m_pimpl->m_ptr_message.get();
+}
+
 void packet::_set_internal(size_t rtt,
                            void_unique_ptr pmsg,
                            fptr_saver fsaver) noexcept

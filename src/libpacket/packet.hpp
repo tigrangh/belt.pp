@@ -47,12 +47,16 @@ public:
     void set(T_message&& msg);
 
     template <typename T_message>
-    void get(T_message& msg) const;
+    void get(T_message& msg) const &;
+
+    template <typename T_message>
+    void get(T_message& msg) &&;
 
     void const* data() const noexcept;
 
 protected:
     void const* _get_internal() const noexcept;
+    void* _get_internal() noexcept;
     void _set_internal(size_t rtt,
                        beltpp::void_unique_ptr pmsg,
                        fptr_saver fsaver) noexcept;
@@ -75,15 +79,28 @@ void packet::set(T_message&& msg)
 }
 
 template <typename T_message>
-void packet::get(T_message& msg) const
+void packet::get(T_message& msg) const &
 {
     auto rtt = type();
     if (rtt == T_message::rtt)
     {
         msg = *reinterpret_cast<T_message const*>(_get_internal());
     }
-    /*else
-        msg = MessageValue::convert(_get_internal());*/
+    else
+        throw std::runtime_error("wrong type on get from packet");
+}
+
+template <typename T_message>
+void packet::get(T_message& msg) &&
+{
+    auto rtt = type();
+    if (rtt == T_message::rtt)
+    {
+        T_message* p = reinterpret_cast<T_message*>(_get_internal());
+        msg = std::move(*p);
+    }
+    else
+        throw std::runtime_error("wrong type on get from packet");
 }
 
 }

@@ -1,6 +1,8 @@
 #include "resources.hpp"
 
-std::string const resources::file_template = R"file_template(/*
+std::string const resources::file_template = R"file_template(#pragma once
+
+/*
  * the following code is automatically generated
  * idl input/definition/file.idl output/cpp/file.hpp
  */
@@ -17,6 +19,8 @@ std::string const resources::file_template = R"file_template(/*
 #include <algorithm>
 #include <functional>
 #include <ctime>
+#include <utility>
+#include <exception>
 
 namespace {namespace_name}
 {
@@ -511,13 +515,20 @@ bool less(::beltpp::packet const& first,
     std::less<std::string> c;
     return c(saver(first), saver(second));
 }
+inline void assign_packet(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
+inline void assign_packet(::beltpp::packet& self, ::beltpp::packet&& other) noexcept;
+inline void assign_packet(std::vector<::beltpp::packet>& self,
+                          std::vector<::beltpp::packet> const& other);
+inline void assign_packet(std::vector<::beltpp::packet>& self,
+                          std::vector<::beltpp::packet>&& other);
+inline void assign_extension(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
+inline void assign_extension(::beltpp::packet& self, ::beltpp::packet&& other) noexcept;
+inline void assign_extension(std::vector<::beltpp::packet>& self,
+                             std::vector<::beltpp::packet> const& other);
+inline void assign_extension(std::vector<::beltpp::packet>& self,
+                             std::vector<::beltpp::packet>&& other);
 }   // end namespace detail
 }   // end namespace {namespace_name}
-
-namespace beltpp
-{
-    void assign(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
-}
 
 namespace {namespace_name}
 {
@@ -566,7 +577,7 @@ bool analyze_json(std::vector<T>& value,
         {
             T item_value;
             if (analyze_json(item_value, item, utl))
-                value.push_back(item_value);
+                value.push_back(std::move(item_value));
             else
             {
                 code = false;
@@ -682,7 +693,7 @@ bool analyze_json(std::unordered_map<T_key, T_value>& value,
         {
             std::pair<T_key, T_value> item_value;
             if (analyze_json(item_value, item, utl))
-                value.insert(item_value);
+                value.insert(std::move(item_value));
             else
             {
                 code = false;
@@ -723,7 +734,7 @@ bool analyze_json(std::unordered_map<std::string, T_value>& value,
                 if (item->children.front()->lexem.rtt == ::beltpp::json::value_string::rtt &&
                     stringloader(item_key, item->children.front()->lexem.value) &&
                     analyze_json(item_value, item->children.back(), utl))
-                    value.insert(std::make_pair(item_key, item_value));
+                    value.insert(std::move(std::make_pair(item_key, std::move(item_value))));
                 else
                 {
                     code = false;
@@ -754,8 +765,9 @@ bool loader(T& value,
     ::beltpp::json::ptr_expression_tree pexp;
     ::beltpp::json::expression_tree* proot = nullptr;
 
-    ::beltpp::message_loader_utility utl =
-        *static_cast<::beltpp::message_loader_utility*>(putl);
+    ::beltpp::message_loader_utility utl;
+    if (putl)
+        utl = *static_cast<::beltpp::message_loader_utility*>(putl);
 
     auto code = ::beltpp::json::parse_stream(pexp, iter_scan_begin,
                                              iter_scan_end, 1024*1024, proot);
@@ -940,12 +952,8 @@ bool analyze_colon(::beltpp::json::expression_tree* pexp,
 
     return code;
 }
-}   //  end namespace detail
-}   //  end namespace {namespace_name}
 
-namespace beltpp
-{
-void assign(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
+inline void assign_packet(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
 {
     if ({namespace_name}::detail::storage::s_arr_fptr.size() <= other.type())
     {
@@ -959,6 +967,75 @@ void assign(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
              item.fp_new_void_unique_ptr_copy(other.data()),
              item.fp_saver);
 }
+inline void assign_packet(::beltpp::packet& self, ::beltpp::packet&& other) noexcept
+{
+    self = std::move(other);
 }
+inline void assign_packet(std::vector<::beltpp::packet>& self,
+                          std::vector<::beltpp::packet> const& other)
+{
+    self.clear();
+    for (auto const& other_item : other)
+    {
+        ::beltpp::packet self_item;
+        assign_packet(self_item, other_item);
+        self.push_back(std::move(self_item));
+    }
+}
+inline void assign_packet(std::vector<::beltpp::packet>& self,
+                          std::vector<::beltpp::packet>&& other)
+{
+    self.clear();
+    for (auto& other_item : other)
+    {
+        ::beltpp::packet self_item;
+        assign_packet(self_item, std::move(other_item));
+        self.push_back(std::move(self_item));
+    }
+}
+inline void assign_extension(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
+{
+    //  todo
+    //  if ({namespace_name}::detail::storage::s_arr_fptr.size() <= other.type())
+    {
+        assert(false);
+        std::terminate();
+    }
+
+    auto const& item = {namespace_name}::detail::storage::s_arr_fptr[other.type()];
+
+    self.set(other.type(),
+             item.fp_new_void_unique_ptr_copy(other.data()),
+             item.fp_saver);
+}
+inline void assign_extension(::beltpp::packet& self, ::beltpp::packet&& other) noexcept
+{
+    self = std::move(other);
+}
+inline void assign_extension(std::vector<::beltpp::packet>& self,
+                             std::vector<::beltpp::packet> const& other)
+{
+    self.clear();
+    for (auto const& other_item : other)
+    {
+        ::beltpp::packet self_item;
+        assign_extension(self_item, other_item);
+        self.push_back(std::move(self_item));
+    }
+}
+inline void assign_extension(std::vector<::beltpp::packet>& self,
+                             std::vector<::beltpp::packet>&& other)
+{
+    self.clear();
+    for (auto& other_item : other)
+    {
+        ::beltpp::packet self_item;
+        assign_extension(self_item, std::move(other_item));
+        self.push_back(std::move(self_item));
+    }
+}
+
+}   //  end namespace detail
+}   //  end namespace {namespace_name}
 
 )file_template";
