@@ -207,6 +207,8 @@ socket::~socket()
         for (auto const& channels_item : m_pimpl->m_lst_channels)
         for (auto const& channel_data : channels_item)
         {
+            if (channel_data.m_closed)
+                continue;
             if (0 != ::close(channel_data.m_socket_descriptor))
             {
                 assert(false);
@@ -1078,7 +1080,13 @@ void delete_channel(detail::socket_internals* pimpl,
                 throw std::runtime_error("delete_channel");
             }
 
-            ::close(current_channel.m_socket_descriptor);
+            bool close_succeeded = true;
+            if (0 != ::close(current_channel.m_socket_descriptor))
+            {
+                close_succeeded = false;
+                assert(false);
+            }
+
             current_channel.m_closed = true;
 
             pimpl->m_poll_master.remove(current_channel.m_socket_descriptor,
@@ -1099,6 +1107,8 @@ void delete_channel(detail::socket_internals* pimpl,
                 it_channels_check != pimpl->m_lst_channels.end())
                 pimpl->m_lst_channels.erase(it_channels);
 
+            if (false == close_succeeded)
+                throw std::runtime_error("::close unsuccessful");
             return;
         }
     }

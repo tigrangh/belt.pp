@@ -168,6 +168,7 @@ string analyze(state_holder& state,
     result += R"foo(
 namespace detail
 {
+template <typename = void>
 class storage
 {
 public:
@@ -196,7 +197,8 @@ public:
     }
     static std::vector<storage_item> const s_arr_fptr;
 };
-std::vector<storage::storage_item> const storage::s_arr_fptr =
+template <typename T>
+std::vector<typename storage<T>::storage_item> const storage<T>::s_arr_fptr =
 {
 )foo";
     for (size_t index = 0; index < max_rtt + 1; ++index)
@@ -209,9 +211,9 @@ std::vector<storage::storage_item> const storage::s_arr_fptr =
             auto const& class_name = it->second;
             result += "    {\n";
             result += "        &" + class_name + "::saver,\n";
-            result += "        &storage::analyze_json_template<" + class_name + ">,\n";
-            result += "        (storage::fptr_new_void_unique_ptr)&::beltpp::new_void_unique_ptr<" + class_name + ">,\n";
-            result += "        (storage::fptr_new_void_unique_ptr_copy)&::beltpp::new_void_unique_ptr<" + class_name + ">\n";
+            result += "        &storage<>::analyze_json_template<" + class_name + ">,\n";
+            result += "        (storage<>::fptr_new_void_unique_ptr)&::beltpp::new_void_unique_ptr<" + class_name + ">,\n";
+            result += "        (storage<>::fptr_new_void_unique_ptr_copy)&::beltpp::new_void_unique_ptr<" + class_name + ">\n";
             result += "    }";
         }
         if (index != max_rtt)
@@ -226,9 +228,9 @@ bool analyze_json_object(beltpp::json::expression_tree* pexp,
 {
     bool code = false;
 
-    if (storage::s_arr_fptr.size() > return_value.rtt)
+    if (storage<>::s_arr_fptr.size() > return_value.rtt)
     {
-        auto const& item = storage::s_arr_fptr[return_value.rtt];
+        auto const& item = storage<>::s_arr_fptr[return_value.rtt];
 
         if (item.fp_analyze_json && item.fp_new_void_unique_ptr &&
             item.fp_new_void_unique_ptr_copy && item.fp_saver)
@@ -590,6 +592,7 @@ string analyze_struct(state_holder& state,
     result += "{\n";
     result += "namespace detail\n";
     result += "{\n";
+    result += "inline\n";
     result += "bool analyze_json(" + type_name + "& msgcode,\n";
     result += "                  beltpp::json::expression_tree* pexp,\n";
     result += "                  ::beltpp::message_loader_utility const& utl)\n";
@@ -640,6 +643,7 @@ string analyze_struct(state_holder& state,
     result += "    return code;\n";
     result += "}\n";
 
+    result += "inline\n";
     result += "std::string saver(" + type_name + " const& self)\n";
     result += "{\n";
     result += "    std::string result;\n";

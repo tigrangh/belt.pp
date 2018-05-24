@@ -26,16 +26,21 @@ namespace {namespace_name}
 {
 namespace detail
 {
+inline
 bool analyze_json_object(beltpp::json::expression_tree* pexp,
                          size_t& rtt);
+inline
 bool analyze_json_object(beltpp::json::expression_tree* pexp,
                          beltpp::detail::pmsg_all& return_value,
                          ::beltpp::message_loader_utility const&);
+inline
 bool analyze_json_common(size_t& rtt,
                          beltpp::json::expression_tree* pexp,
                          std::unordered_map<std::string, beltpp::json::expression_tree*>& members);
+inline
 bool analyze_colon(beltpp::json::expression_tree* pexp,
                    size_t& rtt);
+inline
 bool analyze_colon(beltpp::json::expression_tree* pexp,
                    std::unordered_map<std::string, beltpp::json::expression_tree*>& members);
 typedef bool(*fptr_utf32_to_utf8)(uint32_t, std::string&);
@@ -44,6 +49,7 @@ template <bool (*fpmessage_list_load_helper)
              (::beltpp::json::expression_tree* pexp,
               ::beltpp::detail::pmsg_all& return_value,
               ::beltpp::message_loader_utility const& utl)>
+inline
 bool template_message_list_load_helper(void* pexp,
                                        ::beltpp::detail::pmsg_all& return_value,
                                        ::beltpp::message_loader_utility const& utl)
@@ -51,6 +57,7 @@ bool template_message_list_load_helper(void* pexp,
     return fpmessage_list_load_helper(static_cast<::beltpp::json::expression_tree*>(pexp), return_value, utl);
 };
 
+inline
 bool message_list_load_helper(::beltpp::json::expression_tree* pexp,
                               ::beltpp::detail::pmsg_all& return_value,
                               ::beltpp::message_loader_utility const& utl)
@@ -68,12 +75,14 @@ bool message_list_load_helper(::beltpp::json::expression_tree* pexp,
     return true;
 }
 
+inline
 void extension_helper(::beltpp::message_loader_utility& utl)
 {
     utl.m_arr_fp_message_list_load_helper.push_front(&template_message_list_load_helper<&detail::message_list_load_helper>);
 }
 }
 
+inline
 ::beltpp::detail::pmsg_all message_list_load(
         beltpp::iterator_wrapper<char const>& iter_scan_begin,
         beltpp::iterator_wrapper<char const> const& iter_scan_end,
@@ -136,34 +145,39 @@ void extension_helper(::beltpp::message_loader_utility& utl)
 class ctime
 {
 public:
-    ctime() : tm() {}
+    inline ctime() : tm() {}
     time_t tm;
-    bool operator == (ctime const& other) const { return tm == other.tm; }
-    bool operator != (ctime const& other) const { return tm != other.tm; }
-    bool operator < (ctime const& other) const { return tm < other.tm; }
-    bool operator > (ctime const& other) const { return tm > other.tm; }
-    bool operator <= (ctime const& other) const { return tm <= other.tm; }
-    bool operator >= (ctime const& other) const { return tm >= other.tm; }
+    inline bool operator == (ctime const& other) const { return tm == other.tm; }
+    inline bool operator != (ctime const& other) const { return tm != other.tm; }
+    inline bool operator < (ctime const& other) const { return tm < other.tm; }
+    inline bool operator > (ctime const& other) const { return tm > other.tm; }
+    inline bool operator <= (ctime const& other) const { return tm <= other.tm; }
+    inline bool operator >= (ctime const& other) const { return tm >= other.tm; }
 };
 
 namespace detail
 {
 template <typename T>
+inline
 bool loader(T& value,
             std::string const& encoded,
             void* putl = nullptr);
+inline
 std::string saver(int value)
 {
     return std::to_string(value);
 }
+inline
 std::string saver(unsigned int value)
 {
     return std::to_string(value);
 }
+inline
 std::string saver(std::string const& value)
 {
     return ::beltpp::json::value_string::encode(value);
 }
+inline
 std::string saver(bool value)
 {
     if (value)
@@ -171,26 +185,32 @@ std::string saver(bool value)
     else
         return "false";
 }
+inline
 std::string saver(int64_t value)
 {
     return std::to_string(value);
 }
+inline
 std::string saver(uint64_t value)
 {
     return std::to_string(value);
 }
+inline
 std::string saver(float value)
 {
     return std::to_string(value);
 }
+inline
 std::string saver(double value)
 {
     return std::to_string(value);
 }
+inline
 std::string saver(ctime const& value)
 {
     return saver(::beltpp::gm_time_t_to_gm_string(value.tm));
 }
+inline
 bool analyze_json(std::string& value,
                   ::beltpp::json::expression_tree* pexp,
                   ::beltpp::message_loader_utility const&)
@@ -204,6 +224,7 @@ bool analyze_json(std::string& value,
 
     return code;
 }
+inline
 bool analyze_json(bool& value,
                   ::beltpp::json::expression_tree* pexp,
                   ::beltpp::message_loader_utility const&)
@@ -233,6 +254,7 @@ bool analyze_json(bool& value,
 
     return code;
 }
+inline
 bool analyze_json(int8_t& value,
                   ::beltpp::json::expression_tree* pexp,
                   ::beltpp::message_loader_utility const&)
@@ -253,6 +275,7 @@ bool analyze_json(int8_t& value,
 
     return code;
 }
+inline
 bool analyze_json(uint8_t& value,
                   ::beltpp::json::expression_tree* pexp,
                   ::beltpp::message_loader_utility const&)
@@ -273,6 +296,7 @@ bool analyze_json(uint8_t& value,
 
     return code;
 }
+inline
 bool analyze_json(int16_t& value,
                   ::beltpp::json::expression_tree* pexp,
                   ::beltpp::message_loader_utility const&)
@@ -293,6 +317,7 @@ bool analyze_json(int16_t& value,
 
     return code;
 }
+inline
 bool analyze_json(uint16_t& value,
                   ::beltpp::json::expression_tree* pexp,
                   ::beltpp::message_loader_utility const&)
@@ -313,6 +338,7 @@ bool analyze_json(uint16_t& value,
 
     return code;
 }
+inline
 bool analyze_json(int32_t& value,
                   ::beltpp::json::expression_tree* pexp,
                   ::beltpp::message_loader_utility const&)
@@ -333,6 +359,7 @@ bool analyze_json(int32_t& value,
 
     return code;
 }
+inline
 bool analyze_json(uint32_t& value,
                   ::beltpp::json::expression_tree* pexp,
                   ::beltpp::message_loader_utility const&)
@@ -353,6 +380,7 @@ bool analyze_json(uint32_t& value,
 
     return code;
 }
+inline
 bool analyze_json(int64_t& value,
                   ::beltpp::json::expression_tree* pexp,
                   ::beltpp::message_loader_utility const&)
@@ -373,6 +401,7 @@ bool analyze_json(int64_t& value,
 
     return code;
 }
+inline
 bool analyze_json(uint64_t& value,
                   ::beltpp::json::expression_tree* pexp,
                   ::beltpp::message_loader_utility const&)
@@ -393,6 +422,7 @@ bool analyze_json(uint64_t& value,
 
     return code;
 }
+inline
 bool analyze_json(float& value,
                   ::beltpp::json::expression_tree* pexp,
                   ::beltpp::message_loader_utility const&)
@@ -413,6 +443,7 @@ bool analyze_json(float& value,
 
     return code;
 }
+inline
 bool analyze_json(double& value,
                   ::beltpp::json::expression_tree* pexp,
                   ::beltpp::message_loader_utility const&)
@@ -433,6 +464,7 @@ bool analyze_json(double& value,
 
     return code;
 }
+inline
 bool analyze_json(ctime& value,
                   ::beltpp::json::expression_tree* pexp,
                   ::beltpp::message_loader_utility const& utl)
@@ -443,11 +475,13 @@ bool analyze_json(ctime& value,
         return true;
     return false;
 }
+inline
 std::string saver(::beltpp::packet const& value)
 {
     auto buffer = value.save();
     return std::string(buffer.begin(), buffer.end());
 }
+inline
 bool analyze_json(::beltpp::packet& value,
                   ::beltpp::json::expression_tree* pexp,
                   ::beltpp::message_loader_utility const& utl)
@@ -471,31 +505,39 @@ bool analyze_json(::beltpp::packet& value,
     return true;
 }
 template <typename T>
+inline
 bool analyze_json(std::vector<T>& value,
                   ::beltpp::json::expression_tree* pexp,
                   ::beltpp::message_loader_utility const& utl);
 template <typename T>
+inline
 std::string saver(std::vector<T> const& value);
 template <typename T_key, typename T_value>
+inline
 bool analyze_json(std::unordered_map<T_key, T_value>& value,
                   ::beltpp::json::expression_tree* pexp,
                   ::beltpp::message_loader_utility const& utl);
 template <typename T_value>
+inline
 bool analyze_json(std::unordered_map<std::string, T_value>& value,
                   ::beltpp::json::expression_tree* pexp,
                   ::beltpp::message_loader_utility const& utl);
 template <typename T_key, typename T_value>
+inline
 std::string saver(std::unordered_map<T_key, T_value> const& value);
 template <typename T_value>
+inline
 std::string saver(std::unordered_map<std::string, T_value> const& value);
 
 template <typename T>
+inline
 bool less(T const& first, T const& second)
 {
     std::less<T> c;
     return c(first, second);
 }
 template <typename T_key, typename T_value>
+inline
 bool less(std::unordered_map<T_key, T_value> const& first,
           std::unordered_map<T_key, T_value> const& second)
 {
@@ -503,12 +545,14 @@ bool less(std::unordered_map<T_key, T_value> const& first,
     return c(saver(first), saver(second));
 }
 template <typename T>
+inline
 bool less(std::vector<T> const& first,
           std::vector<T> const& second)
 {
     std::less<std::string> c;
     return c(saver(first), saver(second));
 }
+inline
 bool less(::beltpp::packet const& first,
           ::beltpp::packet const& second)
 {
@@ -786,11 +830,13 @@ std::string stringsaver(T const& value)
     return saver(saver(value));
 }
 template <>
+inline
 std::string stringsaver(std::string const& value)
 {
     return saver(value);
 }
 template <typename T>
+inline
 bool stringloader(T& value,
                   std::string const& encoded)
 {
@@ -801,12 +847,14 @@ bool stringloader(T& value,
     return false;
 }
 template <>
+inline
 bool stringloader(std::string& value,
                   std::string const& encoded)
 {
     return loader(value, encoded);
 }
 
+inline
 bool analyze_json_common(size_t& rtt,
                          ::beltpp::json::expression_tree* pexp,
                          std::unordered_map<std::string, beltpp::json::expression_tree*>& members)
@@ -855,6 +903,7 @@ bool analyze_json_common(size_t& rtt,
     return code;
 }
 
+inline
 bool analyze_json_object(::beltpp::json::expression_tree* pexp,
                          size_t& rtt)
 {
@@ -898,6 +947,7 @@ bool analyze_json_object(::beltpp::json::expression_tree* pexp,
     return code;
 }
 
+inline
 bool analyze_colon(::beltpp::json::expression_tree* pexp,
                    size_t& rtt)
 {
@@ -931,6 +981,7 @@ bool analyze_colon(::beltpp::json::expression_tree* pexp,
     return (size_t(-1) != rtt);
 }
 
+inline
 bool analyze_colon(::beltpp::json::expression_tree* pexp,
                    std::unordered_map<std::string, ::beltpp::json::expression_tree*>& members)
 {
@@ -953,26 +1004,29 @@ bool analyze_colon(::beltpp::json::expression_tree* pexp,
     return code;
 }
 
-inline void assign_packet(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
+inline
+void assign_packet(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
 {
-    if ({namespace_name}::detail::storage::s_arr_fptr.size() <= other.type())
+    if ({namespace_name}::detail::storage<>::s_arr_fptr.size() <= other.type())
     {
         assert(false);
         std::terminate();
     }
 
-    auto const& item = {namespace_name}::detail::storage::s_arr_fptr[other.type()];
+    auto const& item = {namespace_name}::detail::storage<>::s_arr_fptr[other.type()];
 
     self.set(other.type(),
              item.fp_new_void_unique_ptr_copy(other.data()),
              item.fp_saver);
 }
-inline void assign_packet(::beltpp::packet& self, ::beltpp::packet&& other) noexcept
+inline
+void assign_packet(::beltpp::packet& self, ::beltpp::packet&& other) noexcept
 {
     self = std::move(other);
 }
-inline void assign_packet(std::vector<::beltpp::packet>& self,
-                          std::vector<::beltpp::packet> const& other)
+inline
+void assign_packet(std::vector<::beltpp::packet>& self,
+                   std::vector<::beltpp::packet> const& other)
 {
     self.clear();
     for (auto const& other_item : other)
@@ -982,8 +1036,9 @@ inline void assign_packet(std::vector<::beltpp::packet>& self,
         self.push_back(std::move(self_item));
     }
 }
-inline void assign_packet(std::vector<::beltpp::packet>& self,
-                          std::vector<::beltpp::packet>&& other)
+inline
+void assign_packet(std::vector<::beltpp::packet>& self,
+                   std::vector<::beltpp::packet>&& other)
 {
     self.clear();
     for (auto& other_item : other)
@@ -993,27 +1048,30 @@ inline void assign_packet(std::vector<::beltpp::packet>& self,
         self.push_back(std::move(self_item));
     }
 }
-inline void assign_extension(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
+inline
+void assign_extension(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
 {
     //  todo
-    //  if ({namespace_name}::detail::storage::s_arr_fptr.size() <= other.type())
+    //  if ({namespace_name}::detail::storage<>::s_arr_fptr.size() <= other.type())
     {
         assert(false);
         std::terminate();
     }
 
-    auto const& item = {namespace_name}::detail::storage::s_arr_fptr[other.type()];
+    auto const& item = {namespace_name}::detail::storage<>::s_arr_fptr[other.type()];
 
     self.set(other.type(),
              item.fp_new_void_unique_ptr_copy(other.data()),
              item.fp_saver);
 }
-inline void assign_extension(::beltpp::packet& self, ::beltpp::packet&& other) noexcept
+inline
+void assign_extension(::beltpp::packet& self, ::beltpp::packet&& other) noexcept
 {
     self = std::move(other);
 }
-inline void assign_extension(std::vector<::beltpp::packet>& self,
-                             std::vector<::beltpp::packet> const& other)
+inline
+void assign_extension(std::vector<::beltpp::packet>& self,
+                      std::vector<::beltpp::packet> const& other)
 {
     self.clear();
     for (auto const& other_item : other)
@@ -1023,8 +1081,9 @@ inline void assign_extension(std::vector<::beltpp::packet>& self,
         self.push_back(std::move(self_item));
     }
 }
-inline void assign_extension(std::vector<::beltpp::packet>& self,
-                             std::vector<::beltpp::packet>&& other)
+inline
+void assign_extension(std::vector<::beltpp::packet>& self,
+                      std::vector<::beltpp::packet>&& other)
 {
     self.clear();
     for (auto& other_item : other)
