@@ -15,6 +15,7 @@ namespace beltpp
 namespace detail
 {
     class socket_internals;
+    class socket_group_internals;
 }
 
 template <size_t _rtt_error,
@@ -78,6 +79,10 @@ public:
     void open(ip_address address,
               size_t attempts = 0);
 
+    int native_handle() const override;
+
+    void prepare_receive() override;
+
     packets receive(peer_id& peer) override;
 
     void send(peer_id const& peer,
@@ -119,6 +124,21 @@ SOCKETSHARED_EXPORT socket getsocket()
     beltpp::void_unique_ptr putl = beltpp::new_void_unique_ptr<beltpp::message_loader_utility>();
     return getsocket<T_socket_family>(std::move(putl));
 }
+
+class SOCKETSHARED_EXPORT socket_group
+{
+public:
+    enum class wait_result {nothing, timer_out, event};
+
+    socket_group();
+    ~socket_group();
+
+    void add(isocket& sk);
+    void set_timer(std::chrono::steady_clock::duration const& period);
+    wait_result wait(isocket* &p);
+private:
+    std::unique_ptr<detail::socket_group_internals> m_pimpl;
+};
 
 }
 

@@ -213,7 +213,7 @@ std::vector<typename storage<T>::storage_item> const storage<T>::s_arr_fptr =
             result += "        &" + class_name + "::saver,\n";
             result += "        &storage<>::analyze_json_template<" + class_name + ">,\n";
             result += "        (storage<>::fptr_new_void_unique_ptr)&::beltpp::new_void_unique_ptr<" + class_name + ">,\n";
-            result += "        (storage<>::fptr_new_void_unique_ptr_copy)&::beltpp::new_void_unique_ptr<" + class_name + ">\n";
+            result += "        (storage<>::fptr_new_void_unique_ptr_copy)&::beltpp::new_void_unique_ptr_copy<" + class_name + ">\n";
             result += "    }";
         }
         if (index != max_rtt)
@@ -425,9 +425,9 @@ string analyze_struct(state_holder& state,
         {
             auto const& member_name = member_pair.first->lexem;
             if (set_contains(member_name.value, set_object_name))
-                result += "        detail::assign_packet(" + member_name.value + ", other." + member_name.value + ");\n";
+                result += "        detail::assign_packet(" + member_name.value + ", std::move(other." + member_name.value + "));\n";
             else if (set_contains(member_name.value, set_extension_name))
-                result += "        detail::assign_extension(" + member_name.value + ", other." + member_name.value + ");\n";
+                result += "        detail::assign_extension(" + member_name.value + ", std::move(other." + member_name.value + "));\n";
             else
                 result += "        ::beltpp::assign(" + member_name.value + ", std::move(other." + member_name.value + "));\n";
         }
@@ -577,9 +577,9 @@ string analyze_struct(state_holder& state,
         {
         auto const& member_name = member_pair.first->lexem;
         if (set_contains(member_name.value, set_object_name))
-            result += "    " + state.namespace_name + "::detail::assign_packet(self." + member_name.value + ", other." + member_name.value + ");\n";
+            result += "    " + state.namespace_name + "::detail::assign_packet(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
         else if (set_contains(member_name.value, set_extension_name))
-            result += "    " + state.namespace_name + "::detail::assign_extension(self." + member_name.value + ", other." + member_name.value + ");\n";
+            result += "    " + state.namespace_name + "::detail::assign_extension(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
         else
         result += "    ::beltpp::assign(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
         }

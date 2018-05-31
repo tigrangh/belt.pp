@@ -225,6 +225,10 @@ public:
     isocket() {};
     virtual ~isocket() {};
 
+    virtual int native_handle() const = 0;
+
+    virtual void prepare_receive() = 0;
+
     virtual packets receive(peer_id& peer) = 0;
 
     virtual void send(peer_id const& peer,

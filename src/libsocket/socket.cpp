@@ -389,6 +389,15 @@ void set_nonblocking(int socket_descriptor, bool option)
     }
 }
 
+int socket::native_handle() const
+{
+    return m_pimpl->m_poll_master.m_fd;
+}
+
+void socket::prepare_receive()
+{
+}
+
 packets socket::receive(peer_id& peer)
 {
     packets result;
@@ -403,8 +412,8 @@ packets socket::receive(peer_id& peer)
         m_pimpl->m_timer_helper.update();
         packet pack;
         pack.set(m_pimpl->m_rtt_timer_out,
-                m_pimpl->m_fcreator_timer_out(),
-                m_pimpl->m_fsaver_timer_out);
+                 m_pimpl->m_fcreator_timer_out(),
+                 m_pimpl->m_fsaver_timer_out);
 
         result.emplace_back(std::move(pack));
     }
@@ -464,8 +473,8 @@ packets socket::receive(peer_id& peer)
                 packet pack;
 
                 pack.set(m_pimpl->m_rtt_join,
-                        m_pimpl->m_fcreator_join(),
-                        m_pimpl->m_fsaver_join);
+                         m_pimpl->m_fcreator_join(),
+                         m_pimpl->m_fsaver_join);
 
                 result.emplace_back(std::move(pack));
 
@@ -1120,6 +1129,71 @@ void delete_channel(detail::socket_internals* pimpl,
 }
 
 }// end detail
+
+namespace detail
+{
+class socket_group_internals
+{
+public:
+    poll_master m_poll_master;
+    std::list<::beltpp::isocket*> m_lst_sockets;
+    timer_helper m_timer_helper;
+};
+}// end detail
+
+socket_group::socket_group()
+    : m_pimpl(new detail::socket_group_internals())
+{}
+
+socket_group::~socket_group()
+{
+    for (auto const& psk : m_pimpl->m_lst_sockets)
+        m_pimpl->m_poll_master.remove(psk->native_handle(), psk->native_handle(), false, false);
+}
+
+void socket_group::add(isocket& sk)
+{
+    m_pimpl->m_poll_master.add(sk.native_handle(), sk.native_handle(), false);
+    m_pimpl->m_lst_sockets.push_back(&sk);
+}
+
+void socket_group::set_timer(std::chrono::steady_clock::duration const& period)
+{
+    m_pimpl->m_timer_helper.set(period);
+}
+
+socket_group::wait_result socket_group::wait(isocket* &p)
+{
+    for (auto const& psk : m_pimpl->m_lst_sockets)
+        psk->prepare_receive();
+
+    std::unordered_set<uint64_t> ids = m_pimpl->m_poll_master.wait(m_pimpl->m_timer_helper);
+
+    if (m_pimpl->m_timer_helper.expired())
+    {
+        m_pimpl->m_timer_helper.update();
+
+        return wait_result::timer_out;
+    }
+
+    if (ids.empty())
+        return wait_result::nothing;
+    else
+    {
+        for (auto const& psk : m_pimpl->m_lst_sockets)
+        {
+            if (ids.end() != ids.find(psk->native_handle()))
+            {
+                p = psk;
+                return wait_result::event;
+            }
+        }
+
+        assert(false);
+        return wait_result::nothing;
+    }
+}
+
 
 }// end beltpp
 
