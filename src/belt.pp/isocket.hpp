@@ -1,10 +1,12 @@
 #pragma once
 
 #include "global.hpp"
+
+#include "event.hpp"
+
 #include <string>
 #include <list>
 #include <exception>
-#include <chrono>
 
 namespace beltpp
 {
@@ -216,25 +218,19 @@ public:
     ip_destination remote;
 };
 
-class isocket
+class isocket : public ievent_item
 {
 public:
     using peer_id = std::string;
     using packets = std::list<packet>;
 
-    isocket() {};
+    isocket(event_handler& eh) : ievent_item(eh) {};
     virtual ~isocket() {};
-
-    virtual int native_handle() const = 0;
-
-    virtual void prepare_receive() = 0;
 
     virtual packets receive(peer_id& peer) = 0;
 
     virtual void send(peer_id const& peer,
                       packet&& pack) = 0;
-
-    virtual void set_timer(std::chrono::steady_clock::duration const& period) = 0;
 };
 
 }

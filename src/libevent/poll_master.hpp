@@ -8,7 +8,7 @@
 #include <string>
 #include <cerrno>
 #include <cstring>
-
+#include <vector>
 #include <chrono>
 
 namespace beltpp
@@ -94,7 +94,6 @@ public:
 
     void add(int socket_descriptor, uint64_t id, bool out)
     {
-        m_event.data.fd = socket_descriptor;
         m_event.data.u64 = id;
 
         auto backup = m_event.events;
@@ -117,7 +116,6 @@ public:
 
     void remove(int socket_descriptor, uint64_t id, bool already_closed, bool)  //  last argument is used for mac os version
     {
-        m_event.data.fd = socket_descriptor;
         m_event.data.u64 = id;
 
         if (false == already_closed)
@@ -139,7 +137,7 @@ public:
         std::unordered_set<uint64_t> set_ids;
 
         int count = -1;
-        //do
+
         {
             int milliseconds = -1;
             if (tm.is_set)
@@ -157,7 +155,7 @@ public:
                                  &m_arr_event.front(),
                                  m_arr_event.size(),
                                  milliseconds);
-        }// while (-1 == count && errno == EINTR);
+        }
 
         if (-1 == count && errno == EINTR)
             count = 0;
@@ -265,7 +263,7 @@ public:
         std::unordered_set<uint64_t> set_ids;
 
         int count = -1;
-        //do
+
         {
             int milliseconds = -1;
             if (tm.is_set)
@@ -287,7 +285,7 @@ public:
                            nullptr, 0,
                            &m_arr_event.front(), m_arr_event.size(),
                            ptm);
-        }// while (-1 == count && errno == EINTR);
+        }
 
         if (-1 == count && errno == EINTR)
             count = 0;

@@ -205,7 +205,7 @@ std::vector<typename storage<T>::storage_item> const storage<T>::s_arr_fptr =
     {
         auto it = class_names.find(index);
         if (it == class_names.end())
-            result += "     {nullptr, nullptr, nullptr, nullptr}";
+            result += "    {nullptr, nullptr, nullptr, nullptr}";
         else
         {
             auto const& class_name = it->second;
