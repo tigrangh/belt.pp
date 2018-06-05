@@ -627,7 +627,9 @@ string analyze_struct(state_holder& state,
     result += "            utl2.m_arr_fp_message_list_load_helper.pop_front();\n";
     }
     result += "            auto it_find = members.find(\"\\\"" + member_name.value + "\\\"\");\n";
-    result += "            if (it_find != members.end())\n";
+    result += "            if (it_find == members.end())\n";
+    result += "                code = false;\n";
+    result += "            else\n";
     result += "            {\n";
     result += "                beltpp::json::expression_tree* item = it_find->second;\n";
     result += "                assert(item);\n";
