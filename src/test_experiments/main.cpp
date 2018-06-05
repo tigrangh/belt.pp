@@ -15,15 +15,12 @@ using sf = beltpp::socket_family_t<
 beltpp::message_error::rtt,
 beltpp::message_join::rtt,
 beltpp::message_drop::rtt,
-beltpp::message_timer_out::rtt,
 &beltpp::new_void_unique_ptr<beltpp::message_error>,
 &beltpp::new_void_unique_ptr<beltpp::message_join>,
 &beltpp::new_void_unique_ptr<beltpp::message_drop>,
-&beltpp::new_void_unique_ptr<beltpp::message_timer_out>,
 &beltpp::message_error::saver,
 &beltpp::message_join::saver,
 &beltpp::message_drop::saver,
-&beltpp::message_timer_out::saver,
 &beltpp::message_list_load
 >;
 

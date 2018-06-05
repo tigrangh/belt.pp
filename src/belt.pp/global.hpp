@@ -41,8 +41,8 @@ template <typename T>
 using t_unique_ptr = std::unique_ptr<T, detail::fptr_deleter<T>>;
 using void_unique_ptr = t_unique_ptr<void>;
 
-template <typename T1, typename T2>
-inline t_unique_ptr<T1> new_dc_unique_ptr()
+template <typename T1, typename T2, typename... Ts>
+inline t_unique_ptr<T1> new_dc_unique_ptr(Ts... args)
 {
     t_unique_ptr<T1> result(nullptr,
                             [](T1* &p)
@@ -52,11 +52,11 @@ inline t_unique_ptr<T1> new_dc_unique_ptr()
                                 p = nullptr;
                             });
 
-    result.reset(dynamic_cast<T1*>(new T2()));
+    result.reset(dynamic_cast<T1*>(new T2(args...)));
     return result;
 }
 template <typename T1, typename T2>
-inline t_unique_ptr<T1> new_dc_unique_ptr(T1 const* pother)
+inline t_unique_ptr<T1> new_dc_unique_ptr_copy(T1 const* pother)
 {
     t_unique_ptr<T1> result(nullptr,
                             [](T1* &p)
@@ -71,8 +71,8 @@ inline t_unique_ptr<T1> new_dc_unique_ptr(T1 const* pother)
     return result;
 }
 
-template <typename T1, typename T2>
-inline t_unique_ptr<T1> new_sc_unique_ptr()
+template <typename T1, typename T2, typename... Ts>
+inline t_unique_ptr<T1> new_sc_unique_ptr(Ts... args)
 {
     t_unique_ptr<T1> result(nullptr,
                             [](T1* &p)
@@ -82,11 +82,11 @@ inline t_unique_ptr<T1> new_sc_unique_ptr()
                                 p = nullptr;
                             });
 
-    result.reset(static_cast<T1*>(new T2()));
+    result.reset(static_cast<T1*>(new T2(args...)));
     return result;
 }
 template <typename T1, typename T2>
-inline t_unique_ptr<T1> new_sc_unique_ptr(void const* pother)
+inline t_unique_ptr<T1> new_sc_unique_ptr_copy(void const* pother)
 {
     t_unique_ptr<T1> result(nullptr,
                             [](T1* &p)
@@ -101,16 +101,16 @@ inline t_unique_ptr<T1> new_sc_unique_ptr(void const* pother)
     return result;
 }
 
-template <typename T>
-inline void_unique_ptr new_void_unique_ptr()
+template <typename T, typename... Ts>
+inline void_unique_ptr new_void_unique_ptr(Ts... args)
 {
-    return new_sc_unique_ptr<void, T>();
+    return new_sc_unique_ptr<void, T>(args...);
 }
 
 template <typename T>
-inline void_unique_ptr new_void_unique_ptr(void const* pother)
+inline void_unique_ptr new_void_unique_ptr_copy(void const* pother)
 {
-    return new_sc_unique_ptr<void, T>(pother);
+    return new_sc_unique_ptr_copy<void, T>(pother);
 }
 
 inline float stof(std::string const& value, size_t& pos)

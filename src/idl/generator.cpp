@@ -168,6 +168,7 @@ string analyze(state_holder& state,
     result += R"foo(
 namespace detail
 {
+template <typename = void>
 class storage
 {
 public:
@@ -196,22 +197,23 @@ public:
     }
     static std::vector<storage_item> const s_arr_fptr;
 };
-std::vector<storage::storage_item> const storage::s_arr_fptr =
+template <typename T>
+std::vector<typename storage<T>::storage_item> const storage<T>::s_arr_fptr =
 {
 )foo";
     for (size_t index = 0; index < max_rtt + 1; ++index)
     {
         auto it = class_names.find(index);
         if (it == class_names.end())
-            result += "     {nullptr, nullptr, nullptr, nullptr}";
+            result += "    {nullptr, nullptr, nullptr, nullptr}";
         else
         {
             auto const& class_name = it->second;
             result += "    {\n";
             result += "        &" + class_name + "::saver,\n";
-            result += "        &storage::analyze_json_template<" + class_name + ">,\n";
-            result += "        (storage::fptr_new_void_unique_ptr)&::beltpp::new_void_unique_ptr<" + class_name + ">,\n";
-            result += "        (storage::fptr_new_void_unique_ptr_copy)&::beltpp::new_void_unique_ptr<" + class_name + ">\n";
+            result += "        &storage<>::analyze_json_template<" + class_name + ">,\n";
+            result += "        (storage<>::fptr_new_void_unique_ptr)&::beltpp::new_void_unique_ptr<" + class_name + ">,\n";
+            result += "        (storage<>::fptr_new_void_unique_ptr_copy)&::beltpp::new_void_unique_ptr_copy<" + class_name + ">\n";
             result += "    }";
         }
         if (index != max_rtt)
@@ -226,9 +228,9 @@ bool analyze_json_object(beltpp::json::expression_tree* pexp,
 {
     bool code = false;
 
-    if (storage::s_arr_fptr.size() > return_value.rtt)
+    if (storage<>::s_arr_fptr.size() > return_value.rtt)
     {
-        auto const& item = storage::s_arr_fptr[return_value.rtt];
+        auto const& item = storage<>::s_arr_fptr[return_value.rtt];
 
         if (item.fp_analyze_json && item.fp_new_void_unique_ptr &&
             item.fp_new_void_unique_ptr_copy && item.fp_saver)
@@ -423,9 +425,9 @@ string analyze_struct(state_holder& state,
         {
             auto const& member_name = member_pair.first->lexem;
             if (set_contains(member_name.value, set_object_name))
-                result += "        detail::assign_packet(" + member_name.value + ", other." + member_name.value + ");\n";
+                result += "        detail::assign_packet(" + member_name.value + ", std::move(other." + member_name.value + "));\n";
             else if (set_contains(member_name.value, set_extension_name))
-                result += "        detail::assign_extension(" + member_name.value + ", other." + member_name.value + ");\n";
+                result += "        detail::assign_extension(" + member_name.value + ", std::move(other." + member_name.value + "));\n";
             else
                 result += "        ::beltpp::assign(" + member_name.value + ", std::move(other." + member_name.value + "));\n";
         }
@@ -575,9 +577,9 @@ string analyze_struct(state_holder& state,
         {
         auto const& member_name = member_pair.first->lexem;
         if (set_contains(member_name.value, set_object_name))
-            result += "    " + state.namespace_name + "::detail::assign_packet(self." + member_name.value + ", other." + member_name.value + ");\n";
+            result += "    " + state.namespace_name + "::detail::assign_packet(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
         else if (set_contains(member_name.value, set_extension_name))
-            result += "    " + state.namespace_name + "::detail::assign_extension(self." + member_name.value + ", other." + member_name.value + ");\n";
+            result += "    " + state.namespace_name + "::detail::assign_extension(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
         else
         result += "    ::beltpp::assign(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
         }
@@ -590,6 +592,7 @@ string analyze_struct(state_holder& state,
     result += "{\n";
     result += "namespace detail\n";
     result += "{\n";
+    result += "inline\n";
     result += "bool analyze_json(" + type_name + "& msgcode,\n";
     result += "                  beltpp::json::expression_tree* pexp,\n";
     result += "                  ::beltpp::message_loader_utility const& utl)\n";
@@ -624,7 +627,9 @@ string analyze_struct(state_holder& state,
     result += "            utl2.m_arr_fp_message_list_load_helper.pop_front();\n";
     }
     result += "            auto it_find = members.find(\"\\\"" + member_name.value + "\\\"\");\n";
-    result += "            if (it_find != members.end())\n";
+    result += "            if (it_find == members.end())\n";
+    result += "                code = false;\n";
+    result += "            else\n";
     result += "            {\n";
     result += "                beltpp::json::expression_tree* item = it_find->second;\n";
     result += "                assert(item);\n";
@@ -640,6 +645,7 @@ string analyze_struct(state_holder& state,
     result += "    return code;\n";
     result += "}\n";
 
+    result += "inline\n";
     result += "std::string saver(" + type_name + " const& self)\n";
     result += "{\n";
     result += "    std::string result;\n";

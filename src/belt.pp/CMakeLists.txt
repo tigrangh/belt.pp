@@ -16,6 +16,7 @@ install(TARGETS belt.pp
 set(SRC_FILES
     delegate.hpp
     global.hpp
+    event.hpp
     ilog.hpp
     iprocessor.hpp
     isocket.hpp

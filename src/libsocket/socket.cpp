@@ -1,9 +1,9 @@
 #include "socket.hpp"
-#include "poll_master.hpp"
 
 #include <belt.pp/scope_helper.hpp>
 #include <belt.pp/queue.hpp>
 #include <belt.pp/packet.hpp>
+#include <belt.pp/event.hpp>
 
 #include <netdb.h>
 #include <sys/socket.h>
@@ -60,18 +60,21 @@ public:
     channel(size_t attempts = 0,
             int socket_descriptor = 0,
             type e_type = type::listening,
-            ip_address socket_bundle = ip_address())
-        : m_attempts(attempts)
-        , m_closed(false)
+            ip_address socket_bundle = ip_address(),
+            uint64_t eh_id = 0)
+        : m_closed(false)
         , m_socket_descriptor(socket_descriptor)
         , m_type(e_type)
+        , m_attempts(attempts)
+        , m_eh_id(eh_id)
         , m_socket_bundle(socket_bundle)
     {}
 
-    size_t m_attempts;
     bool m_closed;
     int m_socket_descriptor;
     type m_type;
+    size_t m_attempts;
+    uint64_t m_eh_id;
     ip_address m_socket_bundle;
     beltpp::queue<char> m_stream;
 };
@@ -80,53 +83,45 @@ using channels = beltpp::queue<channel>;
 class socket_internals
 {
 public:
-    socket_internals(size_t rtt_error,
+    socket_internals(beltpp::event_handler& eh,
+                     size_t rtt_error,
                      size_t rtt_join,
                      size_t rtt_drop,
-                     size_t rtt_timer_out,
                      detail::fptr_creator fcreator_error,
                      detail::fptr_creator fcreator_join,
                      detail::fptr_creator fcreator_drop,
-                     detail::fptr_creator fcreator_timer_out,
                      detail::fptr_saver fsaver_error,
                      detail::fptr_saver fsaver_join,
                      detail::fptr_saver fsaver_drop,
-                     detail::fptr_saver fsaver_timer_out,
                      detail::fptr_message_loader fmessage_loader,
                      beltpp::void_unique_ptr&& putl)
-        : m_rtt_error(rtt_error)
+        : m_peh(&eh)
+        , m_rtt_error(rtt_error)
         , m_rtt_join(rtt_join)
         , m_rtt_drop(rtt_drop)
-        , m_rtt_timer_out(rtt_timer_out)
         , m_fcreator_error(fcreator_error)
         , m_fcreator_join(fcreator_join)
         , m_fcreator_drop(fcreator_drop)
-        , m_fcreator_timer_out(fcreator_timer_out)
         , m_fsaver_error(fsaver_error)
         , m_fsaver_join(fsaver_join)
         , m_fsaver_drop(fsaver_drop)
-        , m_fsaver_timer_out(fsaver_timer_out)
         , m_fmessage_loader(fmessage_loader)
         , m_putl(std::move(putl))
     {}
 
+    beltpp::event_handler* m_peh;
     size_t m_rtt_error;
     size_t m_rtt_join;
     size_t m_rtt_drop;
-    size_t m_rtt_timer_out;
     detail::fptr_creator m_fcreator_error;
     detail::fptr_creator m_fcreator_join;
     detail::fptr_creator m_fcreator_drop;
-    detail::fptr_creator m_fcreator_timer_out;
     detail::fptr_saver m_fsaver_error;
     detail::fptr_saver m_fsaver_join;
     detail::fptr_saver m_fsaver_drop;
-    detail::fptr_saver m_fsaver_timer_out;
     detail::fptr_message_loader m_fmessage_loader;
     beltpp::void_unique_ptr m_putl;
     std::list<channels> m_lst_channels;
-    poll_master m_poll_master;
-    timer_helper m_timer_helper;
     std::mutex m_mutex;
 };
 
@@ -150,7 +145,8 @@ sockets socket(addrinfo* servinfo,
                bool bind,
                bool reuse,
                bool non_blocking);
-beltpp::socket::peer_id add_channel(detail::socket_internals* pimpl,
+beltpp::socket::peer_id add_channel(beltpp::socket& self,
+                                    detail::socket_internals* pimpl,
                                     int socket_descriptor,
                                     detail::channel::type e_type,
                                     size_t attempts,
@@ -165,33 +161,29 @@ ip_address get_socket_bundle(int socket_descriptor);
 /*
  * socket
  */
-socket::socket(size_t _rtt_error,
+socket::socket(event_handler& eh,
+               size_t _rtt_error,
                size_t _rtt_join,
                size_t _rtt_drop,
-               size_t _rtt_timer_out,
                detail::fptr_creator _fcreator_error,
                detail::fptr_creator _fcreator_join,
                detail::fptr_creator _fcreator_drop,
-               detail::fptr_creator _fcreator_timer_out,
                detail::fptr_saver _fsaver_error,
                detail::fptr_saver _fsaver_join,
                detail::fptr_saver _fsaver_drop,
-               detail::fptr_saver _fsaver_timer_out,
                detail::fptr_message_loader _fmessage_loader,
                beltpp::void_unique_ptr&& putl)
-    : isocket()
-    , m_pimpl(new detail::socket_internals(_rtt_error,
+    : isocket(eh)
+    , m_pimpl(new detail::socket_internals(eh,
+                                           _rtt_error,
                                            _rtt_join,
                                            _rtt_drop,
-                                           _rtt_timer_out,
                                            _fcreator_error,
                                            _fcreator_join,
                                            _fcreator_drop,
-                                           _fcreator_timer_out,
                                            _fsaver_error,
                                            _fsaver_join,
                                            _fsaver_drop,
-                                           _fsaver_timer_out,
                                            _fmessage_loader,
                                            std::move(putl)))
 {
@@ -207,6 +199,8 @@ socket::~socket()
         for (auto const& channels_item : m_pimpl->m_lst_channels)
         for (auto const& channel_data : channels_item)
         {
+            if (channel_data.m_closed)
+                continue;
             if (0 != ::close(channel_data.m_socket_descriptor))
             {
                 assert(false);
@@ -262,7 +256,8 @@ peer_ids socket::listen(ip_address const& address,
         ip_address socket_bundle = detail::get_socket_bundle(socket_descriptor);
 
         peers.emplace_back(
-                    detail::add_channel(m_pimpl.get(),
+                    detail::add_channel(*this,
+                                        m_pimpl.get(),
                                         socket_descriptor,
                                         detail::channel::type::listening,
                                         0,
@@ -339,9 +334,12 @@ void socket::open(ip_address address,
                                 remoteinfo->ai_addrlen);
             if (-1 != res || errno != EINPROGRESS)
             {
-                string connect_error;
-                connect_error = strerror(errno);
-                throw std::runtime_error("connect(): " + connect_error);
+                string native_error = strerror(errno);
+                string connect_error = "connect(";
+                connect_error += address.to_string();
+                connect_error += "): ";
+                connect_error += native_error;
+                throw std::runtime_error(connect_error);
             }
         }
 
@@ -352,7 +350,8 @@ void socket::open(ip_address address,
         assert(false == socket_bundle.remote.empty());
 
         peers.emplace_back(
-                    detail::add_channel(m_pimpl.get(),
+                    detail::add_channel(*this,
+                                        m_pimpl.get(),
                                         socket_descriptor,
                                         detail::channel::type::streaming,
                                         attempts,
@@ -387,26 +386,18 @@ void set_nonblocking(int socket_descriptor, bool option)
     }
 }
 
+void socket::prepare_wait()
+{
+}
+
 packets socket::receive(peer_id& peer)
 {
     packets result;
 
     peer = peer_id();
 
-    std::unordered_set<uint64_t> set_ids;
-    set_ids = m_pimpl->m_poll_master.wait(m_pimpl->m_timer_helper);
+    std::unordered_set<uint64_t> set_ids = m_pimpl->m_peh->waited(*this);
 
-    if (m_pimpl->m_timer_helper.expired())
-    {
-        m_pimpl->m_timer_helper.update();
-        packet pack;
-        pack.set(m_pimpl->m_rtt_timer_out,
-                m_pimpl->m_fcreator_timer_out(),
-                m_pimpl->m_fsaver_timer_out);
-
-        result.emplace_back(std::move(pack));
-    }
-    else
     for (uint64_t current_id : set_ids)
     {
         detail::channel& current_channel =
@@ -450,20 +441,23 @@ packets socket::receive(peer_id& peer)
 
             if (connect_result == e_three_state_result::success)
             {
-                m_pimpl->m_poll_master.remove(socket_descriptor,
-                                              current_id,
-                                              false,    //  already_closed
-                                              true);    //  out
-                m_pimpl->m_poll_master.add(socket_descriptor,
-                                           current_id,
-                                           false);
+                m_pimpl->m_peh->remove(socket_descriptor,
+                                       current_channel.m_eh_id,
+                                       false,   //  already_closed
+                                       true);   //  out
+
+                current_channel.m_eh_id =
+                        m_pimpl->m_peh->add(*this,
+                                            socket_descriptor,
+                                            current_id,
+                                            false);
 
                 current_channel.m_attempts = 0;
                 packet pack;
 
                 pack.set(m_pimpl->m_rtt_join,
-                        m_pimpl->m_fcreator_join(),
-                        m_pimpl->m_fsaver_join);
+                         m_pimpl->m_fcreator_join(),
+                         m_pimpl->m_fsaver_join);
 
                 result.emplace_back(std::move(pack));
 
@@ -508,7 +502,8 @@ packets socket::receive(peer_id& peer)
             ip_address socket_bundle = detail::get_socket_bundle(joined_socket_descriptor);
             assert(false == socket_bundle.remote.empty());
 
-            peer = detail::add_channel(m_pimpl.get(),
+            peer = detail::add_channel(*this,
+                                       m_pimpl.get(),
                                        joined_socket_descriptor,
                                        detail::channel::type::streaming,
                                        0,
@@ -517,8 +512,8 @@ packets socket::receive(peer_id& peer)
             packet pack;
 
             pack.set(m_pimpl->m_rtt_join,
-                    m_pimpl->m_fcreator_join(),
-                    m_pimpl->m_fsaver_join);
+                     m_pimpl->m_fcreator_join(),
+                     m_pimpl->m_fsaver_join);
 
             result.emplace_back(std::move(pack));
             break;
@@ -555,8 +550,8 @@ packets socket::receive(peer_id& peer)
                                                  current_channel.m_socket_bundle);
                 packet pack;
                 pack.set(m_pimpl->m_rtt_drop,
-                        m_pimpl->m_fcreator_drop(),
-                        m_pimpl->m_fsaver_drop);
+                         m_pimpl->m_fcreator_drop(),
+                         m_pimpl->m_fsaver_drop);
 
                 detail::delete_channel(m_pimpl.get(), current_id);
 
@@ -588,13 +583,12 @@ packets socket::receive(peer_id& peer)
                     if (pmsgall.rtt == 0 ||
                         pmsgall.rtt == m_pimpl->m_rtt_drop ||
                         pmsgall.rtt == m_pimpl->m_rtt_error ||
-                        pmsgall.rtt == m_pimpl->m_rtt_join ||
-                        pmsgall.rtt == m_pimpl->m_rtt_timer_out)
+                        pmsgall.rtt == m_pimpl->m_rtt_join)
                     {
                         packet pack;
                         pack.set(m_pimpl->m_rtt_error,
-                                m_pimpl->m_fcreator_error(),
-                                m_pimpl->m_fsaver_error);
+                                 m_pimpl->m_fcreator_error(),
+                                 m_pimpl->m_fsaver_error);
 
                         result.emplace_back(std::move(pack));
                     }
@@ -670,6 +664,10 @@ void socket::send(peer_id const& peer,
     }
 }
 
+void socket::timer_action()
+{
+}
+
 ip_address socket::info(peer_id const& peer) const
 {
     uint64_t current_id = detail::parse_peer_id(peer);
@@ -678,11 +676,6 @@ ip_address socket::info(peer_id const& peer) const
                                 current_id);
 
     return current_channel.m_socket_bundle;
-}
-
-void socket::set_timer(std::chrono::steady_clock::duration const& period)
-{
-    m_pimpl->m_timer_helper.set(period);
 }
 
 string socket::dump() const
@@ -998,7 +991,8 @@ sockets socket(addrinfo* servinfo,
     return result;
 }
 
-beltpp::socket::peer_id add_channel(detail::socket_internals* pimpl,
+beltpp::socket::peer_id add_channel(beltpp::socket& self,
+                                    detail::socket_internals* pimpl,
                                     int socket_descriptor,
                                     detail::channel::type e_type,
                                     size_t attempts,
@@ -1025,21 +1019,22 @@ beltpp::socket::peer_id add_channel(detail::socket_internals* pimpl,
             detail::construct_peer_id(id, socket_descriptor);
 
     bool out = (attempts != 0);
-    pimpl->m_poll_master.add(socket_descriptor, id, out);
+    uint64_t eh_id = pimpl->m_peh->add(self, socket_descriptor, id, out);
 
     beltpp::scope_helper scope_guard([]{},
-    [pimpl, socket_descriptor, id, out]
+    [pimpl, socket_descriptor, eh_id, out]
     {
-        pimpl->m_poll_master.remove(socket_descriptor,
-                                    id,
-                                    false,  //  already_closed
-                                    out);
+        pimpl->m_peh->remove(socket_descriptor,
+                             eh_id,
+                             false,  //  already_closed
+                             out);
     });
 
     it_channels->push(detail::channel(attempts,
                                       socket_descriptor,
                                       e_type,
-                                      socket_bundle));
+                                      socket_bundle,
+                                      eh_id));
     scope_guard.commit();
 
     return current_peer;
@@ -1078,13 +1073,19 @@ void delete_channel(detail::socket_internals* pimpl,
                 throw std::runtime_error("delete_channel");
             }
 
-            ::close(current_channel.m_socket_descriptor);
+            bool close_succeeded = true;
+            if (0 != ::close(current_channel.m_socket_descriptor))
+            {
+                close_succeeded = false;
+                assert(false);
+            }
+
             current_channel.m_closed = true;
 
-            pimpl->m_poll_master.remove(current_channel.m_socket_descriptor,
-                                        current_id,
-                                        true,   //  already_closed
-                                        false); //  out
+            pimpl->m_peh->remove(current_channel.m_socket_descriptor,
+                                 current_channel.m_eh_id,
+                                 true,   //  already_closed
+                                 false); //  out
 
             while (false == it_channels->empty())
             {
@@ -1099,6 +1100,8 @@ void delete_channel(detail::socket_internals* pimpl,
                 it_channels_check != pimpl->m_lst_channels.end())
                 pimpl->m_lst_channels.erase(it_channels);
 
+            if (false == close_succeeded)
+                throw std::runtime_error("::close unsuccessful");
             return;
         }
     }

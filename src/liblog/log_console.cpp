@@ -90,7 +90,6 @@ public:
 
 ilog_ptr console_logger(string const& name)
 {
-    std::unique_ptr<log_console> temp(new log_console(name));
-    return beltpp::new_dc_unique_ptr<ilog, log_console>(temp.get());
+    return beltpp::new_dc_unique_ptr<ilog, log_console>(name);
 }
 }

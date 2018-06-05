@@ -1,12 +1,14 @@
 #pragma once
 
-
 #include "global.hpp"
+
+#include <unistd.h>
+
 #include <unordered_set>
 #include <string>
 #include <cerrno>
 #include <cstring>
-
+#include <vector>
 #include <chrono>
 
 namespace beltpp
@@ -74,7 +76,7 @@ class poll_master
 public:
     poll_master()
     {
-        m_fd = epoll_create(1);
+        m_fd = ::epoll_create(1);
         if (-1 == m_fd)
         {
             std::string epoll_error = strerror(errno);
@@ -85,11 +87,13 @@ public:
         m_event.events = EPOLLIN | EPOLLPRI | EPOLLERR | EPOLLHUP;
     }
 
-    ~poll_master() {}
+    ~poll_master()
+    {
+        ::close(m_fd);
+    }
 
     void add(int socket_descriptor, uint64_t id, bool out)
     {
-        m_event.data.fd = socket_descriptor;
         m_event.data.u64 = id;
 
         auto backup = m_event.events;
@@ -98,7 +102,7 @@ public:
 
         m_arr_event.resize(m_arr_event.size() + 1);
 
-        int res = epoll_ctl(m_fd, EPOLL_CTL_ADD, socket_descriptor, &m_event);
+        int res = ::epoll_ctl(m_fd, EPOLL_CTL_ADD, socket_descriptor, &m_event);
         m_event.events = backup;
 
         if (-1 == res)
@@ -112,12 +116,11 @@ public:
 
     void remove(int socket_descriptor, uint64_t id, bool already_closed, bool)  //  last argument is used for mac os version
     {
-        m_event.data.fd = socket_descriptor;
         m_event.data.u64 = id;
 
         if (false == already_closed)
         {
-            int res = epoll_ctl(m_fd, EPOLL_CTL_DEL, socket_descriptor, &m_event);
+            int res = ::epoll_ctl(m_fd, EPOLL_CTL_DEL, socket_descriptor, &m_event);
             if (-1 == res)
             {
                 std::string epoll_error = strerror(errno);
@@ -134,7 +137,7 @@ public:
         std::unordered_set<uint64_t> set_ids;
 
         int count = -1;
-        //do
+
         {
             int milliseconds = -1;
             if (tm.is_set)
@@ -148,11 +151,11 @@ public:
                     //  in order for epoll_wait to return immediately
                     milliseconds = 0;
             }
-            count = epoll_wait(m_fd,
-                               &m_arr_event.front(),
-                               m_arr_event.size(),
-                               milliseconds);
-        }// while (-1 == count && errno == EINTR);
+            count = ::epoll_wait(m_fd,
+                                 &m_arr_event.front(),
+                                 m_arr_event.size(),
+                                 milliseconds);
+        }
 
         if (-1 == count && errno == EINTR)
             count = 0;
@@ -204,7 +207,10 @@ public:
         }
     }
 
-    ~poll_master() {}
+    ~poll_master()
+    {
+        close(m_fd);
+    }
 
     void add(int socket_descriptor, uint64_t id, bool out)
     {
@@ -257,7 +263,7 @@ public:
         std::unordered_set<uint64_t> set_ids;
 
         int count = -1;
-        //do
+
         {
             int milliseconds = -1;
             if (tm.is_set)
@@ -279,7 +285,7 @@ public:
                            nullptr, 0,
                            &m_arr_event.front(), m_arr_event.size(),
                            ptm);
-        }// while (-1 == count && errno == EINTR);
+        }
 
         if (-1 == count && errno == EINTR)
             count = 0;
