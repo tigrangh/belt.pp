@@ -334,9 +334,12 @@ void socket::open(ip_address address,
                                 remoteinfo->ai_addrlen);
             if (-1 != res || errno != EINPROGRESS)
             {
-                string connect_error;
-                connect_error = strerror(errno);
-                throw std::runtime_error("connect(): " + connect_error);
+                string native_error = strerror(errno);
+                string connect_error = "connect(";
+                connect_error += address.to_string();
+                connect_error += "): ";
+                connect_error += native_error;
+                throw std::runtime_error(connect_error);
             }
         }
 
