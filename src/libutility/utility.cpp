@@ -8,7 +8,7 @@ namespace beltpp
 tm gm_time_t_to_gm_tm(time_t t)
 {
     tm result;
-#if defined B_OS_WIN
+#if defined B_OS_WINDOWS
     gmtime_s(&t, &result);
 #else
     gmtime_r(&t, &result);
@@ -18,7 +18,7 @@ tm gm_time_t_to_gm_tm(time_t t)
 tm gm_time_t_to_lc_tm(time_t t)
 {
     tm result;
-#if defined B_OS_WIN
+#if defined B_OS_WINDOWS
     localtime_s(&t, &result);
 #else
     localtime_r(&t, &result);
@@ -28,7 +28,7 @@ tm gm_time_t_to_lc_tm(time_t t)
 time_t gm_tm_to_gm_time_t(std::tm const& t)
 {
     std::tm temp = t;
-#if defined B_OS_WIN
+#if defined B_OS_WINDOWS
     return _mkgmtime(&temp);
 #else
     return timegm(&temp);

@@ -2,6 +2,7 @@
 #include <memory>
 #include <fstream>
 #include <vector>
+#include <functional>
 #include <belt.pp/processor.hpp>
 
 using task_t = std::function<void()>;
