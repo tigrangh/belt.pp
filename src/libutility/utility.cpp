@@ -9,7 +9,7 @@ tm gm_time_t_to_gm_tm(time_t t)
 {
     tm result;
 #if defined B_OS_WINDOWS
-    gmtime_s(&t, &result);
+    gmtime_s(&result, &t);
 #else
     gmtime_r(&t, &result);
 #endif
@@ -19,7 +19,7 @@ tm gm_time_t_to_lc_tm(time_t t)
 {
     tm result;
 #if defined B_OS_WINDOWS
-    localtime_s(&t, &result);
+    localtime_s(&result, &t);
 #else
     localtime_r(&t, &result);
 #endif

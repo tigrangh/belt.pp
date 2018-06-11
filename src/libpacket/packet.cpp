@@ -19,7 +19,7 @@ class packet_internals
 public:
     packet_internals()
         : m_rtt(-1)
-        , m_ptr_message(nullptr, [](void*&){})
+        , m_ptr_message(nullptr, [](void*){})
         , m_fsaver(nullptr)
     {}
     ~packet_internals() noexcept

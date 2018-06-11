@@ -37,7 +37,7 @@ state_holder::state_holder()
 
 namespace
 {
-enum type_info {type_empty = 0x0,
+enum g_type_info {type_empty = 0x0,
                 type_simple = 0x1,
                 type_object=0x2,
                 type_extension=0x4,
@@ -46,7 +46,7 @@ enum type_info {type_empty = 0x0,
                 type_object_extension = type_object | type_extension,
                 type_simple_object_extension = type_simple | type_object_extension};
 
-string convert_type(string const& type_name, state_holder& state, type_info& type_detail)
+string convert_type(string const& type_name, state_holder& state, g_type_info& type_detail)
 {
     type_detail = type_empty;
     if ("Object" == type_name)
@@ -64,7 +64,7 @@ string convert_type(string const& type_name, state_holder& state, type_info& typ
 
 string construct_type_name (expression_tree const* member_type,
                             state_holder& state,
-                            type_info& type_detail)
+                            g_type_info& type_detail)
 {
     if (member_type->lexem.rtt == identifier::rtt)
         return convert_type(member_type->lexem.value, state, type_detail);
@@ -81,7 +81,7 @@ string construct_type_name (expression_tree const* member_type,
              member_type->children.front()->lexem.rtt == identifier::rtt &&
              member_type->children.back()->lexem.rtt == identifier::rtt)
     {
-        type_info type_detail_key, type_detail_value;
+        g_type_info type_detail_key, type_detail_value;
         string key_type_name =
                 construct_type_name(member_type->children.front(),
                                     state, type_detail_key);
@@ -89,7 +89,7 @@ string construct_type_name (expression_tree const* member_type,
                 construct_type_name(member_type->children.back(),
                                     state, type_detail_value);
 
-        type_detail = static_cast<type_info>(type_detail_key | type_detail_value);
+        type_detail = static_cast<g_type_info>(type_detail_key | type_detail_value);
 
         if ((type_detail & type_object) &&
             (type_detail & type_extension))
@@ -313,7 +313,7 @@ string analyze_struct(state_holder& state,
         if (member_name.rtt != identifier::rtt)
             throw runtime_error("use \"variable type\" syntax please");
 
-        type_info type_detail;
+        g_type_info type_detail;
         string member_type_name = construct_type_name(member_type, state, type_detail);
         result += "    " + member_type_name + " " + member_name.value + ";\n";
 

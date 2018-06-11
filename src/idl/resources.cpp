@@ -98,7 +98,7 @@ inline
         utl = *static_cast<::beltpp::message_loader_utility*>(putl);
 
     ::beltpp::detail::pmsg_all return_value(size_t(-1),
-                            ::beltpp::void_unique_ptr(nullptr, [](void*&){}),
+                            ::beltpp::void_unique_ptr(nullptr, [](void*){}),
                             nullptr);
 
     auto code = ::beltpp::json::parse_stream(pexp,
@@ -125,7 +125,7 @@ inline
     {
         iter_scan_begin = iter_scan_end;
         return_value = ::beltpp::detail::pmsg_all(0,
-                                        ::beltpp::void_unique_ptr(nullptr, [](void*&){}),
+                                        ::beltpp::void_unique_ptr(nullptr, [](void*){}),
                                         nullptr);
     }
     else if (::beltpp::e_three_state_result::attempt == code)
@@ -135,7 +135,7 @@ inline
         //  be needed
         iter_scan_begin = it_backup;
         return_value = ::beltpp::detail::pmsg_all(size_t(-1),
-                                        ::beltpp::void_unique_ptr(nullptr, [](void*&){}),
+                                        ::beltpp::void_unique_ptr(nullptr, [](void*){}),
                                         nullptr);
     }
 
@@ -487,7 +487,7 @@ bool analyze_json(::beltpp::packet& value,
                   ::beltpp::message_loader_utility const& utl)
 {
     ::beltpp::detail::pmsg_all return_value(size_t(-1),
-                            ::beltpp::void_unique_ptr(nullptr, [](void*&){}),
+                            ::beltpp::void_unique_ptr(nullptr, [](void*){}),
                             nullptr);
 
     if (utl.m_fp_message_list_load_helper)

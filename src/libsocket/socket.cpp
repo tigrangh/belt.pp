@@ -48,7 +48,11 @@ struct sk
 
 inline int close(sk const& socket_descriptor) noexcept
 {
+#ifndef B_OS_WINDOWS
     return ::close(socket_descriptor.handle);
+#else
+    return closesocket(socket_descriptor.handle);
+#endif
 }
 
 inline bool is_invalid(sk const& socket_descriptor) noexcept
@@ -65,6 +69,18 @@ inline void shutdown() noexcept
 {
 
 }
+
+#ifdef B_OS_WINDOWS
+inline char* sockopttype(int* param)
+{
+    return reinterpret_cast<char*>(param);
+}
+#else
+inline int* sockopttype(int* param)
+{
+    return param;
+}
+#endif
 }
 
 using sockets = vector<tuple<native::sk, addrinfo*, scope_helper>>;
@@ -76,7 +92,7 @@ using packets = beltpp::socket::packets;
 # ifdef SO_NOSIGPIPE
 #  define BELT_USE_SO_NOSIGPIPE
 # else
-#  error "That's a problem, cannot block SIGPIPE..."
+//#  error "That's a problem, cannot block SIGPIPE..."
 # endif
 #endif
 
@@ -417,6 +433,8 @@ void set_nonblocking(int socket_descriptor, bool option)
 {
     //  seems the initial state of socket is not
     //  the same across OSes
+
+#ifndef B_OS_WINDOWS
     //  non blocking listen accepts non blocking connections
     //  on macos, while on linux need to set non blocking manually
     //  so will force desired option always
@@ -437,6 +455,16 @@ void set_nonblocking(int socket_descriptor, bool option)
         string fcntl_error = strerror(errno);
         throw std::runtime_error("setsockopt():F_SETFL " + fcntl_error);
     }
+#else // WINDOWS mode
+    u_long mode = 0; // disable nonblocking
+    if (option)
+        mode = 1;
+
+    int res = ioctlsocket(socket_descriptor, FIONBIO, &mode);
+
+    if (res != NO_ERROR)
+        throw std::runtime_error("ioctlsocket failed with error: " + res);
+#endif
 }
 
 void socket::prepare_wait()
@@ -470,7 +498,7 @@ packets socket::receive(peer_id& peer)
 
             if (-1 == getsockopt(socket_descriptor.handle,
                                  SOL_SOCKET, SO_ERROR,
-                                 &so_error, &size))
+                                 native::sockopttype(&so_error), &size))
             {
                 string getsockopt_error = strerror(errno);
                 connect_result = e_three_state_result::error;
@@ -898,6 +926,8 @@ bool getaddressinfo_is_family_mismatch_error(int rv)
 {
 #if defined B_OS_MACOS
     return (rv == EAI_ADDRFAMILY) || (rv == EAI_NONAME);
+#elif defined B_OS_WINDOWS
+    return false; //TODO add error code!
 #else
     return rv == EAI_ADDRFAMILY;
 #endif
@@ -993,12 +1023,13 @@ sockets socket(addrinfo* servinfo,
         }
 #endif
 
+#ifndef B_OS_WINDOWS
         {   //  reuse address always makes sense for linux
             int yes = 1;
             int res = ::setsockopt(socket_descriptor.handle,
                                    SOL_SOCKET,
                                    SO_REUSEADDR,
-                                   &yes,
+                                   native::sockopttype(&yes),
                                    sizeof(int));
             if (-1 == res)
             {
@@ -1006,21 +1037,47 @@ sockets socket(addrinfo* servinfo,
                 throw std::runtime_error("setsockopt(): " + setsockopt_error);
             }
         }
+#endif
 
         if (reuse)
-        {   //  for windows this should actually be reuse address
-            //  for windows exclusive flags should make sense otherwise
+        {
+#ifndef B_OS_WINDOWS
             int yes = 1;
             int res = ::setsockopt(socket_descriptor.handle,
                                    SOL_SOCKET,
                                    SO_REUSEPORT,
-                                   &yes,
+                                   native::sockopttype(&yes),
                                    sizeof(int));
             if (-1 == res)
             {
                 string setsockopt_error = strerror(errno);
                 throw std::runtime_error("setsockopt(): " + setsockopt_error);
             }
+#else
+            int yes = 1;
+            int res = ::setsockopt(socket_descriptor.handle,
+                                    SOL_SOCKET,
+                                    SO_REUSEADDR,
+                                    native::sockopttype(&yes),
+                                    sizeof(int));
+
+            if (res != NO_ERROR)
+                throw std::runtime_error("setsocketport() failed with error: " + res);
+#endif
+        }
+        else
+        {
+#if defined B_OS_WINDOWS
+            int yes = 1;
+            int res = ::setsockopt(socket_descriptor.handle,
+                SOL_SOCKET,
+                SO_EXCLUSIVEADDRUSE,
+                native::sockopttype(&yes),
+                sizeof(int));
+
+            if (res != NO_ERROR)
+                throw std::runtime_error("setsocketport() failed with error: " + res);
+#endif
         }
 
         if (non_blocking)

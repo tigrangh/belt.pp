@@ -36,7 +36,7 @@ beltpp::detail::pmsg_all message_list_load(
                                               iter_scan_end);
 
     beltpp::detail::pmsg_all return_value (size_t(-1),
-                                           void_unique_ptr(nullptr, [](void*&){}),
+                                           void_unique_ptr(nullptr, [](void*){}),
                                            nullptr);
 
     if (message_code_rtt >= message_list::count)

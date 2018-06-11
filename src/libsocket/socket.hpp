@@ -89,7 +89,7 @@ private:
 };
 
 template <typename T_socket_family>
-socket SOCKETSHARED_EXPORT getsocket(event_handler& eh, beltpp::void_unique_ptr&& putl)
+SOCKETSHARED_EXPORT socket getsocket(event_handler& eh, beltpp::void_unique_ptr&& putl)
 {
     return
     socket(eh,

@@ -5,8 +5,12 @@ project(belt.pp)
 set( CMAKE_CXX_STANDARD 11 )
 set( CMAKE_CXX_STANDARD_REQUIRED YES )
 
-add_compile_options(-Wall)
-add_compile_options(-Werror)
+if (WIN32)
+#TODO
+else (WIN32)
+    add_compile_options(-Wall)
+    add_compile_options(-Werror)
+endif (WIN32)
 
 set(BELT_PP_LOADED TRUE PARENT_SCOPE)
 
