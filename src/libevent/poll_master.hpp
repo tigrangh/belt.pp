@@ -2,7 +2,9 @@
 
 #include "global.hpp"
 
-//#include <unistd.h>
+#ifndef B_OS_WINDOWS
+#include <unistd.h>
+#endif
 
 #include <unordered_set>
 #include <string>
