@@ -103,6 +103,7 @@ namespace beltpp
  */
 namespace detail
 {
+
 class channel
 {
 public:
@@ -129,6 +130,7 @@ public:
     uint64_t m_eh_id;
     ip_address m_socket_bundle;
     beltpp::queue<char> m_stream;
+    session_special_data m_special_data;
 };
 using channels = beltpp::queue<channel>;
 
@@ -655,6 +657,7 @@ packets socket::receive(peer_id& peer)
                     beltpp::iterator_wrapper<char const> it_begin = stm.cbegin();
                     auto pmsgall = m_pimpl->m_fmessage_loader(it_begin,
                                                               stm.cend(),
+                                                              current_channel.m_special_data,
                                                               m_pimpl->m_putl.get());
 
                     while (false == current_channel.m_stream.empty() &&
@@ -717,31 +720,48 @@ void socket::send(peer_id const& peer,
         if (current_channel.m_type != detail::channel::type::streaming)
             throw std::runtime_error("send message on non streaming channel");
         {
+            auto lambda_send = [](native::sk const& sd,
+                                  vector<char> const& ms)
+            {
+                size_t sent = 0;
+                size_t length = ms.size();
+
+                while (sent < length)
+                {
+                    int res = ::send(sd.handle,
+                                     &ms[sent],
+                                     ms.size() - sent,
+                                     MSG_NOSIGNAL);
+                    //  when sending to socket closed by the peer
+                    //  we have res = -1 and errno set to EPIPE
+
+                    if (-1 == res)
+                    {
+                        string send_error = strerror(errno);
+                        throw std::runtime_error("send(): " +
+                                                 send_error);
+                    }
+                    else
+                        sent += res;
+                }
+            };
+
             vector<char> message_stream = pack.save();
             if (message_stream.empty())
                 throw std::runtime_error("send empty message");
 
             auto socket_descriptor = current_channel.m_socket_descriptor;
-            size_t message_len = message_stream.size();
-            size_t sent = 0;
-            while (sent < message_len)
-            {
-                int res = ::send(socket_descriptor.handle,
-                                 &message_stream[sent],
-                                 message_stream.size() - sent,
-                                 MSG_NOSIGNAL);
-                //  when sending to socket closed by the peer
-                //  we have res = -1 and errno set to EPIPE
 
-                if (-1 == res)
-                {
-                    string send_error = strerror(errno);
-                    throw std::runtime_error("send(): " +
-                                             send_error);
-                }
-                else
-                    sent += res;
+            auto& sp_data = current_channel.m_special_data;
+            auto& fp = sp_data.session_specal_handler;
+
+            if (fp)
+            {
+                vector<char> ms = fp(sp_data, message_stream);
+                lambda_send(socket_descriptor, ms);
+                assert(fp == nullptr);
             }
+            lambda_send(socket_descriptor, message_stream);
         }
     }
 }

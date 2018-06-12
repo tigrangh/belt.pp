@@ -143,6 +143,19 @@ public:
         ++m_i_size;
     }
 
+    inline void push(T&& task)
+    {
+        reserve();
+
+        size_t i_end = m_i_start + m_i_size;
+        if (i_end >= m_vec_queue.size())
+            i_end -= m_vec_queue.size();
+        assert(i_end < m_vec_queue.size());
+
+        m_vec_queue[i_end] = std::move(task);
+        ++m_i_size;
+    }
+
     inline void pop() noexcept
     {
         assert(m_i_size);
@@ -206,7 +219,7 @@ public:
 
             for (size_t index = begin_index(); index != end_index(); ++index)
             {
-                newqueue[index] = operator[](index);
+                newqueue[index] = std::move(operator[](index));
             }
 
             *this = std::move(newqueue);

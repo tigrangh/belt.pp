@@ -37,9 +37,20 @@ public:
     fptr_saver fsaver;
 };
 
+class session_special_data
+{
+public:
+    session_special_data()
+        : ptr_data(nullptr, [](void*){})
+        , session_specal_handler(nullptr) {}
+    beltpp::void_unique_ptr ptr_data;
+    std::vector<char>(*session_specal_handler)(session_special_data&, std::vector<char> const&);
+};
+
 using fptr_message_loader = detail::pmsg_all (*)(
         beltpp::iterator_wrapper<char const>&,
         beltpp::iterator_wrapper<char const> const&,
+        session_special_data&,
         void*);
 
 template <size_t rtt,

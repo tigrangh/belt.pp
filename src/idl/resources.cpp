@@ -86,6 +86,7 @@ inline
 ::beltpp::detail::pmsg_all message_list_load(
         beltpp::iterator_wrapper<char const>& iter_scan_begin,
         beltpp::iterator_wrapper<char const> const& iter_scan_end,
+        beltpp::detail::session_special_data&,
         void* putl)
 {
     auto const it_backup = iter_scan_begin;
@@ -129,7 +130,7 @@ inline
                                         nullptr);
     }
     else if (::beltpp::e_three_state_result::attempt == code)
-    {   //  revert the cursor, so everything will be rescaned
+    {   //  revert the cursor, so everything will be rescanned
         //  once there is more data to scan
         //  in future may implement persistent state, so rescan will not
         //  be needed
