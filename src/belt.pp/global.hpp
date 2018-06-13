@@ -154,7 +154,7 @@ inline uint64_t stoui64(std::string const& value, size_t& pos)
 inline int32_t stoi32(std::string const& value, size_t& pos)
 {
     int64_t temp = stoi64(value, pos);
-    int32_t result = temp;
+    int32_t result = int32_t(temp);
     if (int64_t(result) != temp)
     {
         pos = 0;
@@ -166,7 +166,7 @@ inline int32_t stoi32(std::string const& value, size_t& pos)
 inline uint32_t stoui32(std::string const& value, size_t& pos)
 {
     uint64_t temp = stoui64(value, pos);
-    uint32_t result = temp;
+    uint32_t result = uint32_t(temp);
     if (uint64_t(result) != temp)
     {
         pos = 0;
@@ -178,7 +178,7 @@ inline uint32_t stoui32(std::string const& value, size_t& pos)
 inline int16_t stoi16(std::string const& value, size_t& pos)
 {
     int64_t temp = stoi64(value, pos);
-    int16_t result = temp;
+    int16_t result = int16_t(temp);
     if (int64_t(result) != temp)
     {
         pos = 0;
@@ -190,7 +190,7 @@ inline int16_t stoi16(std::string const& value, size_t& pos)
 inline uint16_t stoui16(std::string const& value, size_t& pos)
 {
     uint64_t temp = stoui64(value, pos);
-    uint16_t result = temp;
+    uint16_t result = uint16_t(temp);
     if (uint64_t(result) != temp)
     {
         pos = 0;
@@ -202,7 +202,7 @@ inline uint16_t stoui16(std::string const& value, size_t& pos)
 inline int8_t stoi8(std::string const& value, size_t& pos)
 {
     int64_t temp = stoi64(value, pos);
-    int8_t result = temp;
+    int8_t result = int8_t(temp);
     if (int64_t(result) != temp)
     {
         pos = 0;
@@ -214,7 +214,7 @@ inline int8_t stoi8(std::string const& value, size_t& pos)
 inline uint8_t stoui8(std::string const& value, size_t& pos)
 {
     uint64_t temp = stoui64(value, pos);
-    uint8_t result = temp;
+    uint8_t result = uint8_t(temp);
     if (uint64_t(result) != temp)
     {
         pos = 0;

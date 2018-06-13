@@ -69,7 +69,7 @@ int main(int argc, char** argv)
         beltpp::iprocessor<task_t>& processor_finisher = *ptr_finisher;*/
 
         bobo object;
-        object.count = 1e7;
+        object.count = size_t(1e7);
         object.index = 0;
         object.processor_consumer = ptr_consumer.get();
         object.processor_producer = ptr_producer.get();
@@ -97,7 +97,7 @@ int main(int argc, char** argv)
     tp_wait = steady_clock::now();
     steady_clock::duration elapsed = tp_wait - tp_start;
     chrono::milliseconds ms_elapsed = chrono::duration_cast<chrono::milliseconds>(elapsed);
-    long mswait = ms_elapsed.count();
+    long mswait = long(ms_elapsed.count());
 
     std::cout << mswait << std::endl;
 

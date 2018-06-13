@@ -566,6 +566,8 @@ inline void assign_packet(std::vector<::beltpp::packet>& self,
 inline void assign_packet(std::vector<::beltpp::packet>& self,
                           std::vector<::beltpp::packet>&& other);
 inline void assign_extension(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
+)file_template"
+R"file_template(
 inline void assign_extension(::beltpp::packet& self, ::beltpp::packet&& other) noexcept;
 inline void assign_extension(std::vector<::beltpp::packet>& self,
                              std::vector<::beltpp::packet> const& other);

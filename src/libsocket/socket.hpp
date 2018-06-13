@@ -89,7 +89,7 @@ private:
 };
 
 template <typename T_socket_family>
-SOCKETSHARED_EXPORT socket getsocket(event_handler& eh, beltpp::void_unique_ptr&& putl)
+socket getsocket(event_handler& eh, beltpp::void_unique_ptr&& putl)
 {
     return
     socket(eh,
@@ -107,7 +107,7 @@ SOCKETSHARED_EXPORT socket getsocket(event_handler& eh, beltpp::void_unique_ptr&
 }
 
 template <typename T_socket_family>
-SOCKETSHARED_EXPORT socket getsocket(event_handler& eh)
+socket getsocket(event_handler& eh)
 {
     beltpp::void_unique_ptr putl = beltpp::new_void_unique_ptr<beltpp::message_loader_utility>();
     return getsocket<T_socket_family>(eh, std::move(putl));

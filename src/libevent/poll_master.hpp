@@ -2,9 +2,12 @@
 
 #include "global.hpp"
 
-//#include <unistd.h>
+#ifndef B_OS_WINDOWS
+#include <unistd.h>
+#endif
 
 #include <unordered_set>
+#include <unordered_map>
 #include <string>
 #include <cerrno>
 #include <cstring>
@@ -312,6 +315,139 @@ public:
     std::vector<struct kevent> m_arr_event;
 };
 }
+}
+
+#elif defined B_OS_WINDOWS
+
+#include <WinSock2.h>
+
+namespace beltpp
+{
+    namespace detail
+    {
+        class poll_master
+        {
+        public:
+            struct poll_events
+            {
+                native::sk_handle socket;
+                uint64_t id;
+                long events;
+                int wsa_index;
+            };
+
+            int event_count;
+            poll_events m_event;
+            WSAEVENT wsa_event_array[WSA_MAXIMUM_WAIT_EVENTS];
+            std::unordered_map<int, native::sk_handle> index_map;
+            std::unordered_map<native::sk_handle, poll_events> socket_map;
+
+            poll_master()
+            {
+                event_count = 0;
+                m_event.events = FD_ACCEPT | FD_CONNECT | FD_CLOSE | FD_READ | FD_WRITE | FD_OOB;
+            }
+
+            ~poll_master()
+            {
+            }
+
+            void add(native::sk_handle socket_descriptor, uint64_t id, bool out)
+            {
+                if (event_count >= WSA_MAXIMUM_WAIT_EVENTS)
+                    throw std::runtime_error("Too many connections");
+
+                wsa_event_array[event_count] = WSACreateEvent();
+
+                if (wsa_event_array[event_count] == WSA_INVALID_EVENT)
+                    throw std::runtime_error("WSACreateEvent() failed with error: " + WSAGetLastError());
+
+                m_event.id = id;
+                m_event.socket = socket_descriptor;
+
+                auto backup = m_event.events;
+                
+                if (out) //TODO
+                    m_event.events |= FD_WRITE;
+                
+                m_event.events = backup;
+
+                m_event.wsa_index = event_count;
+                socket_map[socket_descriptor] = m_event;
+                index_map[event_count] = socket_descriptor;
+                
+                WSAEventSelect(socket_descriptor.handle, wsa_event_array[event_count], m_event.events);
+                                
+                ++event_count;                
+            }
+
+            void remove(native::sk_handle const& socket_descriptor, uint64_t id, bool already_closed, bool)  //  last argument is used for mac os version
+            {
+                if (socket_map.find(socket_descriptor) == socket_map.end())
+                    throw std::runtime_error("remove can't process socket_descriptor:" + socket_descriptor.handle);
+
+                //TODO already_closed
+
+                for (int i = socket_map[socket_descriptor].wsa_index; i < event_count; ++i)
+                {
+                    wsa_event_array[i] = wsa_event_array[i + 1];
+                    socket_map[index_map[i]].wsa_index--;
+                    index_map[i] = index_map[i + 1];
+                }
+
+                index_map.erase(event_count);
+                socket_map.erase(socket_descriptor);
+                --event_count;
+            }
+
+            std::unordered_set<uint64_t> wait(timer_helper const& tm)
+            {
+                std::unordered_set<uint64_t> set_ids;
+                
+                DWORD milliseconds = -1;
+                if (tm.is_set)
+                {
+                    auto timeout = (tm.last_point + tm.timer_period) - tm.now();
+                    auto timeout_ms = chrono::duration_cast<chrono::milliseconds>(timeout);
+                    milliseconds = DWORD(timeout_ms.count());
+                    if (milliseconds < 0)
+                        //  timeout should at least be 0
+                        //  in order for epoll_wait to return immediately
+                        milliseconds = 0;
+                }
+                
+                DWORD index = WSAWaitForMultipleEvents(event_count, wsa_event_array, false, milliseconds, false);
+ 
+                if (index == WSA_WAIT_FAILED)
+                    throw std::runtime_error("WSAWaitForMultipleEvents() failed with error: " + WSAGetLastError());
+ 
+                index = index - WSA_WAIT_EVENT_0;
+
+                // Iterate through all events and enumerate
+                // if the wait does not fail.
+
+                WSANETWORKEVENTS networkevents;
+                for (int i = index; i < event_count; ++i) 
+                {
+                    index = WSAWaitForMultipleEvents(1, &wsa_event_array[i], TRUE, 1000, FALSE);
+                    
+                    if ((index != WSA_WAIT_FAILED) && (index != WSA_WAIT_TIMEOUT))
+                    {
+                        WSAEnumNetworkEvents(index_map[index].handle, wsa_event_array[index], &networkevents);
+
+                        if ((networkevents.lNetworkEvents & FD_ACCEPT) &&
+                            networkevents.iErrorCode[FD_ACCEPT_BIT] == 0)
+                        {
+                            uint64_t id = socket_map[index_map[index]].id;
+                            set_ids.insert(id);
+                        }
+                    }                    
+                }
+                
+                return set_ids;
+            }
+        };
+    }
 }
 
 #endif

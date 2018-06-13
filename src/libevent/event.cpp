@@ -128,7 +128,7 @@ void event_handler::set_timer(std::chrono::steady_clock::duration const& period)
     m_pimpl->m_timer_helper.set(period);
 }
 
-uint64_t event_handler::add(ievent_item& ev_it, int handle, uint64_t item_id, bool out)
+uint64_t event_handler::add(ievent_item& ev_it, native::sk_handle const& handle, uint64_t item_id, bool out)
 {
     std::lock_guard<std::mutex> lock(m_pimpl->m_mutex);
 
@@ -164,7 +164,7 @@ uint64_t event_handler::add(ievent_item& ev_it, int handle, uint64_t item_id, bo
     return id;
 }
 
-void event_handler::remove(int handle, uint64_t id, bool already_closed, bool out)
+void event_handler::remove(native::sk_handle const& handle, uint64_t id, bool already_closed, bool out)
 {
     std::lock_guard<std::mutex> lock(m_pimpl->m_mutex);
 
