@@ -17,6 +17,7 @@ set(SRC_FILES
     delegate.hpp
     global.hpp
     event.hpp
+    ievent.hpp
     ilog.hpp
     iprocessor.hpp
     isocket.hpp

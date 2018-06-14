@@ -330,7 +330,7 @@ namespace beltpp
         public:
             struct poll_events
             {
-                native::sk_handle socket;
+                SOCKET socket;
                 uint64_t id;
                 long events;
                 int wsa_index;
@@ -339,7 +339,7 @@ namespace beltpp
             int event_count;
             poll_events m_event;
             WSAEVENT wsa_event_array[WSA_MAXIMUM_WAIT_EVENTS];
-            std::unordered_map<int, native::sk_handle> index_map;
+            std::unordered_map<int, SOCKET> index_map;
             std::unordered_map<unsigned long long, poll_events> socket_map;
 
             poll_master()
@@ -352,7 +352,7 @@ namespace beltpp
             {
             }
 
-            void add(native::sk_handle socket_descriptor, uint64_t id, bool out)
+            void add(SOCKET socket_descriptor, uint64_t id, bool out)
             {
                 if (event_count >= WSA_MAXIMUM_WAIT_EVENTS)
                     throw std::runtime_error("Too many connections");
@@ -366,37 +366,37 @@ namespace beltpp
                 m_event.socket = socket_descriptor;
 
                 auto backup = m_event.events;
-                
+
                 if (out) //TODO
                     m_event.events |= FD_WRITE;
-                
+
                 m_event.events = backup;
 
                 m_event.wsa_index = event_count;
-                socket_map[socket_descriptor.handle] = m_event;
+                socket_map[socket_descriptor] = m_event;
                 index_map[event_count] = socket_descriptor;
-                
-                WSAEventSelect(socket_descriptor.handle, wsa_event_array[event_count], m_event.events);
-                                
-                ++event_count;                
+
+                WSAEventSelect(socket_descriptor, wsa_event_array[event_count], m_event.events);
+
+                ++event_count;
             }
 
-            void remove(native::sk_handle const& socket_descriptor, uint64_t id, bool already_closed, bool)  //  last argument is used for mac os version
+            void remove(SOCKET socket_descriptor, uint64_t id, bool already_closed, bool)  //  last argument is used for mac os version
             {
-                if (socket_map.find(socket_descriptor.handle) == socket_map.end())
-                    throw std::runtime_error("remove can't process socket_descriptor:" + socket_descriptor.handle);
+                if (socket_map.find(socket_descriptor) == socket_map.end())
+                    throw std::runtime_error("remove can't process socket_descriptor:" + socket_descriptor);
 
                 //TODO already_closed
 
-                for (int i = socket_map[socket_descriptor.handle].wsa_index; i < event_count; ++i)
+                for (int i = socket_map[socket_descriptor].wsa_index; i < event_count; ++i)
                 {
                     wsa_event_array[i] = wsa_event_array[i + 1];
-                    socket_map[index_map[i].handle].wsa_index--;
+                    socket_map[index_map[i]].wsa_index--;
                     index_map[i] = index_map[i + 1];
                 }
 
                 index_map.erase(event_count);
-                socket_map.erase(socket_descriptor.handle);
+                socket_map.erase(socket_descriptor);
                 --event_count;
             }
 
@@ -433,12 +433,12 @@ namespace beltpp
                     
                     if ((index != WSA_WAIT_FAILED) && (index != WSA_WAIT_TIMEOUT))
                     {
-                        WSAEnumNetworkEvents(index_map[index].handle, wsa_event_array[index], &networkevents);
+                        WSAEnumNetworkEvents(index_map[index], wsa_event_array[index], &networkevents);
 
                         if ((networkevents.lNetworkEvents & FD_ACCEPT) &&
                             networkevents.iErrorCode[FD_ACCEPT_BIT] == 0)
                         {
-                            uint64_t id = socket_map[index_map[index].handle].id;
+                            uint64_t id = socket_map[index_map[index]].id;
                             set_ids.insert(id);
                         }
                     }                    

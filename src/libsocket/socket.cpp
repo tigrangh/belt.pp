@@ -1,4 +1,5 @@
 #include "socket.hpp"
+#include "native.hpp"
 
 #include <belt.pp/scope_helper.hpp>
 #include <belt.pp/queue.hpp>
@@ -36,64 +37,6 @@ using std::string;
 using std::vector;
 using std::tuple;
 using beltpp::scope_helper;
-
-namespace native
-{
-//  this needs alternate implementation for windows
-
-inline int close(sk_handle const& socket_descriptor) noexcept
-{
-#ifdef B_OS_WINDOWS
-    return closesocket(socket_descriptor.handle);
-#else
-    return ::close(socket_descriptor.handle);
-#endif
-}
-
-inline bool is_invalid(sk_handle const& socket_descriptor) noexcept
-{
-    return socket_descriptor.handle == -1;
-}
-
-inline void startup() noexcept
-{
-
-}
-
-inline void shutdown() noexcept
-{
-
-}
-inline string last_error() noexcept
-{
-#ifdef B_OS_WINDOWS
-    return "TODO:";
-#else
-    return strerror(errno);
-#endif
-}
-
-inline char* gai_error(int ecode)
-{
-#ifdef B_OS_WINDOWS
-    return gai_strerrorA(ecode);
-#else
-    return gai_strerror(ecode);
-#endif
-}
-
-#ifdef B_OS_WINDOWS
-inline char* sockopttype(int* param)
-{
-    return reinterpret_cast<char*>(param);
-}
-#else
-inline int* sockopttype(int* param)
-{
-    return param;
-}
-#endif
-}
 
 using sockets = vector<tuple<native::sk_handle, addrinfo*, scope_helper>>;
 using peer_ids = beltpp::socket::peer_ids;

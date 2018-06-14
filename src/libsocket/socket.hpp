@@ -1,6 +1,8 @@
 #pragma once
 
 #include "global.hpp"
+#include "event.hpp"
+
 #include <belt.pp/isocket.hpp>
 #include <belt.pp/message_global.hpp>
 

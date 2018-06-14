@@ -1,8 +1,7 @@
 #pragma once
 
 #include "global.hpp"
-
-#include "event.hpp"
+#include "ievent.hpp"
 
 #include <string>
 #include <list>
@@ -224,8 +223,8 @@ public:
     using peer_id = std::string;
     using packets = std::list<packet>;
 
-    isocket(event_handler& eh) : ievent_item(eh) {};
-    virtual ~isocket() {};
+    isocket(ievent_handler& eh) : ievent_item(eh) {}
+    virtual ~isocket() {}
 
     virtual packets receive(peer_id& peer) = 0;
 

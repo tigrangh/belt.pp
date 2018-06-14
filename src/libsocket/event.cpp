@@ -1,5 +1,6 @@
 #include "event.hpp"
 #include "poll_master.hpp"
+#include "native.hpp"
 
 #include <belt.pp/queue.hpp>
 #include <belt.pp/scope_helper.hpp>
@@ -147,12 +148,12 @@ uint64_t event_handler::add(ievent_item& ev_it, native::sk_handle const& handle,
 
     uint64_t id = it_ids->end_index();
 
-    m_pimpl->m_poll_master.add(handle, id, out);
+    m_pimpl->m_poll_master.add(handle.handle, id, out);
 
     beltpp::scope_helper scope_guard([]{},
     [this, handle, id, out]
     {
-        m_pimpl->m_poll_master.remove(handle,
+        m_pimpl->m_poll_master.remove(handle.handle,
                                       id,
                                       false,  //  already_closed
                                       out);
@@ -184,7 +185,7 @@ void event_handler::remove(native::sk_handle const& handle, uint64_t id, bool al
 
             current_event_slot.m_closed = true;
 
-            m_pimpl->m_poll_master.remove(handle,
+            m_pimpl->m_poll_master.remove(handle.handle,
                                           id,
                                           already_closed,
                                           out);

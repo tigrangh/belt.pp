@@ -3,6 +3,10 @@ add_definitions(-DSOCKET_LIBRARY)
 # define the shared library
 add_library(socket SHARED
     global.hpp
+    event.cpp
+    event.hpp
+    native.hpp
+    poll_master.hpp
     socket.cpp
     socket.hpp)
 
