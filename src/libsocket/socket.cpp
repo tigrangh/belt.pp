@@ -37,10 +37,6 @@ using std::vector;
 using std::tuple;
 using beltpp::scope_helper;
 
-#ifdef B_OS_WINDOWS
-#define gai_strerror gai_strerrorA
-#endif
-
 namespace native
 {
 //  this needs alternate implementation for windows
@@ -74,6 +70,15 @@ inline string last_error() noexcept
     return "TODO:";
 #else
     return strerror(errno);
+#endif
+}
+
+inline char* gai_error(int ecode)
+{
+#ifdef B_OS_WINDOWS
+    return gai_strerrorA(ecode);
+#else
+    return gai_strerror(ecode);
 #endif
 }
 
@@ -993,7 +998,7 @@ void getaddressinfo(addrinfo* &servinfo,
     if (gai_rv &&
         (false == getaddressinfo_is_family_mismatch_error(gai_rv) ||
          false == hold_family_mismatch_exception))
-        throw std::runtime_error(gai_strerror(gai_rv));
+        throw std::runtime_error(native::gai_error(gai_rv));
 
     if (gai_rv) // in case of error that was not thrown
         servinfo = nullptr;
