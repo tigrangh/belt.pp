@@ -409,7 +409,7 @@ void socket::open(ip_address address,
         {
             int res = ::connect(socket_descriptor.handle,
                                 remoteinfo->ai_addr,
-                                remoteinfo->ai_addrlen);
+                                int(remoteinfo->ai_addrlen));
             if (-1 != res || errno != EINPROGRESS)
             {
                 string native_error = native::last_error();
@@ -529,7 +529,7 @@ packets socket::receive(peer_id& peer)
                     else
                     {
                         connect_result = e_three_state_result::error;
-                        connect_error = strerror(so_error);
+                        connect_error = native::last_error();
                     }
                 }
             }
@@ -624,7 +624,7 @@ packets socket::receive(peer_id& peer)
             auto socket_descriptor = current_channel.m_socket_descriptor;
             int res = recv(socket_descriptor.handle,
                            p_buffer,
-                           size_buffer,
+                           int(size_buffer),
                            0);
 
             if (-1 == res &&
@@ -742,14 +742,14 @@ void socket::send(peer_id const& peer,
                 {
                     int res = ::send(sd.handle,
                                      &ms[sent],
-                                     ms.size() - sent,
+                                     int(ms.size() - sent),
                                      MSG_NOSIGNAL);
                     //  when sending to socket closed by the peer
                     //  we have res = -1 and errno set to EPIPE
 
                     if (-1 == res)
                     {
-                        string send_error = strerror(errno);
+                        string send_error = native::last_error();
                         throw std::runtime_error("send(): " +
                                                  send_error);
                     }
@@ -1118,7 +1118,7 @@ sockets socket(addrinfo* servinfo,
         {
             int res = ::bind(socket_descriptor.handle,
                              p->ai_addr,
-                             p->ai_addrlen);
+                             int(p->ai_addrlen));
             if (-1 == res)
             {
                 string bind_error = native::last_error();
