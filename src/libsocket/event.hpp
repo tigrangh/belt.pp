@@ -20,7 +20,7 @@ namespace native
     class sk_handle;
 }
 
-class SOCKETSHARED_EXPORT event_handler : ievent_handler
+class SOCKETSHARED_EXPORT event_handler : public ievent_handler
 {
 public:
     friend class ievent_item;

@@ -38,7 +38,7 @@ using std::vector;
 using std::tuple;
 using beltpp::scope_helper;
 
-using sockets = vector<tuple<native::sk_handle, addrinfo*, scope_helper>>;
+using sockets = vector<tuple<beltpp::native::sk_handle, addrinfo*, scope_helper>>;
 using peer_ids = beltpp::socket::peer_ids;
 using packets = beltpp::socket::packets;
 

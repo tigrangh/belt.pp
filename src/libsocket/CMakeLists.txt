@@ -14,7 +14,7 @@ if (WIN32)
     set(wslib "Ws2_32.lib")
 endif()
 # libraries this module links to
-target_link_libraries(socket PUBLIC belt.pp packet event PRIVATE ${wslib})
+target_link_libraries(socket PUBLIC belt.pp packet PRIVATE ${wslib})
 
 # what to do on make install
 install(TARGETS socket

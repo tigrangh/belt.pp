@@ -17,7 +17,6 @@ public:
     ievent_item(ievent_handler&) {}
     virtual ~ievent_item() {}
 
-protected:
     virtual void prepare_wait() = 0;
     virtual void timer_action() = 0;
 };

@@ -21,10 +21,13 @@
 
 using std::string;
 
+namespace beltpp
+{
 namespace native
 {
-struct sk_handle
+class sk_handle
 {
+public:
     sk_handle() :handle(0) {}
 
 #ifdef B_OS_WINDOWS
@@ -86,4 +89,5 @@ inline int* sockopttype(int* param)
     return param;
 }
 #endif
+}
 }
