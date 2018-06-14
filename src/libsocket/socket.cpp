@@ -426,6 +426,7 @@ void set_nonblocking(int socket_descriptor, bool option)
         string fcntl_error = native::last_error();
         throw std::runtime_error("setsockopt():F_SETFL " + fcntl_error);
     }
+}
 
 #endif
 

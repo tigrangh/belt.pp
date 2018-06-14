@@ -17,6 +17,7 @@
 #endif
 
 #include <cerrno>
+#include <cstring>
 #include <string>
 
 using std::string;
@@ -69,7 +70,7 @@ inline string last_error() noexcept
 #endif
 }
 
-inline char* gai_error(int ecode)
+inline char const* gai_error(int ecode)
 {
 #ifdef B_OS_WINDOWS
     return gai_strerrorA(ecode);
