@@ -255,6 +255,9 @@ bool analyze_json(bool& value,
 
     return code;
 }
+)file_template"
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+R"file_template(
 inline
 bool analyze_json(int8_t& value,
                   ::beltpp::json::expression_tree* pexp,
@@ -568,6 +571,7 @@ inline void assign_packet(std::vector<::beltpp::packet>& self,
                           std::vector<::beltpp::packet>&& other);
 inline void assign_extension(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
 )file_template"
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 R"file_template(
 inline void assign_extension(::beltpp::packet& self, ::beltpp::packet&& other) noexcept;
 inline void assign_extension(std::vector<::beltpp::packet>& self,
@@ -905,7 +909,9 @@ bool analyze_json_common(size_t& rtt,
 
     return code;
 }
-
+)file_template"
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+R"file_template(
 inline
 bool analyze_json_object(::beltpp::json::expression_tree* pexp,
                          size_t& rtt)

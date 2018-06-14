@@ -4,6 +4,9 @@
 
 #define B_OS_WINDOWS
 
+#define UNICODE
+#define _UNICODE
+
 #define BELT_EXPORT     __declspec(dllexport)
 #define BELT_IMPORT     __declspec(dllimport)
 #elif defined __APPLE__

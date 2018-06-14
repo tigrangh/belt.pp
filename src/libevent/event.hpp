@@ -8,7 +8,7 @@
 
 #ifdef B_OS_WINDOWS
 //#include <winsock2.h>
-#include <ws2tcpip.h>
+//#include <ws2tcpip.h>
 #endif
 
 namespace native
@@ -19,7 +19,7 @@ struct sk_handle
     sk_handle() :handle(0) {}
 
 #ifdef B_OS_WINDOWS
-    SOCKET handle;
+    unsigned long long handle;
 #else
     int handle;
 #endif

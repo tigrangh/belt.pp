@@ -37,6 +37,10 @@ using std::vector;
 using std::tuple;
 using beltpp::scope_helper;
 
+#ifdef B_OS_WINDOWS
+#define gai_strerror gai_strerrorA
+#endif
+
 namespace native
 {
 //  this needs alternate implementation for windows
@@ -532,14 +536,14 @@ packets socket::receive(peer_id& peer)
 
             if (connect_result == e_three_state_result::success)
             {
-                m_pimpl->m_peh->remove(socket_descriptor.handle,
+                m_pimpl->m_peh->remove(socket_descriptor,
                                        current_channel.m_eh_id,
                                        false,   //  already_closed
                                        true);   //  out
 
                 current_channel.m_eh_id =
                         m_pimpl->m_peh->add(*this,
-                                            socket_descriptor.handle,
+                                            socket_descriptor,
                                             current_id,
                                             false);
 
@@ -728,7 +732,7 @@ void socket::send(peer_id const& peer,
         if (current_channel.m_type != detail::channel::type::streaming)
             throw std::runtime_error("send message on non streaming channel");
         {
-            auto lambda_send = [](native::sk const& sd,
+            auto lambda_send = [](native::sk_handle const& sd,
                                   vector<char> const& ms)
             {
                 size_t sent = 0;
@@ -951,7 +955,7 @@ void getaddressinfo(addrinfo* &servinfo,
 
 bool getaddressinfo_is_family_mismatch_error(int rv)
 {
-#if defined B_OS_MACOS
+#ifdef B_OS_MACOS
     return (rv == EAI_ADDRFAMILY) || (rv == EAI_NONAME);
 #elif defined B_OS_WINDOWS
     return false; //TODO add error code!
@@ -1094,7 +1098,7 @@ sockets socket(addrinfo* servinfo,
         }
         else
         {
-#if defined B_OS_WINDOWS
+#ifdef B_OS_WINDOWS
             int yes = 1;
             int res = ::setsockopt(socket_descriptor.handle,
                 SOL_SOCKET,
@@ -1158,12 +1162,12 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
             detail::construct_peer_id(id, socket_descriptor);
 
     bool out = (attempts != 0);
-    uint64_t eh_id = pimpl->m_peh->add(self, socket_descriptor.handle, id, out);
+    uint64_t eh_id = pimpl->m_peh->add(self, socket_descriptor, id, out);
 
     beltpp::scope_helper scope_guard([]{},
     [pimpl, socket_descriptor, eh_id, out]
     {
-        pimpl->m_peh->remove(socket_descriptor.handle,
+        pimpl->m_peh->remove(socket_descriptor,
                              eh_id,
                              false,  //  already_closed
                              out);
@@ -1221,7 +1225,7 @@ void delete_channel(detail::socket_internals* pimpl,
 
             current_channel.m_closed = true;
 
-            pimpl->m_peh->remove(current_channel.m_socket_descriptor.handle,
+            pimpl->m_peh->remove(current_channel.m_socket_descriptor,
                                  current_channel.m_eh_id,
                                  true,   //  already_closed
                                  false); //  out

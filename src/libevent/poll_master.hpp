@@ -340,7 +340,7 @@ namespace beltpp
             poll_events m_event;
             WSAEVENT wsa_event_array[WSA_MAXIMUM_WAIT_EVENTS];
             std::unordered_map<int, native::sk_handle> index_map;
-            std::unordered_map<native::sk_handle, poll_events> socket_map;
+            std::unordered_map<unsigned long long, poll_events> socket_map;
 
             poll_master()
             {
@@ -373,7 +373,7 @@ namespace beltpp
                 m_event.events = backup;
 
                 m_event.wsa_index = event_count;
-                socket_map[socket_descriptor] = m_event;
+                socket_map[socket_descriptor.handle] = m_event;
                 index_map[event_count] = socket_descriptor;
                 
                 WSAEventSelect(socket_descriptor.handle, wsa_event_array[event_count], m_event.events);
@@ -383,20 +383,20 @@ namespace beltpp
 
             void remove(native::sk_handle const& socket_descriptor, uint64_t id, bool already_closed, bool)  //  last argument is used for mac os version
             {
-                if (socket_map.find(socket_descriptor) == socket_map.end())
+                if (socket_map.find(socket_descriptor.handle) == socket_map.end())
                     throw std::runtime_error("remove can't process socket_descriptor:" + socket_descriptor.handle);
 
                 //TODO already_closed
 
-                for (int i = socket_map[socket_descriptor].wsa_index; i < event_count; ++i)
+                for (int i = socket_map[socket_descriptor.handle].wsa_index; i < event_count; ++i)
                 {
                     wsa_event_array[i] = wsa_event_array[i + 1];
-                    socket_map[index_map[i]].wsa_index--;
+                    socket_map[index_map[i].handle].wsa_index--;
                     index_map[i] = index_map[i + 1];
                 }
 
                 index_map.erase(event_count);
-                socket_map.erase(socket_descriptor);
+                socket_map.erase(socket_descriptor.handle);
                 --event_count;
             }
 
@@ -438,7 +438,7 @@ namespace beltpp
                         if ((networkevents.lNetworkEvents & FD_ACCEPT) &&
                             networkevents.iErrorCode[FD_ACCEPT_BIT] == 0)
                         {
-                            uint64_t id = socket_map[index_map[index]].id;
+                            uint64_t id = socket_map[index_map[index].handle].id;
                             set_ids.insert(id);
                         }
                     }                    
