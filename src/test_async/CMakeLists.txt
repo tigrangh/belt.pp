@@ -1,6 +1,3 @@
-# check if this is a portable solution
-#set( CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-pthread")
-
 # define the executable
 add_executable(test_async
     main.cpp)
