@@ -16,6 +16,16 @@ template beltpp::void_unique_ptr beltpp::new_void_unique_ptr<beltpp::message_err
 template beltpp::void_unique_ptr beltpp::new_void_unique_ptr<beltpp::message_join>();
 template beltpp::void_unique_ptr beltpp::new_void_unique_ptr<beltpp::message_drop>();
 
+beltpp::detail::pmsg_all message_list_load_own(
+        beltpp::iterator_wrapper<char const>& iter_scan_begin,
+        beltpp::iterator_wrapper<char const> const& iter_scan_end,
+        beltpp::detail::session_special_data& ssd,
+        void* p)
+
+{
+    return beltpp::message_list_load(iter_scan_begin, iter_scan_end, ssd, p);
+}
+
 using sf = beltpp::socket_family_t<
 beltpp::message_error::rtt,
 beltpp::message_join::rtt,
@@ -26,7 +36,7 @@ beltpp::message_drop::rtt,
 &beltpp::message_error::saver,
 &beltpp::message_join::saver,
 &beltpp::message_drop::saver,
-&beltpp::message_list_load
+&message_list_load_own
 >;
 
 #define VERSION 11
@@ -152,7 +162,7 @@ int main(int argc, char** argv)
             //
             for (int i = 0; i < 10; ++i)
             {
-                beltpp::ip_address listen_addr("127.0.0.1", 3550 + i);
+                beltpp::ip_address listen_addr("127.0.0.1", short(3550 + i));
                 listen_addr.ip_type = beltpp::ip_address::e_type::ipv4;
                 sk.listen(listen_addr);
             }
@@ -213,7 +223,7 @@ int main(int argc, char** argv)
 
             for (size_t i = 0; i < 100000; ++i)
             {
-                size_t index = i % arr_channel_id.size();
+                short index = short(i % arr_channel_id.size());
 
                 beltpp::ip_address open_address("", 0, "127.0.0.1", 3550 + index, beltpp::ip_address::e_type::ipv4);
                 sk.open(open_address);
