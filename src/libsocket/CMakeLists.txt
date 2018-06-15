@@ -19,6 +19,7 @@ target_link_libraries(socket PUBLIC belt.pp packet PRIVATE ${wslib})
 # what to do on make install
 install(TARGETS socket
         EXPORT belt.pp.package
+        RUNTIME DESTINATION bin/belt.pp
         LIBRARY DESTINATION lib/belt.pp
         ARCHIVE DESTINATION lib/belt.pp/archive)
 

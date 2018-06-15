@@ -12,6 +12,7 @@ target_link_libraries(utility PUBLIC belt.pp)
 # what to do on make install
 install(TARGETS utility
         EXPORT belt.pp.package
+        RUNTIME DESTINATION bin/belt.pp
         LIBRARY DESTINATION lib/belt.pp
         ARCHIVE DESTINATION lib/belt.pp/archive)
 
