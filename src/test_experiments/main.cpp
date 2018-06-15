@@ -9,7 +9,12 @@
 #include <belt.pp/packet.hpp>
 #include <belt.pp/messages.hpp>
 #include <belt.pp/socket.hpp>
+#include <belt.pp/event.hpp>
 #include <belt.pp/json.hpp>
+
+template beltpp::void_unique_ptr beltpp::new_void_unique_ptr<beltpp::message_error>();
+template beltpp::void_unique_ptr beltpp::new_void_unique_ptr<beltpp::message_join>();
+template beltpp::void_unique_ptr beltpp::new_void_unique_ptr<beltpp::message_drop>();
 
 using sf = beltpp::socket_family_t<
 beltpp::message_error::rtt,
@@ -24,7 +29,7 @@ beltpp::message_drop::rtt,
 &beltpp::message_list_load
 >;
 
-#define VERSION 2
+#define VERSION 11
 
 int main(int argc, char** argv)
 {
@@ -139,13 +144,18 @@ int main(int argc, char** argv)
             }
         }
 #else
-        else if (1 == argc)
+        if (1 == argc)
         {
-            beltpp::socket sk;
-            beltpp::isocket& isk = sk;
+            beltpp::event_handler eh;
+            beltpp::socket sk = beltpp::getsocket<sf>(eh);
+            eh.add(sk);
             //
             for (int i = 0; i < 10; ++i)
-                sk.listen("", 3550 + i, beltpp::socket::socketv::ipv4);
+            {
+                beltpp::ip_address listen_addr("127.0.0.1", 3550 + i);
+                listen_addr.ip_type = beltpp::ip_address::e_type::ipv4;
+                sk.listen(listen_addr);
+            }
 
             //sk.listen("::1", 3557, beltpp::socket::socketv::ipv6);
             //sk.open("192.168.0.18", 3030, "", 3557, beltpp::socket::socketv::ipv4);
@@ -153,82 +163,84 @@ int main(int argc, char** argv)
             //sk.open("", 3030, "", 3030, beltpp::socket::socketv::ipv4);
             std::cout << sk.dump() << std::endl;
 
-            beltpp::message msg;
-            beltpp::imessage& imsg = msg;
             beltpp::socket::peer_id channel_id;
             size_t index = 0;
 
             while (true)
             {
                 ++index;
-                isk.read(channel_id, imsg);
-
-                std::string str_type;
-                switch (imsg.get_type())
+                std::unordered_set<beltpp::ievent_item const*> set_items;
+                eh.wait(set_items);
+                auto packets = sk.receive(channel_id);
+                for (auto const& packet : packets)
                 {
-                case beltpp::imessage::message_type::joined:
-                    str_type = "joined";
-                    break;
-                case beltpp::imessage::message_type::dropped:
-                    str_type = "dropped";
-                    break;
-                default:
-                    str_type = "unknown";
+                    std::string str_type;
+                    switch (packet.type())
+                    {
+                    case beltpp::message_join::rtt:
+                        str_type = "joined";
+                        break;
+                    case beltpp::message_drop::rtt:
+                        str_type = "dropped";
+                        break;
+                    default:
+                        str_type = "unknown";
+                    }
+
+                    if (0 != index % 1000)
+                        continue;
+
+                    std::cout << str_type
+                              << " [msg code - "
+                              << static_cast<int>(packet.type())
+                              << "]"
+                              << " [channel_id - "
+                              << channel_id
+                              << "]"
+                              << std::endl;
+                    //std::cout << sk.dump() << std::endl;
                 }
-
-                if (0 != index % 1000)
-                    continue;
-
-                std::cout << str_type
-                          << " [msg code - "
-                          << static_cast<int>(imsg.get_type())
-                          << "]"
-                          << " [channel_id - "
-                          << channel_id
-                          << "]"
-                          << std::endl;
-                //std::cout << sk.dump() << std::endl;
             }
         }
         else
         {
-            beltpp::socket sk;
-            std::vector<beltpp::socket::peer_id> arr_channel_id;
-            arr_channel_id.resize(1);
-            for (size_t i = 0; i < arr_channel_id.size(); ++i)
-            {
-                arr_channel_id[i] = sk.open("", 0, "127.0.0.1", 3557, beltpp::socket::socketv::ipv4);
-            }
+            beltpp::event_handler eh;
+            beltpp::socket sk = beltpp::getsocket<sf>(eh);
+            eh.add(sk);
 
-            size_t index = 0;
-            beltpp::message msg;
-            msg.set(beltpp::message::message_type::drop);
+            std::vector<beltpp::socket::peer_id> arr_channel_id;
+            arr_channel_id.resize(10);
+
             for (size_t i = 0; i < 100000; ++i)
             {
-                index = index % arr_channel_id.size();
+                size_t index = i % arr_channel_id.size();
 
-                sk.write(arr_channel_id[index], msg);
+                beltpp::ip_address open_address("", 0, "127.0.0.1", 3550 + index, beltpp::ip_address::e_type::ipv4);
+                sk.open(open_address);
 
-                //while (true)
+                std::unordered_set<beltpp::ievent_item const*> set_items;
+                while (true)
                 {
-                    //try
-                    //{
-                        arr_channel_id[index] = sk.open("", 0, "127.0.0.1", 3550 + i % 10, beltpp::socket::socketv::ipv4);
-                    //    break;
-                    //}
-                    //catch(...){}
+                    eh.wait(set_items);
+                    beltpp::socket::peer_id channel_id;
+                    sk.receive(channel_id);
+
+                    if (channel_id.empty())
+                        continue;
+
+                    if (i >= 10)
+                        sk.send(arr_channel_id[index], beltpp::message_drop());
+
+                    arr_channel_id[index] = channel_id;
+                    break;
                 }
-
-                ++index;
-
-                //std::this_thread::sleep_for(std::chrono::seconds(1));
             }
         }
 #endif
     }
     catch(std::exception const& ex)
     {
-        std::cout << ex.what() << std::endl;
+        std::cout << "exception " << ex.what() << std::endl;
     }
     catch(...)
     {
