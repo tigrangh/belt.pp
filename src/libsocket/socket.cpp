@@ -990,7 +990,7 @@ sockets socket(addrinfo* servinfo,
 #ifdef BELT_USE_SO_NOSIGPIPE
         {
             int yes = 1;
-            int res = ::setsockopt(socket_descriptor,
+            int res = ::setsockopt(socket_descriptor.handle,
                                    SOL_SOCKET,
                                    SO_NOSIGPIPE,
                                    &yes,
