@@ -52,21 +52,32 @@ inline bool is_invalid(sk_handle const& socket_descriptor) noexcept
     return socket_descriptor.handle == -1;
 }
 
-inline void startup() noexcept
-{
-
-}
-
-inline void shutdown() noexcept
-{
-
-}
 inline string last_error() noexcept
 {
 #ifdef B_OS_WINDOWS
-    return "TODO:";
+    return std::to_string(WSAGetLastError());
 #else
     return strerror(errno);
+#endif
+}
+
+inline void startup()
+{
+#ifdef B_OS_WINDOWS
+    WSADATA wsaData;
+    
+    int err = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    
+    if (err != 0)
+        throw std::runtime_error("WSAStartup failed with error: " + err);
+#endif
+}
+
+inline void shutdown()
+{
+#ifdef B_OS_WINDOWS
+    if (WSACleanup())
+        throw std::runtime_error(last_error());
 #endif
 }
 
