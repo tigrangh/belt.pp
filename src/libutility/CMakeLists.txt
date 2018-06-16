@@ -12,11 +12,11 @@ target_link_libraries(utility PUBLIC belt.pp)
 # what to do on make install
 install(TARGETS utility
         EXPORT belt.pp.package
-        RUNTIME DESTINATION bin/belt.pp
-        LIBRARY DESTINATION lib/belt.pp
-        ARCHIVE DESTINATION lib/belt.pp/archive)
+        RUNTIME DESTINATION ${BELTPP_INSTALL_DESTINATION_RUNTIME}
+        LIBRARY DESTINATION ${BELTPP_INSTALL_DESTINATION_LIBRARY}
+        ARCHIVE DESTINATION ${BELTPP_INSTALL_DESTINATION_ARCHIVE})
 
 install(FILES
     global.hpp
     utility.hpp
-    DESTINATION include/belt.pp/libutility)
+    DESTINATION ${BELTPP_INSTALL_DESTINATION_INCLUDE}/libutility)

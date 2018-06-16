@@ -16,11 +16,11 @@ target_link_libraries(processor PUBLIC belt.pp)
 # what to do on make install
 install(TARGETS processor
         EXPORT belt.pp.package
-        RUNTIME DESTINATION bin/belt.pp
-        LIBRARY DESTINATION lib/belt.pp
-        ARCHIVE DESTINATION lib/belt.pp/archive)
+        RUNTIME DESTINATION ${BELTPP_INSTALL_DESTINATION_RUNTIME}
+        LIBRARY DESTINATION ${BELTPP_INSTALL_DESTINATION_LIBRARY}
+        ARCHIVE DESTINATION ${BELTPP_INSTALL_DESTINATION_ARCHIVE})
 
 install(FILES
     global.hpp
     processor.hpp
-    DESTINATION include/belt.pp/libprocessor)
+    DESTINATION ${BELTPP_INSTALL_DESTINATION_INCLUDE}/libprocessor)
