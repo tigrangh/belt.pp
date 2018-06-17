@@ -1,5 +1,6 @@
 #pragma once
 
+#include "socket.hpp"
 
 #ifndef B_OS_WINDOWS
 #include <netdb.h>
@@ -11,13 +12,15 @@
 
 //  close the file descriptor
 #include <unistd.h>
+
+#include <cerrno>
+#include <cstring>
 #else
+#include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #endif
 
-#include <cerrno>
-#include <cstring>
 #include <string>
 
 using std::string;
@@ -99,6 +102,55 @@ inline char* sockopttype(int* param)
 inline int* sockopttype(int* param)
 {
     return param;
+}
+#endif
+
+#ifdef B_OS_WINDOWS
+inline void connect(SOCKET s,
+                    const struct sockaddr FAR * addr,
+                    size_t len,
+                    beltpp::ip_address const& address)
+{
+    int res = ::connect(fd, addr, len);
+
+    if (SOCKET_ERROR != res || WSAGetLastError() != WSAEINPROGRESS)
+    {
+        char msgbuf[256];
+        msgbuf[0] = '\0';
+
+        FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                       NULL,
+                       WSAGetLastError(),
+                       MAKELANGID (LANG_NEUTRAL, SUBLANG_DEFAULT),
+                       msgbuf,
+                       sizeof (msgbuf),
+                       NULL);
+
+        string native_error(msgbuf);
+        string connect_error = "connect(";
+        connect_error += address.to_string();
+        connect_error += "): ";
+        connect_error += native_error;
+        throw std::runtime_error(connect_error);
+    }
+}
+#else
+inline void connect(int fd,
+                    __CONST_SOCKADDR_ARG addr,
+                    socklen_t len,
+                    beltpp::ip_address const& address)
+{
+    int res = ::connect(fd, addr, len);
+
+    if (-1 != res || errno != EINPROGRESS)
+    {
+        string native_error = ::strerror(errno);
+        string connect_error = "connect(";
+        connect_error += address.to_string();
+        connect_error += "): ";
+        connect_error += native_error;
+        throw std::runtime_error(connect_error);
+    }
 }
 #endif
 }
