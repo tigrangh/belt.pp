@@ -16,7 +16,6 @@
 #include <cerrno>
 #include <cstring>
 #else
-#include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #endif
@@ -106,12 +105,12 @@ inline int* sockopttype(int* param)
 #endif
 
 #ifdef B_OS_WINDOWS
-inline void connect(SOCKET s,
+inline void connect(SOCKET fd,
                     const struct sockaddr FAR * addr,
                     size_t len,
                     beltpp::ip_address const& address)
 {
-    int res = ::connect(fd, addr, len);
+    int res = ::connect(fd, addr, int(len));
 
     if (SOCKET_ERROR != res || WSAGetLastError() != WSAEINPROGRESS)
     {
