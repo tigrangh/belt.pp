@@ -4,8 +4,8 @@ endif()
 
 add_definitions(-DPROCESSOR_LIBRARY)
 
-# define the shared library
-add_library(processor SHARED
+# define the library
+add_library(processor
     global.hpp
     processor.cpp
     processor.hpp)

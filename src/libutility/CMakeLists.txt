@@ -1,7 +1,7 @@
 add_definitions(-DUTILITY_LIBRARY)
 
-# define the shared library
-add_library(utility SHARED
+# define the library
+add_library(utility
     global.hpp
     utility.cpp
     utility.hpp)

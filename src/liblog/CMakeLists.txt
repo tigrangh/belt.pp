@@ -1,7 +1,7 @@
 add_definitions(-DLOG_LIBRARY)
 
-# define the shared library
-add_library(log SHARED
+# define the library
+add_library(log
     global.hpp
     log_console.cpp
     log.hpp)

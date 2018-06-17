@@ -1,7 +1,7 @@
 add_definitions(-DMESSAGES_LIBRARY)
 
-# define the shared library
-add_library(messages SHARED
+# define the library
+add_library(messages
     global.hpp
     messages.cpp
     messages.hpp)

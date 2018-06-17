@@ -1,7 +1,7 @@
 add_definitions(-DPACKET_LIBRARY)
 
-# define the shared library
-add_library(packet SHARED
+# define the library
+add_library(packet
     global.hpp
     packet.cpp
     packet.hpp)

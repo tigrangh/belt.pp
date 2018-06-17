@@ -1,7 +1,7 @@
 add_definitions(-DSOCKET_LIBRARY)
 
-# define the shared library
-add_library(socket SHARED
+# define the library
+add_library(socket
     global.hpp
     event.cpp
     event.hpp
