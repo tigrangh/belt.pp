@@ -112,7 +112,7 @@ inline void connect(SOCKET fd,
 {
     int res = ::connect(fd, addr, int(len));
 
-    if (SOCKET_ERROR != res || WSAGetLastError() != WSAEINPROGRESS)
+    if (SOCKET_ERROR != res || WSAGetLastError() != WSAEWOULDBLOCK)
     {
         char msgbuf[256];
         msgbuf[0] = '\0';
