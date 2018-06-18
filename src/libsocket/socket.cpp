@@ -236,8 +236,7 @@ socket::~socket()
     }
 }
 
-peer_ids socket::listen(ip_address const& address,
-                        int backlog/* = 100*/)
+peer_ids socket::listen(ip_address const& address, int backlog/* = 100*/)
 {
     socket::peer_ids peers;
     string error_message;
@@ -298,8 +297,7 @@ peer_ids socket::listen(ip_address const& address,
     return peers;
 }
 
-void socket::open(ip_address address,
-                  size_t attempts/* = 0*/)
+void socket::open(ip_address address, size_t attempts/* = 0*/)
 {
     socket::peer_ids peers;
 
@@ -664,8 +662,7 @@ packets socket::receive(peer_id& peer)
     return result;
 }
 
-void socket::send(peer_id const& peer,
-                  packet&& pack)
+void socket::send(peer_id const& peer, packet&& pack)
 {
     uint64_t current_id = detail::parse_peer_id(peer);
     if (pack.type() == m_pimpl->m_rtt_drop)
@@ -907,7 +904,7 @@ bool getaddressinfo_is_family_mismatch_error(int rv)
 #ifdef B_OS_MACOS
     return (rv == EAI_ADDRFAMILY) || (rv == EAI_NONAME);
 #elif defined B_OS_WINDOWS
-    return false; //TODO add error code!
+    return (rv == EAI_FAMILY) || (rv == EAI_NONAME);
 #else
     return rv == EAI_ADDRFAMILY;
 #endif
@@ -1021,7 +1018,17 @@ sockets socket(addrinfo* servinfo,
 
         if (reuse)
         {
-#ifndef B_OS_WINDOWS
+#ifdef B_OS_WINDOWS
+            int yes = 1;
+            int res = ::setsockopt(socket_descriptor.handle,
+                SOL_SOCKET,
+                SO_REUSEADDR,
+                native::sockopttype(&yes),
+                sizeof(int));
+
+            if (res != NO_ERROR)
+                throw std::runtime_error("setsocketport() failed with error: " + res);
+#else
             int yes = 1;
             int res = ::setsockopt(socket_descriptor.handle,
                                    SOL_SOCKET,
@@ -1033,16 +1040,6 @@ sockets socket(addrinfo* servinfo,
                 string setsockopt_error = native::last_error();
                 throw std::runtime_error("setsockopt(): " + setsockopt_error);
             }
-#else
-            int yes = 1;
-            int res = ::setsockopt(socket_descriptor.handle,
-                                    SOL_SOCKET,
-                                    SO_REUSEADDR,
-                                    native::sockopttype(&yes),
-                                    sizeof(int));
-
-            if (res != NO_ERROR)
-                throw std::runtime_error("setsocketport() failed with error: " + res);
 #endif
         }
         else
@@ -1132,8 +1129,7 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
     return current_peer;
 }
 
-detail::channel& get_channel(detail::socket_internals* pimpl,
-                             uint64_t current_id)
+detail::channel& get_channel(detail::socket_internals* pimpl, uint64_t current_id)
 {
     std::lock_guard<std::mutex> lock(pimpl->m_mutex);
 
@@ -1146,8 +1142,7 @@ detail::channel& get_channel(detail::socket_internals* pimpl,
     throw std::runtime_error("get_channel");
 }
 
-void delete_channel(detail::socket_internals* pimpl,
-                    uint64_t current_id)
+void delete_channel(detail::socket_internals* pimpl, uint64_t current_id)
 {
     std::lock_guard<std::mutex> lock(pimpl->m_mutex);
 
@@ -1207,5 +1202,3 @@ void delete_channel(detail::socket_internals* pimpl,
 }// end detail
 
 }// end beltpp
-
-

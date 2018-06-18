@@ -120,7 +120,8 @@ int main(int argc, char** argv)
 #elif (VERSION == 10)
         auto sv = beltpp::ip_address::e_type::ipv4;
 
-        beltpp::socket sk = beltpp::getsocket<sf>();
+        beltpp::event_handler eh;
+        beltpp::socket sk = beltpp::getsocket<sf>(eh);
         if (argc == 1)
             sk.open({"127.0.0.1", 3333, "127.0.0.1", 4444, sv});
         else
@@ -154,12 +155,12 @@ int main(int argc, char** argv)
             }
         }
 #else
-        if (1 == argc)
+        if (1 == argc) //server mode
         {
             beltpp::event_handler eh;
             beltpp::socket sk = beltpp::getsocket<sf>(eh);
             eh.add(sk);
-            //
+            
             for (int i = 0; i < 10; ++i)
             {
                 beltpp::ip_address listen_addr("127.0.0.1", short(3550 + i));
@@ -167,10 +168,6 @@ int main(int argc, char** argv)
                 sk.listen(listen_addr);
             }
 
-            //sk.listen("::1", 3557, beltpp::socket::socketv::ipv6);
-            //sk.open("192.168.0.18", 3030, "", 3557, beltpp::socket::socketv::ipv4);
-            //sk.open("", 3030, "", 3557, beltpp::socket::socketv::ipv6);
-            //sk.open("", 3030, "", 3030, beltpp::socket::socketv::ipv4);
             std::cout << sk.dump() << std::endl;
 
             beltpp::socket::peer_id channel_id;
@@ -178,10 +175,12 @@ int main(int argc, char** argv)
 
             while (true)
             {
-                ++index;
                 std::unordered_set<beltpp::ievent_item const*> set_items;
+                
                 eh.wait(set_items);
+
                 auto packets = sk.receive(channel_id);
+
                 for (auto const& packet : packets)
                 {
                     std::string str_type;
@@ -197,7 +196,7 @@ int main(int argc, char** argv)
                         str_type = "unknown";
                     }
 
-                    if (0 != index % 1000)
+                    if (0 != ++index % 1000)
                         continue;
 
                     std::cout << str_type
@@ -208,11 +207,12 @@ int main(int argc, char** argv)
                               << channel_id
                               << "]"
                               << std::endl;
+
                     //std::cout << sk.dump() << std::endl;
                 }
             }
         }
-        else
+        else // client mode
         {
             beltpp::event_handler eh;
             beltpp::socket sk = beltpp::getsocket<sf>(eh);
@@ -244,6 +244,8 @@ int main(int argc, char** argv)
                     arr_channel_id[index] = channel_id;
                     break;
                 }
+
+                std::cout << sk.dump() << std::endl;
             }
         }
 #endif
