@@ -353,18 +353,10 @@ void socket::open(ip_address address, size_t attempts/* = 0*/)
         str_temp_address += detail::dump(*remoteinfo->ai_addr);
 
         {
-            int res = ::connect(socket_descriptor.handle,
-                                remoteinfo->ai_addr,
-                                int(remoteinfo->ai_addrlen));
-            if (-1 != res || errno != EINPROGRESS)
-            {
-                string native_error = native::last_error();
-                string connect_error = "connect(";
-                connect_error += address.to_string();
-                connect_error += "): ";
-                connect_error += native_error;
-                throw std::runtime_error(connect_error);
-            }
+            native::connect(socket_descriptor.handle,
+                            remoteinfo->ai_addr,
+                            remoteinfo->ai_addrlen,
+                            address);
         }
 
         ip_address socket_bundle = detail::get_socket_bundle(socket_descriptor);

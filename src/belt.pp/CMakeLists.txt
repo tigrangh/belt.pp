@@ -11,7 +11,7 @@ target_include_directories(belt.pp INTERFACE
 # what to do on make install
 install(TARGETS belt.pp
         EXPORT belt.pp.package
-        DESTINATION lib/belt.pp)
+        DESTINATION ${BELTPP_INSTALL_DESTINATION_LIBRARY})
 
 set(SRC_FILES
     delegate.hpp
@@ -37,7 +37,7 @@ set(SRC_FILES
 
 install(FILES
     ${SRC_FILES}
-    DESTINATION include/belt.pp/belt.pp)
+    DESTINATION ${BELTPP_INSTALL_DESTINATION_INCLUDE}/belt.pp)
 
 #
 # add custom target simply for IDE to show the files

@@ -1,7 +1,7 @@
 add_definitions(-DSOCKET_LIBRARY)
 
-# define the shared library
-add_library(socket SHARED
+# define the library
+add_library(socket
     global.hpp
     event.cpp
     event.hpp
@@ -19,11 +19,11 @@ target_link_libraries(socket PUBLIC belt.pp packet PRIVATE ${wslib})
 # what to do on make install
 install(TARGETS socket
         EXPORT belt.pp.package
-        RUNTIME DESTINATION bin/belt.pp
-        LIBRARY DESTINATION lib/belt.pp
-        ARCHIVE DESTINATION lib/belt.pp/archive)
+        RUNTIME DESTINATION ${BELTPP_INSTALL_DESTINATION_RUNTIME}
+        LIBRARY DESTINATION ${BELTPP_INSTALL_DESTINATION_LIBRARY}
+        ARCHIVE DESTINATION ${BELTPP_INSTALL_DESTINATION_ARCHIVE})
 
 install(FILES
     global.hpp
     socket.hpp
-    DESTINATION include/belt.pp/libsocket)
+    DESTINATION ${BELTPP_INSTALL_DESTINATION_INCLUDE}/libsocket)
