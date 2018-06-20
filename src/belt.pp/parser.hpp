@@ -718,7 +718,7 @@ bool lexer_helper(T_iterator& it_begin,
         it_begin == it_backup &&    //  so it_begin was not altered yet
         false == detail::scan_beyond_helper<T_lexer>::check(&lexer))
         it_begin = it_end;  //  now alter it_begin too, this will not happen by default
-    //  insted will have to scan past the last token to accept it
+    //  instead will have to scan past the last token to accept it
 
     if (result && it_begin != it_backup)
     {
@@ -773,6 +773,36 @@ public:
         if (value.find(ch) != std::string::npos)
             return beltpp::e_three_state_result::attempt;
         return beltpp::e_three_state_result::error;
+    }
+};
+
+template <typename T_discard_lexer, typename T_lexers>
+class discard_lexer_base_flexible
+{
+public:
+    enum { rtt = typelist::type_list_index<
+                        T_discard_lexer,
+                        T_lexers>::value};
+
+    template <typename T_string,
+              typename T_iterator>
+    static
+    bool internal_read(T_iterator& it_begin,
+                       T_iterator it_end,
+                       detail::token<T_string>& result)
+    {
+        auto it_copy = it_begin;
+        result = detail::token<T_string>();
+        bool code = lexer_helper<T_discard_lexer, T_string>(it_copy, it_end);
+
+        if (code && it_copy != it_begin)
+        {
+            result.rtt = T_discard_lexer::rtt;
+            result.value.assign(it_begin, it_copy);
+            it_begin = it_copy;
+        }
+
+        return code;
     }
 };
 

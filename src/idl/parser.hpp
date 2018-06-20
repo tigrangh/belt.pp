@@ -14,7 +14,8 @@ class keyword_array,
 class keyword_hash,
 class scope_brace,
 class identifier,
-class discard
+class discard,
+class discard_comment
 >;
 
 /*class operator_semicolon : public beltpp::operator_lexer_base<operator_semicolon, lexers>
@@ -236,6 +237,7 @@ public:
         return false;
     }
 };
+
 class discard :
         public beltpp::discard_lexer_base<discard,
                                             lexers,
@@ -244,6 +246,44 @@ class discard :
 public:
     bool scan_beyond() const
     {
+        return false;
+    }
+};
+
+class discard_comment :
+        public beltpp::discard_lexer_base_flexible<discard_comment,
+                                                    lexers>
+{
+    size_t index = -1;
+public:
+    bool scan_beyond() const
+    {
+        return false;
+    }
+
+    beltpp::e_three_state_result check(char ch)
+    {
+        ++index;
+        if ((0 == index || 1 == index) && '/' == ch)
+            return beltpp::e_three_state_result::attempt;
+        else if (1 < index && '\n' == ch)
+            return beltpp::e_three_state_result::success;
+        else if (1 < index)
+            return beltpp::e_three_state_result::attempt;
+        else
+            return beltpp::e_three_state_result::error;
+    }
+
+    template <typename T_iterator>
+    bool final_check(T_iterator const& it_begin,
+                     T_iterator const& it_end) const
+    {
+        std::string value(it_begin, it_end);
+        if (value.length() > 3 &&
+            value[0] == '/' &&
+            value[1] == '/' &&
+            value.back() == '\n')
+            return true;
         return false;
     }
 };
