@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.2)
 
-option(BUILD_STATIC_LIBS "static link build" OFF)
 option(BUILD_SHARED_LIBS "dynamic link build" ON)
 
 project(belt.pp)

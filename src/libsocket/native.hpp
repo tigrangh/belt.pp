@@ -139,7 +139,7 @@ inline void connect(SOCKET fd,
 }
 #else
 inline void connect(int fd,
-                    __CONST_SOCKADDR_ARG addr,
+                    const struct sockaddr* addr,
                     socklen_t len,
                     beltpp::ip_address const& address)
 {
