@@ -117,7 +117,7 @@ std::unordered_set<uint64_t> event_handler::waited(ievent_item& ev_it) const
     auto find_it = ref_event_item_ids.find(&ev_it);
     if (find_it == ref_event_item_ids.end())
     {
-        assert(false);
+        //assert(false);
         throw std::runtime_error("event_handler::waited");
     }
     else
@@ -129,7 +129,7 @@ void event_handler::set_timer(std::chrono::steady_clock::duration const& period)
     m_pimpl->m_timer_helper.set(period);
 }
 
-uint64_t event_handler::add(ievent_item& ev_it, native::sk_handle const& handle, uint64_t item_id, bool out)
+uint64_t event_handler::add(ievent_item& ev_it, native::sk_handle const& handle, uint64_t item_id, bool out, bool close)
 {
     std::lock_guard<std::mutex> lock(m_pimpl->m_mutex);
 
@@ -148,7 +148,7 @@ uint64_t event_handler::add(ievent_item& ev_it, native::sk_handle const& handle,
 
     uint64_t id = it_ids->end_index();
 
-    m_pimpl->m_poll_master.add(handle.handle, id, out);
+    m_pimpl->m_poll_master.add(handle.handle, id, out, close);
 
     beltpp::scope_helper scope_guard([]{},
     [this, handle, id, out]
@@ -209,6 +209,11 @@ void event_handler::remove(native::sk_handle const& handle, uint64_t id, bool al
 
     assert(false);
     throw std::runtime_error("event_handler::remove");
+}
+
+void event_handler::reset(uint64_t reset_id)
+{
+    m_pimpl->m_poll_master.reset(reset_id);
 }
 
 void event_handler::add(ievent_item& ev_it)

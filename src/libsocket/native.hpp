@@ -51,7 +51,11 @@ inline int close(sk_handle const& socket_descriptor) noexcept
 
 inline bool is_invalid(sk_handle const& socket_descriptor) noexcept
 {
+#ifdef B_OS_WINDOWS
+    return socket_descriptor.handle == INVALID_SOCKET;
+#else
     return socket_descriptor.handle == -1;
+#endif
 }
 
 inline string last_error() noexcept
