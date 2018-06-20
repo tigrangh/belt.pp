@@ -7,8 +7,13 @@
 #define UNICODE
 #define _UNICODE
 
+#ifdef BUILD_SHARED_LIBS
 #define BELT_EXPORT __declspec(dllexport)
 #define BELT_IMPORT __declspec(dllimport)
+#else
+#define BELT_EXPORT
+#define BELT_IMPORT
+#endif
 
 #elif defined __APPLE__
 

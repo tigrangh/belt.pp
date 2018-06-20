@@ -176,8 +176,7 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
                                     native::sk_handle const& socket_descriptor,
                                     detail::channel::type e_type,
                                     size_t attempts,
-                                    ip_address const& socket_bundle,
-                                    bool close);
+                                    ip_address const& socket_bundle);
 detail::channel& get_channel(detail::socket_internals* pimpl,
                              uint64_t id);
 void delete_channel(detail::socket_internals* pimpl,
@@ -287,8 +286,7 @@ peer_ids socket::listen(ip_address const& address, int backlog/* = 100*/)
                                         socket_descriptor,
                                         detail::channel::type::listening,
                                         0,
-                                        socket_bundle,
-                                        false));
+                                        socket_bundle));
         guard.commit();
     }
 
@@ -372,8 +370,7 @@ void socket::open(ip_address address, size_t attempts/* = 0*/)
                                         socket_descriptor,
                                         detail::channel::type::streaming,
                                         attempts,
-                                        socket_bundle,
-                                        true));
+                                        socket_bundle));
         guard.commit();
     }
 }
@@ -546,8 +543,7 @@ packets socket::receive(peer_id& peer)
                                        joined_socket_descriptor,
                                        detail::channel::type::streaming,
                                        0,
-                                       socket_bundle,
-                                       true);
+                                       socket_bundle);
 
             packet pack;
 
@@ -1083,8 +1079,7 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
                                     native::sk_handle const& socket_descriptor,
                                     detail::channel::type e_type,
                                     size_t attempts,
-                                    ip_address const& socket_bundle,
-                                    bool close)
+                                    ip_address const& socket_bundle)
 {
     std::lock_guard<std::mutex> lock(pimpl->m_mutex);
 
@@ -1107,7 +1102,11 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
             detail::construct_peer_id(id, socket_descriptor);
 
     bool out = (attempts != 0);
-    uint64_t eh_id = pimpl->m_peh->add(self, socket_descriptor, id, out, close);
+    bool need_close_event = true;
+    if (e_type == detail::channel::type::listening)
+        need_close_event = false;
+
+    uint64_t eh_id = pimpl->m_peh->add(self, socket_descriptor, id, out, need_close_event);
 
     beltpp::scope_helper scope_guard([]{},
     [pimpl, socket_descriptor, eh_id, out]

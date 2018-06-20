@@ -173,7 +173,7 @@ int main(int argc, char** argv)
             std::cout << sk.dump() << std::endl;
 
             beltpp::socket::peer_id channel_id;
-            size_t index = 0;
+            //size_t index = 0; // unused
 
             while (true)
             {

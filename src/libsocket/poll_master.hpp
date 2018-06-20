@@ -181,6 +181,8 @@ public:
         return set_ids;
     }
 
+    void reset(uint64_t) {}
+
     int m_fd;
     epoll_event m_event;
     std::vector<epoll_event> m_arr_event;
@@ -310,6 +312,8 @@ public:
 
         return set_ids;
     }
+
+    void reset(uint64_t) {}
 
     int m_fd;
     struct kevent m_event;
@@ -441,14 +445,10 @@ namespace beltpp
 
             void reset(uint64_t reset_id)
             {
-#ifdef B_OS_WINDOWS
                 int index = reset_map[reset_id];
 
                 if (!WSAResetEvent(wsa_event_array[index]))
                    throw std::runtime_error("WSAResetEvent failed with error: " + native::last_error());
-#else
-                //for Linux and Macos cases no need remove events
-#endif
             }
         };
     }
