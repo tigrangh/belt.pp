@@ -176,7 +176,8 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
                                     native::sk_handle const& socket_descriptor,
                                     detail::channel::type e_type,
                                     size_t attempts,
-                                    ip_address const& socket_bundle);
+                                    ip_address const& socket_bundle,
+                                    bool close);
 detail::channel& get_channel(detail::socket_internals* pimpl,
                              uint64_t id);
 void delete_channel(detail::socket_internals* pimpl,
@@ -286,7 +287,8 @@ peer_ids socket::listen(ip_address const& address, int backlog/* = 100*/)
                                         socket_descriptor,
                                         detail::channel::type::listening,
                                         0,
-                                        socket_bundle));
+                                        socket_bundle,
+                                        false));
         guard.commit();
     }
 
@@ -352,14 +354,13 @@ void socket::open(ip_address address, size_t attempts/* = 0*/)
             continue;
         str_temp_address += detail::dump(*remoteinfo->ai_addr);
 
-        {
-            native::connect(socket_descriptor.handle,
-                            remoteinfo->ai_addr,
-                            remoteinfo->ai_addrlen,
-                            address);
-        }
+        native::connect(socket_descriptor.handle,
+                        remoteinfo->ai_addr,
+                        remoteinfo->ai_addrlen,
+                        address);
 
         ip_address socket_bundle = detail::get_socket_bundle(socket_descriptor);
+
         if (socket_bundle.remote.empty())
             socket_bundle.remote = address.remote;
 
@@ -371,7 +372,8 @@ void socket::open(ip_address address, size_t attempts/* = 0*/)
                                         socket_descriptor,
                                         detail::channel::type::streaming,
                                         attempts,
-                                        socket_bundle));
+                                        socket_bundle,
+                                        true));
         guard.commit();
     }
 }
@@ -438,6 +440,8 @@ packets socket::receive(peer_id& peer)
                 detail::get_channel(m_pimpl.get(),
                                     current_id);
 
+        m_pimpl->m_peh->reset(current_id);
+
         if (current_channel.m_attempts)
         {
             --current_channel.m_attempts;
@@ -484,7 +488,8 @@ packets socket::receive(peer_id& peer)
                         m_pimpl->m_peh->add(*this,
                                             socket_descriptor,
                                             current_id,
-                                            false);
+                                            false,
+                                            true);
 
                 current_channel.m_attempts = 0;
                 packet pack;
@@ -528,8 +533,7 @@ packets socket::receive(peer_id& peer)
             if (native::is_invalid(joined_socket_descriptor))
             {
                 string accept_error = native::last_error();
-                throw std::runtime_error("accept(): " +
-                                         accept_error);
+                throw std::runtime_error("accept(): " + accept_error);
             }
 
             set_nonblocking(joined_socket_descriptor.handle, true);
@@ -542,7 +546,8 @@ packets socket::receive(peer_id& peer)
                                        joined_socket_descriptor,
                                        detail::channel::type::streaming,
                                        0,
-                                       socket_bundle);
+                                       socket_bundle,
+                                       true);
 
             packet pack;
 
@@ -640,7 +645,7 @@ packets socket::receive(peer_id& peer)
                     else
                         break;
                 }
-
+               
                 if (false == result.empty())
                 {
                     peer = detail::construct_peer_id(current_id,
@@ -800,6 +805,7 @@ string construct_peer_id(uint64_t id, native::sk_handle const& socket_descriptor
 
     return construct_peer_id(id, socket_bundle);
 }
+
 string construct_peer_id(uint64_t id, ip_address const& socket_bundle)
 {
     return std::to_string(id) + "<=>" + socket_bundle.to_string();
@@ -1077,7 +1083,8 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
                                     native::sk_handle const& socket_descriptor,
                                     detail::channel::type e_type,
                                     size_t attempts,
-                                    ip_address const& socket_bundle)
+                                    ip_address const& socket_bundle,
+                                    bool close)
 {
     std::lock_guard<std::mutex> lock(pimpl->m_mutex);
 
@@ -1100,7 +1107,7 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
             detail::construct_peer_id(id, socket_descriptor);
 
     bool out = (attempts != 0);
-    uint64_t eh_id = pimpl->m_peh->add(self, socket_descriptor, id, out);
+    uint64_t eh_id = pimpl->m_peh->add(self, socket_descriptor, id, out, close);
 
     beltpp::scope_helper scope_guard([]{},
     [pimpl, socket_descriptor, eh_id, out]

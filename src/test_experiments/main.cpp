@@ -157,6 +157,8 @@ int main(int argc, char** argv)
 #else
         if (1 == argc) //server mode
         {
+            //__debugbreak();
+
             beltpp::event_handler eh;
             beltpp::socket sk = beltpp::getsocket<sf>(eh);
             eh.add(sk);
@@ -196,8 +198,8 @@ int main(int argc, char** argv)
                         str_type = "unknown";
                     }
 
-                    if (0 != ++index % 1000)
-                        continue;
+                    //if (0 != ++index % 1000)
+                    //    continue;
 
                     std::cout << str_type
                               << " [msg code - "
@@ -214,6 +216,8 @@ int main(int argc, char** argv)
         }
         else // client mode
         {
+            //__debugbreak();
+
             beltpp::event_handler eh;
             beltpp::socket sk = beltpp::getsocket<sf>(eh);
             eh.add(sk);
@@ -221,7 +225,7 @@ int main(int argc, char** argv)
             std::vector<beltpp::socket::peer_id> arr_channel_id;
             arr_channel_id.resize(10);
 
-            for (size_t i = 0; i < 100000; ++i)
+            for (size_t i = 0; i < 20; ++i)
             {
                 short index = short(i % arr_channel_id.size());
 
@@ -238,6 +242,8 @@ int main(int argc, char** argv)
                     if (channel_id.empty())
                         continue;
 
+                    //sk.send(channel_id, beltpp::message_drop()); //debug
+
                     if (i >= 10)
                         sk.send(arr_channel_id[index], beltpp::message_drop());
 
@@ -245,14 +251,14 @@ int main(int argc, char** argv)
                     break;
                 }
 
-                std::cout << sk.dump() << std::endl;
+                //std::cout << sk.dump() << std::endl;
             }
         }
 #endif
     }
     catch(std::exception const& ex)
     {
-        std::cout << "exception " << ex.what() << std::endl;
+        std::cout << std::endl << "exception: " << ex.what() << std::endl;
     }
     catch(...)
     {
