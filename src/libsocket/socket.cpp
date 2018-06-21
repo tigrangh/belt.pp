@@ -567,6 +567,7 @@ packets socket::receive(peer_id& peer)
                            int(size_buffer),
                            0);
 
+            //TODO: move to native and split WIN cases
             if (-1 == res &&
                     (errno == EWOULDBLOCK || errno == EAGAIN))
                 continue;
