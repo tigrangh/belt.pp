@@ -37,7 +37,7 @@ public:
         if (false == enabled)
             return;
         message_no_eol(value);
-        cerr << endl;
+        cout << endl;
         fresh_line = true;
     }
     void warning(std::string const& value) override
@@ -45,7 +45,7 @@ public:
         if (false == enabled)
             return;
         warning_no_eol(value);
-        cerr << endl;
+        cout << endl;
         fresh_line = true;
     }
     void error(std::string const& value) override
