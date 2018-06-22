@@ -96,6 +96,33 @@ inline char const* gai_error(int ecode)
 #endif
 }
 
+inline bool check_recv_block(int res)
+{
+#ifdef B_OS_WINDOWS
+    return res == SOCKET_ERROR && WSAGetLastError() == WSAEWOULDBLOCK;
+#else
+    return -1 == res && (errno == EWOULDBLOCK || errno == EAGAIN);
+#endif
+}
+
+inline bool check_recv_connect(int res)
+{
+#ifdef B_OS_WINDOWS
+    return res == SOCKET_ERROR && WSAGetLastError() == WSAECONNRESET;
+#else
+    return -1 == res && errno == ECONNRESET;
+#endif
+}
+
+inline bool check_recv_fail(int res)
+{
+#ifdef B_OS_WINDOWS
+    return res == SOCKET_ERROR;
+#else
+    return -1 == res;
+#endif
+}
+
 #ifdef B_OS_WINDOWS
 inline char* sockopttype(int* param)
 {

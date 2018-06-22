@@ -567,15 +567,13 @@ packets socket::receive(peer_id& peer)
                            int(size_buffer),
                            0);
 
-            //TODO: move to native and split WIN cases
-            if (-1 == res &&
-                    (errno == EWOULDBLOCK || errno == EAGAIN))
+            if (native::check_recv_block(res))
                 continue;
 
-            if (-1 == res && errno == ECONNRESET)
+            if (native::check_recv_connect(res))
                 res = 0;
 
-            if (-1 == res)
+            if (native::check_recv_fail(res))
             {
                 string recv_error = native::last_error();
                 throw std::runtime_error("recv(): " +
