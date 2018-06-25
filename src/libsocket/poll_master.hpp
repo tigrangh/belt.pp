@@ -367,7 +367,7 @@ namespace beltpp
                     WSAEventSelect(socket_descriptor, wsa_event_array[event_count], FD_WRITE);
                 else
                     if(!close)// for listen channels
-                        WSAEventSelect(socket_descriptor, wsa_event_array[event_count], FD_ACCEPT | FD_READ);
+                        WSAEventSelect(socket_descriptor, wsa_event_array[event_count], FD_ACCEPT);
                     else// for stream cannels
                         WSAEventSelect(socket_descriptor, wsa_event_array[event_count], FD_ACCEPT | FD_READ | FD_CLOSE); 
 
@@ -389,11 +389,12 @@ namespace beltpp
                     wsa_event_array[i] = wsa_event_array[i + 1];
 
                     index_map[i] = index_map[i + 1];
+                    socket_map[i] = socket_map[i + 1];
                 }
 
                 reset_map.erase(id);
                 index_map.erase(event_count);
-                socket_map.erase(wsa_index);
+                socket_map.erase(event_count);
 
                 for (auto &item : reset_map)
                     if (item.second > wsa_index)
@@ -420,9 +421,6 @@ namespace beltpp
  
                 if (index == WSA_WAIT_FAILED)
                     throw std::runtime_error("WSAWaitForMultipleEvents() failed with error: " + WSAGetLastError());
-
-                if (index == WSA_WAIT_TIMEOUT)
-                    throw std::runtime_error("WSAWaitForMultipleEvents() finished with Timeout! ");
  
                 index = index - WSA_WAIT_EVENT_0;
 
@@ -433,10 +431,19 @@ namespace beltpp
                     
                     if ((_index != WSA_WAIT_FAILED) && (_index != WSA_WAIT_TIMEOUT))
                     {
-                        WSAEnumNetworkEvents(socket_map[i], NULL, &networkevents);
-                        
-                        uint64_t id = index_map[i];
-                        set_ids.insert(id);
+                        if (socket_map.find(i) == socket_map.end())
+                            throw std::runtime_error("socket index is not valid: " + i);
+
+                        if (SOCKET_ERROR != WSAEnumNetworkEvents(socket_map[i], NULL, &networkevents))
+                        {
+                            uint64_t id = index_map[i];
+                            set_ids.insert(id);
+                        }
+                        else
+                        {
+                            int err = WSAGetLastError();
+                            throw std::runtime_error("WSAEnumNetworkEvents fails with error: " + err);
+                        }
                     }                    
                 }
                 
@@ -445,6 +452,9 @@ namespace beltpp
 
             void reset(uint64_t reset_id)
             {
+                if (reset_map.find(reset_id) == reset_map.end())
+                    return;
+                    
                 int index = reset_map[reset_id];
 
                 if (!WSAResetEvent(wsa_event_array[index]))

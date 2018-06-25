@@ -69,6 +69,12 @@ event_handler::wait_result event_handler::wait(std::unordered_set<ievent_item co
         event_item_in_set->prepare_wait();
     }
 
+    if (m_pimpl->m_timer_helper.expired())
+    {
+        m_pimpl->m_timer_helper.update();
+        return event_handler::timer_out;
+    }
+
     std::unordered_set<uint64_t> set_ids = m_pimpl->m_poll_master.wait(m_pimpl->m_timer_helper);
 
     if (m_pimpl->m_timer_helper.expired())

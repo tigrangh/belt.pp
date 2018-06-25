@@ -437,7 +437,7 @@ packets socket::receive(peer_id& peer)
                 detail::get_channel(m_pimpl.get(),
                                     current_id);
 
-        m_pimpl->m_peh->reset(current_id);
+        m_pimpl->m_peh->reset(current_channel.m_eh_id);
 
         if (current_channel.m_attempts)
         {

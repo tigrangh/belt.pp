@@ -108,7 +108,9 @@ inline bool check_recv_block(int res)
 inline bool check_recv_connect(int res)
 {
 #ifdef B_OS_WINDOWS
-    return res == SOCKET_ERROR && WSAGetLastError() == WSAECONNRESET;
+    return res == SOCKET_ERROR && 
+                    (WSAGetLastError() == WSAECONNRESET ||
+                     WSAGetLastError() == WSAECONNABORTED);
 #else
     return -1 == res && errno == ECONNRESET;
 #endif
