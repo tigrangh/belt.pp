@@ -4,6 +4,7 @@ add_definitions(-DLOG_LIBRARY)
 add_library(log
     global.hpp
     log_console.cpp
+    log_file.cpp
     log.hpp)
 
 # libraries this module links to
