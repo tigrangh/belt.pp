@@ -28,6 +28,7 @@ endif()
 
 add_subdirectory(belt.pp)
 add_subdirectory(idl)
+add_subdirectory(idl_php)
 add_subdirectory(liblog)
 add_subdirectory(libmessages)
 add_subdirectory(libpacket)
