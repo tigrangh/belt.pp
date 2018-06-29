@@ -8,7 +8,7 @@ add_library(log
     log.hpp)
 
 # libraries this module links to
-target_link_libraries(log PUBLIC belt.pp)
+target_link_libraries(log PUBLIC belt.pp PRIVATE utility)
 
 # what to do on make install
 install(TARGETS log
