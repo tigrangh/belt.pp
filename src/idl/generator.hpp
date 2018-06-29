@@ -1,6 +1,6 @@
 #pragma once
 
-#include "parser.hpp"
+#include <belt.pp/idl_parser.hpp>
 
 #include <string>
 #include <unordered_map>

@@ -3,7 +3,6 @@ add_executable(idl
     generator.cpp
     generator.hpp
     main.cpp
-    parser.hpp
     resources.cpp
     resources.hpp)
 

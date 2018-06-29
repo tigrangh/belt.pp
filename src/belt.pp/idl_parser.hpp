@@ -1,7 +1,7 @@
 #pragma once
 
-#include <belt.pp/parser.hpp>
-#include <belt.pp/meta.hpp>
+#include "parser.hpp"
+#include "meta.hpp"
 
 #include <string>
 
