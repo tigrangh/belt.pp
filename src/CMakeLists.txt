@@ -39,6 +39,7 @@ add_subdirectory(test_async)
 add_subdirectory(test_cp)
 add_subdirectory(test_cpdummy)
 add_subdirectory(test_experiments)
+add_subdirectory(test_file_logger)
 
 # following is used for find_package functionality
 install(FILES belt.pp-config.cmake DESTINATION ${BELTPP_INSTALL_DESTINATION_LIBRARY})

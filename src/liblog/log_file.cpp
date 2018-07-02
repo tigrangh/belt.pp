@@ -46,11 +46,7 @@ public:
         if (false == enabled)
             return;
 
-        my_file.open(file_name, std::ios::app);
-        if(!my_file.is_open())
-            return;
         message_no_eol(value);
-        my_file.close();
 
         fresh_line = true;
     }
@@ -59,11 +55,7 @@ public:
         if (false == enabled)
             return;
 
-        my_file.open(file_name, std::ios::app);
-        if(!my_file.is_open())
-            return;
         warning_no_eol(value);
-        my_file.close();
 
         fresh_line = true;
     }
@@ -72,11 +64,7 @@ public:
         if (false == enabled)
             return;
 
-        my_file.open(file_name, std::ios::app);
-        if(!my_file.is_open())
-            return;
         error_no_eol(value);
-        my_file.close();
 
         fresh_line = true;
     }
@@ -86,11 +74,16 @@ public:
         if (false == enabled)
             return;
 
+        my_file.open(file_name, std::ios::app);
+        if(!my_file.is_open())
+            return;
+
         //print the current system time and value into the given file
         std::time_t time_t_now = system_clock::to_time_t(system_clock::now());
         my_file << beltpp::gm_time_t_to_lc_string(time_t_now) << "\t";
 
         my_file << value << "\n";
+        my_file.close();
         //cout << value << " ";
         fresh_line = false;
     }
@@ -98,13 +91,22 @@ public:
     {
         if (false == enabled)
             return;
+
+        my_file.open(file_name, std::ios::app);
+        if(!my_file.is_open())
+            return;
+
         if (fresh_line)
         {
             std::time_t time_t_now = system_clock::to_time_t(system_clock::now());
             my_file << beltpp::gm_time_t_to_lc_string(time_t_now) << "\t";
             my_file << "Warning: ";
         }
+        else
+            my_file << "\t\t\t\t ";
+
         my_file << value << "\n";
+        my_file.close();
         //cout << value << " ";
         fresh_line = false;
     }
@@ -112,13 +114,22 @@ public:
     {
         if (false == enabled)
             return;
+
+        my_file.open(file_name, std::ios::app);
+        if(!my_file.is_open())
+            return;
+
         if (fresh_line)
         {
             std::time_t time_t_now = system_clock::to_time_t(system_clock::now());
             my_file << beltpp::gm_time_t_to_lc_string(time_t_now) << "\t";
-            my_file << "Error: ";
+            my_file << "Error:   ";
         }
+        else
+            my_file << "\t\t\t\t ";
+
         my_file << value << "\n";
+        my_file.close();
         //cerr << value << " ";
         fresh_line = false;
     }
