@@ -6,6 +6,8 @@
 #include <unordered_set>
 #include <exception>
 #include <utility>
+#include<iostream>
+#include<string>
 
 using std::string;
 using std::vector;
@@ -17,17 +19,17 @@ using std::runtime_error;
 state_holder::state_holder()
     : namespace_name()
     //  use php types below instead
-    , map_types{{"String", "std::string"},
+    , map_types{{"String", "string"},
                 {"Bool", "bool"},
-                {"Int8", "int8_t"},
-                {"UInt8", "uint8_t"},
-                {"Int16", "int16_t"},
-                {"UInt16", "uint16_t"},
-                {"Int", "uint32_t"},
-                {"Int32", "int32_t"},
-                {"UInt32", "uint32_t"},
-                {"Int64", "int64_t"},
-                {"UInt64", "uint64_t"},
+                {"Int8", "int"},
+                {"UInt8", "int"},
+                {"Int16", "int"},
+                {"UInt16", "int"},
+                {"Int", "int"},
+                {"Int32", "int"},
+                {"UInt32", "int"},
+                {"Int64", "int"},
+                {"UInt64", "int"},
                 {"Float32", "float"},
                 {"Float64", "double"},
                 {"TimePoint", "ctime"},
@@ -75,7 +77,7 @@ string construct_type_name (expression_tree const* member_type,
     {
         string type_name = convert_type(member_type->children.front()->lexem.value,
                                         state, type_detail);
-        return "std::vector<" + type_name + ">";
+        return "array";
     }
     else if (member_type->lexem.rtt == keyword_hash::rtt &&
              member_type->children.size() == 2 &&
@@ -95,8 +97,8 @@ string construct_type_name (expression_tree const* member_type,
         if ((type_detail & type_object) &&
             (type_detail & type_extension))
             throw runtime_error("hash object extension mix");
-
-        return "std::unordered_map<" + key_type_name  + ", " + value_type_name + ">";
+        return "array";
+        //return "std::unordered_map<" + key_type_name  + ", " + value_type_name + ">";
     }
     else
         throw runtime_error("can't get type definition, wtf!");
@@ -107,11 +109,19 @@ string analyze(state_holder& state,
                expression_tree const* pexpression)
 {
     size_t rtt = 0;
-    string result;
+    string result=R"file_template(
+    interface Validator
+    {
+         public function validate(stdClass $data);
+    }
+    class Rtt
+    {
+         CONST types = [)file_template";
+
     assert(pexpression);
 
     unordered_map<size_t, string> class_names, type_names;
-
+    string resultMid;
     if (pexpression->lexem.rtt != keyword_module::rtt ||
         pexpression->children.size() != 2 ||
         pexpression->children.front()->lexem.rtt != identifier::rtt ||
@@ -137,7 +147,7 @@ string analyze(state_holder& state,
 
                 string type_name = item->children.front()->lexem.value;
 
-                result += analyze_struct(state,
+                resultMid += analyze_struct(state,
                                          item->children.back(),
                                          rtt,
                                          type_name,
@@ -166,12 +176,39 @@ string analyze(state_holder& state,
         if (max_rtt < type_item.first)
             max_rtt = type_item.first;
     }
-
+    result+="\n";
     for (size_t index = 0; index < max_rtt + 1; ++index)
     {
-    }
+            result+="\t"+std::to_string(index)+" => '"+class_names[index]+"',\n";
 
-    return result;
+    }
+    result += R"file_template(
+        ];
+        public function validate(string $jsonData)
+        {
+              $jsonObj = json_decode($jsonData);
+              if ($jsonObj === null) {
+                    return false;
+              }
+              if (!isset(Rtt::types[$jsonObj->rtt])) {
+                    return false;
+              }
+              try {
+                   $className = Rtt::types[$jsonObj->rtt];
+                   /**
+                    * @var Validator $class
+                    */
+                   $class = new $className;
+                   $class->validate($jsonObj);
+                   return true;
+               } catch (Throwable $e) {
+                   return $e->getMessage();
+               }
+            }
+          }
+    )file_template";
+
+    return result+resultMid;
 }
 template <typename T>
 inline bool set_contains(T const& value, unordered_set<T> const& set)
@@ -193,8 +230,6 @@ string analyze_struct(state_holder& state,
     string result;
     assert(pexpression);
 
-    // result += "class " + type_name + ";\n";
-
     vector<pair<expression_tree const*, expression_tree const*>> members;
 
     if (pexpression->children.size() % 2 != 0)
@@ -215,12 +250,18 @@ string analyze_struct(state_holder& state,
         members.push_back(std::make_pair(member_name, member_type));
     }
 
-    //result += "    enum {rtt = " + std::to_string(rtt) + "};\n";
-
     unordered_set<string> set_object_name;
     unordered_set<string> set_extension_name;
 
     unordered_map<string, string> map_member_name_type;
+
+    result += "    class " + type_name + " implements Validator \n";
+    result += "    {\n";
+    string params;
+    string setFunction;
+    string arrayCase;
+    string trivialTypes;
+    string objectTypes;
 
     for (auto member_pair : members)
     {
@@ -231,20 +272,63 @@ string analyze_struct(state_holder& state,
 
         g_type_info type_detail;
         string member_type_name = construct_type_name(member_type, state, type_detail);
-        //result += "    " + member_type_name + " " + member_name.value + ";\n";
 
         if (type_detail & type_object)
             set_object_name.insert(member_name.value);
         else if (type_detail & type_extension)
             set_extension_name.insert(member_name.value);
 
+        params +=
+                "        /**\n"
+                "        * @var "+ member_type_name + "\n" +
+                "        */ \n" +
+                "        private $" + member_name.value + ";\n";
+
+        if(member_type_name=="array")
+        {
+            string item = member_name.value.substr( 0, member_name.value.length()-1);
+            arrayCase +=
+                        "              foreach ($data->" + member_name.value + " as $" + item + ") { \n"
+                        "                  $" + item + "Obj = new " + ((char)(item.at(0)-32) + item.substr( 1, item.length()-1) ) + "() \n"
+                        "                  $" + item + "Obj->validate($" + item + "); \n"
+                        "               } \n";
+
+
+        }
+        else if (member_type_name=="int" ||
+                 member_type_name=="string" ||
+                 member_type_name=="bool" ||
+                 member_type_name=="float" ||
+                 member_type_name=="double")
+        {
+            trivialTypes+="            $this->set" + ((char)(member_name.value.at(0)-32) + member_name.value.substr( 1,member_name.value.length()-1) ) + "($data->" + member_name.value + "); \n";
+
+            setFunction +=
+                        "        /** \n"
+                        "        * @param " + member_type_name + " $" + member_name.value + "\n"
+                        "        */ \n"
+                        "        public function set" + (char)( member_name.value.at(0)-32 ) + member_name.value.substr( 1,member_name.value.length()-1 ) + "(" + member_type_name +" $" + member_name.value + ") \n"
+                        "        { \n"
+                        "                $this->" + member_name.value + " = $" + member_name.value + "; \n"
+                        "        } \n";
+        }
+        else
+        {
+            objectTypes +=
+                    "            $" + member_name.value + "Obj = new "+member_type_name + "();\n"
+                    "            $" + member_name.value + "Obj -> validate($data-> "+member_name.value  + ");\n";
+
+        }
+
         map_member_name_type.insert(std::make_pair(member_name.value, member_type_name));
     }
 
-//    auto member_type_by_name = [&map_member_name_type](string const& name)
-//    {
-//        return map_member_name_type[name];
-//    };
-
+    string validation=
+            "        public function validate(stdClass $data) \n"
+            "        { \n"+
+                       objectTypes + trivialTypes + arrayCase +
+            "        } \n"
+            "    } \n";
+    result += params + setFunction + validation;
     return result;
 }
