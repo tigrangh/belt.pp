@@ -32,7 +32,7 @@ state_holder::state_holder()
                 {"UInt64", "int"},
                 {"Float32", "float"},
                 {"Float64", "double"},
-                {"TimePoint", "int"},
+                {"TimePoint", "integer"},
                 {"Object", "::beltpp::packet"},
                 {"Extension", "::beltpp::packet"}}
 {
@@ -111,13 +111,13 @@ string analyze(state_holder& state,
 {
     size_t rtt = 0;
     string result=R"file_template(
-    interface Validator
-    {
-         public function validate(stdClass $data);
-    }
-    class Rtt
-    {
-         CONST types = [)file_template";
+interface Validator
+{
+    public function validate(stdClass $data);
+}
+class Rtt
+{
+    CONST types = [)file_template";
 
     assert(pexpression);
 
@@ -136,8 +136,7 @@ string analyze(state_holder& state,
 
         for (auto item : pexpression->children.back()->children)
         {
-            if (item->lexem.rtt == keyword_type::rtt ||
-                item->lexem.rtt == keyword_class::rtt)
+            if (item->lexem.rtt == keyword_class::rtt)
             {
                 bool serializable = (item->lexem.rtt == keyword_class::rtt);
 
@@ -147,7 +146,7 @@ string analyze(state_holder& state,
                     throw runtime_error("type syntax is wrong");
 
                 string type_name = item->children.front()->lexem.value;
-
+                //std::cout<<item->children.front()->lexem.rtt<<std::endl;
                 resultMid += analyze_struct(state,
                                          item->children.back(),
                                          rtt,
@@ -160,6 +159,7 @@ string analyze(state_holder& state,
                     type_names.insert(std::make_pair(rtt, type_name));
                 ++rtt;
             }
+            if( item->lexem.rtt == keyword_type::rtt ) ++rtt;
         }
     }
 
@@ -180,46 +180,46 @@ string analyze(state_holder& state,
     result+="\n";
     for (size_t index = 0; index < max_rtt + 1; ++index)
     {
+        if(!(class_names[index].empty()))
             result+="\t"+std::to_string(index)+" => '"+class_names[index]+"',\n";
 
     }
     result += R"file_template(
-        ];
-              /**
-                   * @param string|object $jsonObj
-                   * @return bool|string
-                   */
-                  public static function validate($jsonObj)
-                  {
-                      if (!is_object($jsonObj)) {
-                          $jsonObj = json_decode($jsonObj);
-                          if ($jsonObj === null) {
-                              return false;
+];
+
+    /**
+    * @param string|object $jsonObj
+    * @return bool|string
+    */
+    public static function validate($jsonObj)
+    {
+        if (!is_object($jsonObj)) {
+            $jsonObj = json_decode($jsonObj);
+            if ($jsonObj === null) {
+                return false;
                           }
-                      }
+            }
 
-                      if (!isset($jsonObj->rtt)) {
-                          return false;
-                      }
+        if (!isset($jsonObj->rtt)) {
+            return false;
+        }
 
-                      if (!isset(Rtt::types[$jsonObj->rtt])) {
-                          return false;
-                      }
-
-                      try {
-                          $className = Rtt::types[$jsonObj->rtt];
-
-                          /**
-                           * @var Validator $class
-                           */
-                          $class = new $className;
-                          $class->validate($jsonObj);
-
-                          return true;
-                      } catch (Throwable $e) {
-                          return $e->getMessage();
-                      }
-                  }
+        if (!isset(Rtt::types[$jsonObj->rtt])) {
+            return false;
+        }
+        try {
+            $className = Rtt::types[$jsonObj->rtt];
+            /**
+            * @var Validator $class
+            */
+            $class = new $className;
+            $class->validate($jsonObj);
+            return true;
+        } catch (Throwable $e) {
+            return $e->getMessage();
+        }
+    }
+}
     )file_template";
 
     return result+resultMid;
@@ -269,8 +269,8 @@ string analyze_struct(state_holder& state,
 
     unordered_map<string, string> map_member_name_type;
 
-    result += "    class " + type_name + " implements Validator \n";
-    result += "    {\n";
+    result += "class " + type_name + " implements Validator \n";
+    result += "{\n";
     string params;
     string setFunction;
     string arrayCase;
@@ -298,63 +298,80 @@ string analyze_struct(state_holder& state,
         {
 
             params +=
-                    "        /**\n"
-                    "        * @var mixed \n"
-                    "        */ \n"
-                    "        private $" + member_name.value + ";\n";
+                    "    /**\n"
+                    "    * @var mixed \n"
+                    "    */ \n"
+                    "    private $" + member_name.value + ";\n";
 
-            mixedTypes += "            Rtt::validate($data->" +  member_name.value + ");\n";
+            mixedTypes += "        Rtt::validate($data->" +  member_name.value + ");\n";
         } else params +=
-                            "        /**\n"
-                            "        * @var "+ member_type_name + "\n" +
-                            "        */ \n" +
-                            "        private $" + member_name.value + ";\n";
+                            "    /**\n"
+                            "    * @var "+ member_type_name + "\n" +
+                            "    */ \n" +
+                            "    private $" + member_name.value + ";\n";
 
         if(member_type_name=="array")
         {
-            string item = member_name.value.substr( 0, member_name.value.length()-1);
+            string item = member_name.value+"Item";
             arrayCase +=
-                        "              foreach ($data->" + member_name.value + " as $" + item + ") { \n"
-                        "                  $" + item + "Obj = new " + type + "() \n"
-                        "                  $" + item + "Obj->validate($" + item + "); \n"
-                        "               } \n";
+                        "          foreach ($data->" + member_name.value + " as $" + item + ") { \n"
+                        "              $" + item + "Obj = new " + type + "() \n"
+                        "              $" + item + "Obj->validate($" + item + "); \n"
+                        "           } \n";
 
 
         }
-        else if (member_type_name=="int" ||
-                 member_type_name=="string" ||
-                 member_type_name=="bool" ||
-                 member_type_name=="float" ||
-                 member_type_name=="double")
+        else if (member_type_name == "int" ||
+                 member_type_name == "string" ||
+                 member_type_name == "bool" ||
+                 member_type_name == "float" ||
+                 member_type_name == "double" ||
+                 member_type_name == "integer")
         {
-            trivialTypes+="            $this->set" + ((char)(member_name.value.at(0)-32) + member_name.value.substr( 1,member_name.value.length()-1) ) + "($data->" + member_name.value + "); \n";
+            trivialTypes+="        $this->set" + ((char)(member_name.value.at(0)-32) + member_name.value.substr( 1,member_name.value.length()-1) ) + "($data->" + member_name.value + "); \n";
 
             setFunction +=
-                        "        /** \n"
-                        "        * @param " + member_type_name + " $" + member_name.value + "\n"
-                        "        */ \n"
-                        "        public function set" + (char)( member_name.value.at(0)-32 ) + member_name.value.substr( 1,member_name.value.length()-1 ) + "(" + member_type_name +" $" + member_name.value + ") \n"
-                        "        { \n"
-                        "                $this->" + member_name.value + " = $" + member_name.value + "; \n"
-                        "        } \n";
+                        "    /** \n"
+                        "    * @param " + member_type_name + " $" + member_name.value + "\n"
+                        "    */ \n"
+                        "    public function set" + (char)( member_name.value.at(0)-32 ) + member_name.value.substr( 1,member_name.value.length()-1 ) + "(" + member_type_name +" $" + member_name.value + ") \n"
+                        "    { \n"
+                        "            $this->" + member_name.value + " = " ;
+            if (!(member_type_name == "integer"))
+                setFunction += "$";
+
+            if (member_type_name == "integer")
+                setFunction += "strtotime(";
+
+            setFunction += member_name.value;
+
+            if (member_type_name == "integer")
+                setFunction += ")";
+
+            setFunction +="; \n"
+                        "    } \n";
         }
-        else
+        else if( !(member_type_name == "::beltpp::packet") )
         {
             objectTypes +=
-                    "            $" + member_name.value + "Obj = new "+member_type_name + "();\n"
-                    "            $" + member_name.value + "Obj -> validate($data-> "+member_name.value  + ");\n";
+                    "        $" + member_name.value + "Obj = new "+member_type_name + "();\n"
+                    "        $" + member_name.value + "Obj -> validate($data-> "+member_name.value  + ");\n";
 
         }
 
         map_member_name_type.insert(std::make_pair(member_name.value, member_type_name));
     }
 
-    string validation=
-            "        public function validate(stdClass $data) \n"
-            "        { \n"+
-                       objectTypes + trivialTypes + arrayCase + mixedTypes +
-            "        } \n"
+    string  validation=
+            "    public function validate(stdClass $data) \n"
+            "    { \n"+
+                      objectTypes + trivialTypes + arrayCase + mixedTypes +
             "    } \n";
-    result += params + setFunction + validation;
+
+
+    result += params + setFunction;
+
+    if ( !(validation.empty()) ) result += validation;
+    result += "} \n";
     return result;
 }

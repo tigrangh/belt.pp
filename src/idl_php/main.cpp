@@ -75,6 +75,11 @@ int main(int argc, char* argv[])
                                 "{"
                                     "String value "
                                 "}"
+                                 "type bbbjbj"
+                                  "{"
+                                        "Array Person person"
+
+                                   "}"
                                 "class Age"
                                 "{"
                                     "UInt32 value "
@@ -82,6 +87,11 @@ int main(int argc, char* argv[])
                                 "class Married"
                                 "{"
                                     "Bool value "
+                                "}"
+                                "type jbbk"
+                                "{"
+                                    "Array Person person"
+
                                 "}"
                                 "class Person"
                                 "{"
@@ -92,9 +102,15 @@ int main(int argc, char* argv[])
                                 "}"
                                 "class Group"
                                 "{"
+                                    "TimePoint time"
                                     "Array Person person"
 
                                 "}"
+                                 "type jbbk"
+                                  "{"
+                                        "Array Person person"
+
+                                   "}"
                             "}";
         }
 
