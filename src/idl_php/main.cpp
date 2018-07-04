@@ -71,11 +71,31 @@ int main(int argc, char* argv[])
         if (definition.empty())
         {
             definition = "module beltpp {"
-                         "type message_join {}"
-                         "type message_drop {}"
-                         "type message_error {}"
-                         "type message_timer_out {}"
-                         "}";
+                                "class Name"
+                                "{"
+                                    "String value "
+                                "}"
+                                "class Age"
+                                "{"
+                                    "UInt32 value "
+                                "}"
+                                "class Married"
+                                "{"
+                                    "Bool value "
+                                "}"
+                                "class Person"
+                                "{"
+                                    "Name name "
+                                    "Age age "
+                                    "Married married "
+                                    "String gender "
+                                "}"
+                                "class Group"
+                                "{"
+                                    "Array Person persons "
+
+                                "}"
+                            "}";
         }
 
         auto it_begin = definition.begin();
@@ -87,14 +107,12 @@ int main(int argc, char* argv[])
                 break;
             else
             {
-                //std::cout << std::string(it_begin_keep, it_begin) << std::endl;
                 it_begin_keep = it_begin;
             }
         }
 
         bool is_value = false;
         auto proot = beltpp::root(ptr_expression.get(), is_value);
-
         ptr_expression.release();
         ptr_expression.reset(proot);
 
@@ -102,15 +120,12 @@ int main(int argc, char* argv[])
             throw runtime_error("missing expression, apparently");
 
         if (it_begin != it_end)
-            throw runtime_error("syntax error, maybe: " +
-                                string(it_begin, it_end));
+            throw runtime_error("syntax error, maybe: " + string(it_begin, it_end));
 
         if (ptr_expression->depth() > 30)
             throw runtime_error("expected tree max depth 30 is exceeded");
 
         state_holder state;
-        //cout << beltpp::dump(ptr_expression.get()) << endl;
-
         string generated = analyze(state, ptr_expression.get());
 
         bool generation_success = false;
@@ -124,10 +139,9 @@ int main(int argc, char* argv[])
                 generation_success = true;
             }
         }
-        if (false == generation_success)
+        if (false == generation_success){
             cout << generated;
-
-        //cout << "depth is " << ptr_expression->depth() << std::endl;
+        }
     }
     catch(std::exception const& ex)
     {

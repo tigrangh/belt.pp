@@ -457,7 +457,16 @@ bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
     {
         if (read_result.left_max > 0)
             types.push_back(token_type_operator);
-        if (read_result.left_min == 0)
+
+        std::unique_ptr<T_expression_tree> ptr_temp(new T_expression_tree);
+        ptr_temp->lexem = read_result;
+
+        if (read_result.left_min == 0 &&
+                (
+                    ptr_temp->is_value() ||
+                    ptr_temp->is_operator()
+                )
+            )
             types.push_back(token_type_value);
     }
 
@@ -507,11 +516,15 @@ bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
                                        read_result.property))
                 fix_the_same_possible = true;
 
+            bool ok = true;
             size_t left_count = 1;
             if (fix_the_same_possible)
                 left_count = pparent->children.size();
+            else if (false == pparent->is_value())
+                ok = false;
 
-            if (left_count >= read_result.left_min &&
+            if (ok &&
+                left_count >= read_result.left_min &&
                 left_count <= read_result.left_max)
             {
                 read_result.left_min = 0;

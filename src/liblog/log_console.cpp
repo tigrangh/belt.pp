@@ -5,6 +5,7 @@
 using std::cout;
 using std::cerr;
 using std::endl;
+using std::flush;
 using std::string;
 
 namespace beltpp
@@ -61,7 +62,7 @@ public:
     {
         if (false == enabled)
             return;
-        cout << value << " ";
+        cout << value << " " << flush;
         fresh_line = false;
     }
     void warning_no_eol(string const& value) override
@@ -70,7 +71,7 @@ public:
             return;
         if (fresh_line)
             cout << "Warning: ";
-        cout << value << " ";
+        cout << value << " " << flush;
         fresh_line = false;
     }
     void error_no_eol(string const& value) override
