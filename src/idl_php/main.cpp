@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
                                 "}"
                                 "class Group"
                                 "{"
-                                    "Array Person persons "
+                                    "Array Person person"
 
                                 "}"
                             "}";

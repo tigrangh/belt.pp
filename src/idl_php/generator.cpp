@@ -32,7 +32,7 @@ state_holder::state_holder()
                 {"UInt64", "int"},
                 {"Float32", "float"},
                 {"Float64", "double"},
-                {"TimePoint", "ctime"},
+                {"TimePoint", "int"},
                 {"Object", "::beltpp::packet"},
                 {"Extension", "::beltpp::packet"}}
 {
@@ -67,7 +67,8 @@ string convert_type(string const& type_name, state_holder& state, g_type_info& t
 
 string construct_type_name (expression_tree const* member_type,
                             state_holder& state,
-                            g_type_info& type_detail)
+                            g_type_info& type_detail,
+                            string& type_name)
 {
     if (member_type->lexem.rtt == identifier::rtt)
         return convert_type(member_type->lexem.value, state, type_detail);
@@ -75,7 +76,7 @@ string construct_type_name (expression_tree const* member_type,
              member_type->children.size() == 1 &&
              member_type->children.front()->lexem.rtt == identifier::rtt)
     {
-        string type_name = convert_type(member_type->children.front()->lexem.value,
+        type_name = convert_type(member_type->children.front()->lexem.value,
                                         state, type_detail);
         return "array";
     }
@@ -87,17 +88,17 @@ string construct_type_name (expression_tree const* member_type,
         g_type_info type_detail_key, type_detail_value;
         string key_type_name =
                 construct_type_name(member_type->children.front(),
-                                    state, type_detail_key);
+                                    state, type_detail_key, type_name);
         string value_type_name =
                 construct_type_name(member_type->children.back(),
-                                    state, type_detail_value);
+                                    state, type_detail_value, type_name);
 
         type_detail = static_cast<g_type_info>(type_detail_key | type_detail_value);
 
         if ((type_detail & type_object) &&
             (type_detail & type_extension))
             throw runtime_error("hash object extension mix");
-        return "array";
+        return "hash";
         //return "std::unordered_map<" + key_type_name  + ", " + value_type_name + ">";
     }
     else
@@ -184,28 +185,41 @@ string analyze(state_holder& state,
     }
     result += R"file_template(
         ];
-        public function validate(string $jsonData)
-        {
-              $jsonObj = json_decode($jsonData);
-              if ($jsonObj === null) {
-                    return false;
-              }
-              if (!isset(Rtt::types[$jsonObj->rtt])) {
-                    return false;
-              }
-              try {
-                   $className = Rtt::types[$jsonObj->rtt];
-                   /**
-                    * @var Validator $class
-                    */
-                   $class = new $className;
-                   $class->validate($jsonObj);
-                   return true;
-               } catch (Throwable $e) {
-                   return $e->getMessage();
-               }
-            }
-          }
+              /**
+                   * @param string|object $jsonObj
+                   * @return bool|string
+                   */
+                  public static function validate($jsonObj)
+                  {
+                      if (!is_object($jsonObj)) {
+                          $jsonObj = json_decode($jsonObj);
+                          if ($jsonObj === null) {
+                              return false;
+                          }
+                      }
+
+                      if (!isset($jsonObj->rtt)) {
+                          return false;
+                      }
+
+                      if (!isset(Rtt::types[$jsonObj->rtt])) {
+                          return false;
+                      }
+
+                      try {
+                          $className = Rtt::types[$jsonObj->rtt];
+
+                          /**
+                           * @var Validator $class
+                           */
+                          $class = new $className;
+                          $class->validate($jsonObj);
+
+                          return true;
+                      } catch (Throwable $e) {
+                          return $e->getMessage();
+                      }
+                  }
     )file_template";
 
     return result+resultMid;
@@ -262,6 +276,7 @@ string analyze_struct(state_holder& state,
     string arrayCase;
     string trivialTypes;
     string objectTypes;
+    string mixedTypes;
 
     for (auto member_pair : members)
     {
@@ -271,25 +286,36 @@ string analyze_struct(state_holder& state,
             throw runtime_error("use \"variable type\" syntax please");
 
         g_type_info type_detail;
-        string member_type_name = construct_type_name(member_type, state, type_detail);
+        string type;
+        string member_type_name = construct_type_name(member_type, state, type_detail, type);
 
         if (type_detail & type_object)
             set_object_name.insert(member_name.value);
         else if (type_detail & type_extension)
             set_extension_name.insert(member_name.value);
 
-        params +=
-                "        /**\n"
-                "        * @var "+ member_type_name + "\n" +
-                "        */ \n" +
-                "        private $" + member_name.value + ";\n";
+        if (member_type_name == "::beltpp::packet")
+        {
+
+            params +=
+                    "        /**\n"
+                    "        * @var mixed \n"
+                    "        */ \n"
+                    "        private $" + member_name.value + ";\n";
+
+            mixedTypes += "            Rtt::validate($data->" +  member_name.value + ");\n";
+        } else params +=
+                            "        /**\n"
+                            "        * @var "+ member_type_name + "\n" +
+                            "        */ \n" +
+                            "        private $" + member_name.value + ";\n";
 
         if(member_type_name=="array")
         {
             string item = member_name.value.substr( 0, member_name.value.length()-1);
             arrayCase +=
                         "              foreach ($data->" + member_name.value + " as $" + item + ") { \n"
-                        "                  $" + item + "Obj = new " + ((char)(item.at(0)-32) + item.substr( 1, item.length()-1) ) + "() \n"
+                        "                  $" + item + "Obj = new " + type + "() \n"
                         "                  $" + item + "Obj->validate($" + item + "); \n"
                         "               } \n";
 
@@ -326,7 +352,7 @@ string analyze_struct(state_holder& state,
     string validation=
             "        public function validate(stdClass $data) \n"
             "        { \n"+
-                       objectTypes + trivialTypes + arrayCase +
+                       objectTypes + trivialTypes + arrayCase + mixedTypes +
             "        } \n"
             "    } \n";
     result += params + setFunction + validation;
