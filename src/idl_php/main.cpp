@@ -18,35 +18,6 @@ using std::vector;
 
 using ptr_expression_tree = std::unique_ptr<expression_tree>;
 
-string replace(string const& source,
-               string const& lookup,
-               string const& replace)
-{
-    string result = source;
-    size_t pos = source.find(lookup);
-    if (pos != string::npos)
-        result.replace(pos, lookup.length(), replace);
-
-    return result;
-}
-
-string replace_all(string const& source,
-                   string const& lookup,
-                   string const& replace)
-{
-    string result = source;
-    while (true)
-    {
-        size_t pos = result.find(lookup);
-        if (pos != string::npos)
-            result.replace(pos, lookup.length(), replace);
-        else
-            break;
-    }
-
-    return result;
-}
-
 int main(int argc, char* argv[])
 {
     string definition;
@@ -86,11 +57,11 @@ int main(int argc, char* argv[])
                                 "}"
                                 "class Married"
                                 "{"
-                                    "Bool value "
+                                    "Bool value"
                                 "}"
                                 "type jbbk"
                                 "{"
-                                    "Array Person person"
+                                    "Array Array Person person"
 
                                 "}"
                                 "class Person"

@@ -18,7 +18,6 @@ using std::runtime_error;
 
 state_holder::state_holder()
     : namespace_name()
-    //  use php types below instead
     , map_types{{"String", "string"},
                 {"Bool", "bool"},
                 {"Int8", "int"},
@@ -80,7 +79,7 @@ string construct_type_name (expression_tree const* member_type,
                                         state, type_detail);
         return "array";
     }
-    else if (member_type->lexem.rtt == keyword_hash::rtt &&
+    /*else if (member_type->lexem.rtt == keyword_hash::rtt &&
              member_type->children.size() == 2 &&
              member_type->children.front()->lexem.rtt == identifier::rtt &&
              member_type->children.back()->lexem.rtt == identifier::rtt)
@@ -100,7 +99,7 @@ string construct_type_name (expression_tree const* member_type,
             throw runtime_error("hash object extension mix");
         return "hash";
         //return "std::unordered_map<" + key_type_name  + ", " + value_type_name + ">";
-    }
+    }*/
     else
         throw runtime_error("can't get type definition, wtf!");
 }
@@ -121,7 +120,7 @@ class Rtt
 
     assert(pexpression);
 
-    unordered_map<size_t, string> class_names, type_names;
+    unordered_map<size_t, string> class_names;
     string resultMid;
     if (pexpression->lexem.rtt != keyword_module::rtt ||
         pexpression->children.size() != 2 ||
@@ -138,32 +137,25 @@ class Rtt
         {
             if (item->lexem.rtt == keyword_class::rtt)
             {
-                bool serializable = (item->lexem.rtt == keyword_class::rtt);
-
                 if (item->children.size() != 2 ||
                     item->children.front()->lexem.rtt != identifier::rtt ||
                     item->children.back()->lexem.rtt != scope_brace::rtt)
                     throw runtime_error("type syntax is wrong");
 
                 string type_name = item->children.front()->lexem.value;
-                //std::cout<<item->children.front()->lexem.rtt<<std::endl;
                 resultMid += analyze_struct(state,
                                          item->children.back(),
                                          rtt,
                                          type_name,
-                                         serializable);
+                                         true);
+                class_names.insert(std::make_pair(rtt, type_name));
 
-                if (serializable)
-                    class_names.insert(std::make_pair(rtt, type_name));
-                else
-                    type_names.insert(std::make_pair(rtt, type_name));
-                ++rtt;
             }
-            if( item->lexem.rtt == keyword_type::rtt ) ++rtt;
+            ++rtt;
         }
     }
 
-    if (class_names.empty() && type_names.empty())
+    if (class_names.empty())
         throw runtime_error("wtf, nothing to do");
 
     size_t max_rtt = 0;
@@ -172,12 +164,9 @@ class Rtt
         if (max_rtt < class_item.first)
             max_rtt = class_item.first;
     }
-    for (auto const& type_item : type_names)
-    {
-        if (max_rtt < type_item.first)
-            max_rtt = type_item.first;
-    }
+
     result+="\n";
+
     for (size_t index = 0; index < max_rtt + 1; ++index)
     {
         if(!(class_names[index].empty()))
@@ -185,7 +174,7 @@ class Rtt
 
     }
     result += R"file_template(
-];
+    ];
 
     /**
     * @param string|object $jsonObj
@@ -220,10 +209,12 @@ class Rtt
         }
     }
 }
-    )file_template";
+)file_template";
 
     return result+resultMid;
 }
+
+
 template <typename T>
 inline bool set_contains(T const& value, unordered_set<T> const& set)
 {
@@ -241,7 +232,7 @@ string analyze_struct(state_holder& state,
 {
     if (state.namespace_name.empty())
         throw runtime_error("please specify package name");
-    string result;
+
     assert(pexpression);
 
     vector<pair<expression_tree const*, expression_tree const*>> members;
@@ -250,9 +241,7 @@ string analyze_struct(state_holder& state,
         throw runtime_error("inside class syntax error, wtf - " + type_name);
 
     auto it = pexpression->children.begin();
-    for (size_t index = 0;
-         it != pexpression->children.end();
-         ++index, ++it)
+    for (size_t index = 0; it != pexpression->children.end(); ++index, ++it)
     {
         auto const* member_type = *it;
         ++it;
@@ -269,14 +258,17 @@ string analyze_struct(state_holder& state,
 
     unordered_map<string, string> map_member_name_type;
 
-    result += "class " + type_name + " implements Validator \n";
-    result += "{\n";
+    string result;
     string params;
     string setFunction;
+    string addFunction;
     string arrayCase;
     string trivialTypes;
     string objectTypes;
     string mixedTypes;
+
+    result += "class " + type_name + " implements Validator \n";
+    result += "{\n";
 
     for (auto member_pair : members)
     {
@@ -289,10 +281,10 @@ string analyze_struct(state_holder& state,
         string type;
         string member_type_name = construct_type_name(member_type, state, type_detail, type);
 
-        if (type_detail & type_object)
+        /*if (type_detail & type_object)
             set_object_name.insert(member_name.value);
         else if (type_detail & type_extension)
-            set_extension_name.insert(member_name.value);
+            set_extension_name.insert(member_name.value);*/
 
         if (member_type_name == "::beltpp::packet")
         {
@@ -303,40 +295,81 @@ string analyze_struct(state_holder& state,
                     "    */ \n"
                     "    private $" + member_name.value + ";\n";
 
-            mixedTypes += "        Rtt::validate($data->" +  member_name.value + ");\n";
-        } else params +=
-                            "    /**\n"
-                            "    * @var "+ member_type_name + "\n" +
-                            "    */ \n" +
-                            "    private $" + member_name.value + ";\n";
+            mixedTypes +=
+                    "        Rtt::validate($data->" +  member_name.value + ");\n";
+        } else
+            params +=
+                    "    /**\n"
+                    "    * @var "+ member_type_name + "\n" +
+                    "    */ \n" +
+                    "    private $" + member_name.value + ";\n";
 
-        if(member_type_name=="array")
+        if(     member_type_name=="array" &&
+                ( type != "int" &&
+                  type != "string" &&
+                  type != "bool" &&
+                  type != "float" &&
+                  type != "double" &&
+                  type != "integer"
+                )
+           )
         {
+
             string item = member_name.value+"Item";
             arrayCase +=
-                        "          foreach ($data->" + member_name.value + " as $" + item + ") { \n"
-                        "              $" + item + "Obj = new " + type + "() \n"
-                        "              $" + item + "Obj->validate($" + item + "); \n"
-                        "           } \n";
-
-
+                       "          foreach ($data->" + member_name.value + " as $" + item + ") { \n"
+                       "              $" + item + "Obj = new " + type + "(); \n"
+                       "              $" + item + "Obj->validate($" + item + "); \n"
+                       "           } \n";
         }
-        else if (member_type_name == "int" ||
+        else if (
+                 (              member_type_name=="array" &&
+                                (  type == "int" ||
+                                   type == "string" ||
+                                   type == "bool" ||
+                                   type == "float" ||
+                                   type == "double" ||
+                                   type == "integer"
+                                )
+                    )
+                 )
+        {
+
+            string item = member_name.value+"Item";
+            addFunction +=
+                         "    /**\n"
+                         "    * @param " + type + " $" + item +"\n"
+                         "    */\n"
+                         "    public function add" + ((char)( member_name.value.at(0)-32 ) + member_name.value.substr( 1, member_name.value.length()-1 ))  +  "(" + type + " $" + item + ")\n"
+                         "    {\n"
+                         "        $this->" + member_name.value + "[] = $" + item + ";\n"
+                         "    }\n";
+
+             arrayCase +=
+                         "        foreach ($data->" + member_name.value + " as $" + item + ") { \n"
+                         "            $this->add" + ((char)( member_name.value.at(0)-32 ) + member_name.value.substr( 1, member_name.value.length()-1 )) + "($" + item + ");\n"
+                         "        } \n";
+        }
+        else if (
+                 member_type_name == "int" ||
                  member_type_name == "string" ||
                  member_type_name == "bool" ||
                  member_type_name == "float" ||
                  member_type_name == "double" ||
-                 member_type_name == "integer")
+                 member_type_name == "integer"
+                 )
         {
-            trivialTypes+="        $this->set" + ((char)(member_name.value.at(0)-32) + member_name.value.substr( 1,member_name.value.length()-1) ) + "($data->" + member_name.value + "); \n";
+            trivialTypes +=
+                          "        $this->set" + ((char)(member_name.value.at(0)-32) + member_name.value.substr( 1,member_name.value.length()-1) ) + "($data->" + member_name.value + "); \n";
 
             setFunction +=
-                        "    /** \n"
-                        "    * @param " + member_type_name + " $" + member_name.value + "\n"
-                        "    */ \n"
-                        "    public function set" + (char)( member_name.value.at(0)-32 ) + member_name.value.substr( 1,member_name.value.length()-1 ) + "(" + member_type_name +" $" + member_name.value + ") \n"
-                        "    { \n"
-                        "            $this->" + member_name.value + " = " ;
+                         "    /** \n"
+                         "    * @param " + member_type_name + " $" + member_name.value + "\n"
+                         "    */ \n"
+                         "    public function set" + (char)( member_name.value.at(0)-32 ) + member_name.value.substr( 1,member_name.value.length()-1 ) + "(" + member_type_name +" $" + member_name.value + ") \n"
+                         "    { \n"
+                         "            $this->" + member_name.value + " = " ;
+
             if (!(member_type_name == "integer"))
                 setFunction += "$";
 
@@ -354,24 +387,21 @@ string analyze_struct(state_holder& state,
         else if( !(member_type_name == "::beltpp::packet") )
         {
             objectTypes +=
-                    "        $" + member_name.value + "Obj = new "+member_type_name + "();\n"
-                    "        $" + member_name.value + "Obj -> validate($data-> "+member_name.value  + ");\n";
-
+                         "        $" + member_name.value + "Obj = new "+member_type_name + "();\n"
+                         "        $" + member_name.value + "Obj -> validate($data-> "+member_name.value  + ");\n";
         }
-
         map_member_name_type.insert(std::make_pair(member_name.value, member_type_name));
     }
 
-    string  validation=
-            "    public function validate(stdClass $data) \n"
-            "    { \n"+
-                      objectTypes + trivialTypes + arrayCase + mixedTypes +
-            "    } \n";
+    string  validation =
+                       "    public function validate(stdClass $data) \n"
+                       "    { \n"
+                                + objectTypes + trivialTypes + arrayCase + mixedTypes +
+                       "    } \n";
 
-
-    result += params + setFunction;
+    result += params + setFunction + addFunction;
 
     if ( !(validation.empty()) ) result += validation;
-    result += "} \n";
+                                 result += "} \n";
     return result;
 }
