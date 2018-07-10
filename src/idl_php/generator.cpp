@@ -114,6 +114,25 @@ interface Validator
 {
     public function validate(stdClass $data);
 }
+trait RttSerializable
+{
+    public function jsonSerialize()
+    {
+        $vars = get_object_vars($this);
+        $vars['rtt'] = array_search(static::class, Rtt::types);
+
+        return $vars;
+     }
+}
+
+trait RttToJson
+{
+    public function convertToJson()
+    {
+        return json_encode($this);
+    }
+}
+
 class Rtt
 {
     CONST types = [)file_template";
@@ -267,8 +286,10 @@ string analyze_struct(state_holder& state,
     string objectTypes;
     string mixedTypes;
 
-    result += "class " + type_name + " implements Validator \n";
+    result += "class " + type_name + " implements Validator, JsonSerializable\n";
     result += "{\n";
+    result += "    use RttSerializable;\n"
+              "    use RttToJson;\n";
 
     for (auto member_pair : members)
     {
