@@ -422,7 +422,9 @@ string analyze_struct(state_holder& state,
 
     result += params + setFunction + addFunction;
 
-    if ( !(validation.empty()) ) result += validation;
-                                 result += "} \n";
+    if ( !(validation.empty()) )
+        result += validation;
+
+    result += "} \n";
     return result;
 }
