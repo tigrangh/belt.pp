@@ -38,13 +38,13 @@ state_holder::state_holder()
 namespace
 {
 enum g_type_info {type_empty = 0x0,
-                type_simple = 0x1,
-                type_object=0x2,
-                type_extension=0x4,
-                type_simple_object = type_simple | type_object,
-                type_simple_extension = type_simple | type_extension,
-                type_object_extension = type_object | type_extension,
-                type_simple_object_extension = type_simple | type_object_extension};
+                  type_simple = 0x1,
+                  type_object = 0x2,
+                  type_extension = 0x4,
+                  type_simple_object = type_simple | type_object,
+                  type_simple_extension = type_simple | type_extension,
+                  type_object_extension = type_object | type_extension,
+                  type_simple_object_extension = type_simple | type_object_extension};
 
 string convert_type(string const& type_name, state_holder& state, g_type_info& type_detail)
 {
@@ -80,6 +80,15 @@ string construct_type_name (expression_tree const* member_type,
                                             state, type_detail);
 
         return "std::vector<" + type_name + ">";
+    }
+    else if (member_type->lexem.rtt == keyword_set::rtt &&
+             member_type->children.size() == 1 &&
+             member_type->children.front()->lexem.rtt == identifier::rtt)
+    {
+        string type_name = convert_type(member_type->children.front()->lexem.value,
+                                        state, type_detail);
+
+        return "std::unordered_set<" + type_name + ">";
     }
     else if (member_type->lexem.rtt == keyword_hash::rtt &&
              member_type->children.size() == 2 &&

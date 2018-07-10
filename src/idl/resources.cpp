@@ -14,6 +14,7 @@ std::string const resources::file_template = R"file_template(#pragma once
 #include <string>
 #include <cstdint>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <utility>
 #include <algorithm>
@@ -516,6 +517,14 @@ bool analyze_json(std::vector<T>& value,
 template <typename T>
 inline
 std::string saver(std::vector<T> const& value);
+template <typename T>
+inline
+bool analyze_json(std::unordered_set<T>& value,
+                  ::beltpp::json::expression_tree* pexp,
+                  ::beltpp::message_loader_utility const& utl);
+template <typename T>
+inline
+std::string saver(std::unordered_set<T> const& value);
 template <typename T_key, typename T_value>
 inline
 bool analyze_json(std::unordered_map<T_key, T_value>& value,
@@ -556,6 +565,14 @@ bool less(std::vector<T> const& first,
     std::less<std::string> c;
     return c(saver(first), saver(second));
 }
+template <typename T>
+inline
+bool less(std::unordered_set<T> const& first,
+          std::unordered_set<T> const& second)
+{
+    std::less<std::string> c;
+    return c(saver(first), saver(second));
+}
 inline
 bool less(::beltpp::packet const& first,
           ::beltpp::packet const& second)
@@ -571,6 +588,12 @@ inline void assign_packet(std::vector<T>& self,
 template <typename T>
 inline void assign_packet(std::vector<T>& self,
                           std::vector<T>&& other);
+template <typename T>
+inline void assign_packet(std::unordered_set<T>& self,
+                          std::unordered_set<T> const& other);
+template <typename T>
+inline void assign_packet(std::unordered_set<T>& self,
+                          std::unordered_set<T>&& other);
 template <typename T_key, typename T_value>
 inline void assign_packet(std::unordered_map<T_key, T_value>& self,
                           std::unordered_map<T_key, T_value> const& other);
@@ -588,6 +611,12 @@ inline void assign_extension(std::vector<T>& self,
 template <typename T>
 inline void assign_extension(std::vector<T>& self,
                              std::vector<T>&& other);
+template <typename T>
+inline void assign_extension(std::unordered_set<T>& self,
+                             std::unordered_set<T> const& other);
+template <typename T>
+inline void assign_extension(std::unordered_set<T>& self,
+                             std::unordered_set<T>&& other);
 template <typename T_key, typename T_value>
 inline void assign_extension(std::unordered_map<T_key, T_value>& self,
                              std::unordered_map<T_key, T_value> const& other);
@@ -645,6 +674,78 @@ bool analyze_json(std::vector<T>& value,
             T item_value;
             if (analyze_json(item_value, item, utl))
                 value.push_back(std::move(item_value));
+            else
+            {
+                code = false;
+                break;
+            }
+        }
+    }
+
+    return code;
+}
+template <typename T>
+std::vector<T const*>
+    set2vector(std::unordered_set<T> const& value)
+{
+    std::vector<T const*> result;
+    result.reserve(value.size());
+    for (auto const& item : value)
+        result.push_back(&item);
+
+    std::sort(result.begin(), result.end(),
+          [](T const* first,
+             T const* second)
+          {
+              return *first < *second;
+          });
+
+    return result;
+}
+template <typename T>
+std::string saver(std::unordered_set<T> const& value)
+{
+    std::vector<T const*> arr_value = set2vector(value);
+    std::string result = "[";
+    for (size_t index = 0; index < arr_value.size(); ++index)
+    {
+        result += saver(*arr_value[index]);
+        if (index + 1 != arr_value.size())
+            result += ",";
+    }
+    result += "]";
+    return result;
+}
+template <typename T>
+bool analyze_json(std::unordered_set<T>& value,
+                  ::beltpp::json::expression_tree* pexp,
+                  ::beltpp::message_loader_utility const& utl)
+{
+    value.clear();
+    bool code = true;
+    if (nullptr == pexp ||
+        pexp->lexem.rtt != ::beltpp::json::scope_bracket::rtt)
+        code = false;
+    else
+    {
+        auto pscan = pexp;
+        if (pexp->children.size() == 1 &&
+            pexp->children.front()->lexem.rtt == ::beltpp::json::operator_comma::rtt &&
+            false == pexp->children.front()->children.empty())
+            pscan = pexp->children.front();
+
+        for (auto const& item : pscan->children)
+        {
+            T item_value;
+            if (analyze_json(item_value, item, utl))
+            {
+                auto it_code = value.insert(std::move(item_value));
+                if (false == it_code.second)
+                {
+                    code = false;
+                    break;
+                }
+            }
             else
             {
                 code = false;
@@ -1080,6 +1181,34 @@ void assign_packet(std::vector<T>& self,
         self.push_back(std::move(self_item));
     }
 }
+template <typename T>
+inline
+void assign_packet(std::unordered_set<T>& self,
+                   std::unordered_set<T> const& other)
+{
+    self.clear();
+    for (auto const& other_item : other)
+    {
+        T self_item;
+        assign_packet(self_item, other_item);
+        auto it_code = self.insert(std::move(self_item));
+        assert(it_code.second);
+    }
+}
+template <typename T>
+inline
+void assign_packet(std::unordered_set<T>& self,
+                   std::unordered_set<T>&& other)
+{
+    self.clear();
+    for (auto& other_item : other)
+    {
+        T self_item;
+        assign_packet(self_item, std::move(other_item));
+        auto it_code = self.insert(std::move(self_item));
+        assert(it_code.second);
+    }
+}
 template <typename T_key, typename T_value>
 inline
 void assign_packet(std::unordered_map<T_key, T_value>& self,
@@ -1153,6 +1282,34 @@ void assign_extension(std::vector<T>& self,
         T self_item;
         assign_extension(self_item, std::move(other_item));
         self.push_back(std::move(self_item));
+    }
+}
+template <typename T>
+inline
+void assign_extension(std::unordered_set<T>& self,
+                      std::unordered_set<T> const& other)
+{
+    self.clear();
+    for (auto const& other_item : other)
+    {
+        T self_item;
+        assign_extension(self_item, other_item);
+        auto it_code = self.insert(std::move(self_item));
+        assert(it_code.second);
+    }
+}
+template <typename T>
+inline
+void assign_extension(std::unordered_set<T>& self,
+                      std::unordered_set<T>&& other)
+{
+    self.clear();
+    for (auto& other_item : other)
+    {
+        T self_item;
+        assign_extension(self_item, std::move(other_item));
+        auto it_code = self.insert(std::move(self_item));
+        assert(it_code.second);
     }
 }
 template <typename T_key, typename T_value>
