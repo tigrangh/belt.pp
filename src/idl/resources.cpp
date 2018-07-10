@@ -565,19 +565,35 @@ bool less(::beltpp::packet const& first,
 }
 inline void assign_packet(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
 inline void assign_packet(::beltpp::packet& self, ::beltpp::packet&& other) noexcept;
-inline void assign_packet(std::vector<::beltpp::packet>& self,
-                          std::vector<::beltpp::packet> const& other);
-inline void assign_packet(std::vector<::beltpp::packet>& self,
-                          std::vector<::beltpp::packet>&& other);
+template <typename T>
+inline void assign_packet(std::vector<T>& self,
+                          std::vector<T> const& other);
+template <typename T>
+inline void assign_packet(std::vector<T>& self,
+                          std::vector<T>&& other);
+template <typename T_key, typename T_value>
+inline void assign_packet(std::unordered_map<T_key, T_value>& self,
+                          std::unordered_map<T_key, T_value> const& other);
+template <typename T_key, typename T_value>
+inline void assign_packet(std::unordered_map<T_key, T_value>& self,
+                          std::unordered_map<T_key, T_value>&& other);
 inline void assign_extension(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
 )file_template"
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 R"file_template(
 inline void assign_extension(::beltpp::packet& self, ::beltpp::packet&& other) noexcept;
-inline void assign_extension(std::vector<::beltpp::packet>& self,
-                             std::vector<::beltpp::packet> const& other);
-inline void assign_extension(std::vector<::beltpp::packet>& self,
-                             std::vector<::beltpp::packet>&& other);
+template <typename T>
+inline void assign_extension(std::vector<T>& self,
+                             std::vector<T> const& other);
+template <typename T>
+inline void assign_extension(std::vector<T>& self,
+                             std::vector<T>&& other);
+template <typename T_key, typename T_value>
+inline void assign_extension(std::unordered_map<T_key, T_value>& self,
+                             std::unordered_map<T_key, T_value> const& other);
+template <typename T_key, typename T_value>
+inline void assign_extension(std::unordered_map<T_key, T_value>& self,
+                             std::unordered_map<T_key, T_value>&& other);
 }   // end namespace detail
 }   // end namespace {namespace_name}
 
@@ -672,15 +688,20 @@ bool analyze_json(std::pair<T_first, T_second>& value,
     return code;
 }
 template <typename T_key, typename T_value>
-std::vector<std::pair<T_key, T_value>>
+std::vector<std::pair<T_key const, T_value> const*>
     map2vector(std::unordered_map<T_key, T_value> const& value)
 {
-    std::vector<std::pair<T_key, T_value>> result;
+    std::vector<std::pair<T_key const, T_value> const*> result;
     result.reserve(value.size());
     for (auto const& item : value)
-        result.push_back(item);
+        result.push_back(&item);
 
-    std::sort(result.begin(), result.end());
+    std::sort(result.begin(), result.end(),
+          [](std::pair<T_key const, T_value> const* first,
+             std::pair<T_key const, T_value> const* second)
+          {
+              return first->first < second->first;
+          });
 
     return result;
 }
@@ -693,7 +714,7 @@ std::string saver(std::unordered_map<T_key, T_value> const& value)
     auto it = arr_value.begin();
     for (; it != arr_value.end(); ++it)
     {
-        result += saver(*it);
+        result += saver(*(*it));
         auto it_temp = it;
         ++it_temp;
         if (it_temp != arr_value.end())
@@ -711,9 +732,9 @@ std::string saver(std::unordered_map<std::string, T_value> const& value)
     auto it = arr_value.begin();
     for (; it != arr_value.end(); ++it)
     {
-        result += stringsaver(it->first);
+        result += stringsaver((*it)->first);
         result += ":";
-        result += saver(it->second);
+        result += saver((*it)->second);
         auto it_temp = it;
         ++it_temp;
         if (it_temp != arr_value.end())
@@ -1033,28 +1054,58 @@ void assign_packet(::beltpp::packet& self, ::beltpp::packet&& other) noexcept
 {
     self = std::move(other);
 }
+template <typename T>
 inline
-void assign_packet(std::vector<::beltpp::packet>& self,
-                   std::vector<::beltpp::packet> const& other)
+void assign_packet(std::vector<T>& self,
+                   std::vector<T> const& other)
 {
     self.clear();
     for (auto const& other_item : other)
     {
-        ::beltpp::packet self_item;
+        T self_item;
         assign_packet(self_item, other_item);
         self.push_back(std::move(self_item));
     }
 }
+template <typename T>
 inline
-void assign_packet(std::vector<::beltpp::packet>& self,
-                   std::vector<::beltpp::packet>&& other)
+void assign_packet(std::vector<T>& self,
+                   std::vector<T>&& other)
 {
     self.clear();
     for (auto& other_item : other)
     {
-        ::beltpp::packet self_item;
+        T self_item;
         assign_packet(self_item, std::move(other_item));
         self.push_back(std::move(self_item));
+    }
+}
+template <typename T_key, typename T_value>
+inline
+void assign_packet(std::unordered_map<T_key, T_value>& self,
+                   std::unordered_map<T_key, T_value> const& other)
+{
+    self.clear();
+    for (auto const& other_item : other)
+    {
+        T_key self_key(other_item.first);
+        T_value self_value;
+        assign_packet(self_value, other_item.second);
+        self.insert(std::make_pair(std::move(self_key), std::move(self_value)));
+    }
+}
+template <typename T_key, typename T_value>
+inline
+void assign_packet(std::unordered_map<T_key, T_value>& self,
+                   std::unordered_map<T_key, T_value>&& other)
+{
+    self.clear();
+    for (auto& other_item : other)
+    {
+        T_key self_key(std::move(other_item.first));
+        T_value self_value;
+        assign_packet(self_value, std::move(other_item.second));
+        self.insert(std::make_pair(std::move(self_key), std::move(self_value)));
     }
 }
 inline
@@ -1078,28 +1129,58 @@ void assign_extension(::beltpp::packet& self, ::beltpp::packet&& other) noexcept
 {
     self = std::move(other);
 }
+template <typename T>
 inline
-void assign_extension(std::vector<::beltpp::packet>& self,
-                      std::vector<::beltpp::packet> const& other)
+void assign_extension(std::vector<T>& self,
+                      std::vector<T> const& other)
 {
     self.clear();
     for (auto const& other_item : other)
     {
-        ::beltpp::packet self_item;
+        T self_item;
         assign_extension(self_item, other_item);
         self.push_back(std::move(self_item));
     }
 }
+template <typename T>
 inline
-void assign_extension(std::vector<::beltpp::packet>& self,
-                      std::vector<::beltpp::packet>&& other)
+void assign_extension(std::vector<T>& self,
+                      std::vector<T>&& other)
 {
     self.clear();
     for (auto& other_item : other)
     {
-        ::beltpp::packet self_item;
+        T self_item;
         assign_extension(self_item, std::move(other_item));
         self.push_back(std::move(self_item));
+    }
+}
+template <typename T_key, typename T_value>
+inline
+void assign_extension(std::unordered_map<T_key, T_value>& self,
+                      std::unordered_map<T_key, T_value> const& other)
+{
+    self.clear();
+    for (auto const& other_item : other)
+    {
+        T_key self_key(other_item.first);
+        T_value self_value;
+        assign_extension(self_value, other_item.second);
+        self.insert(std::make_pair(std::move(self_key), std::move(self_value)));
+    }
+}
+template <typename T_key, typename T_value>
+inline
+void assign_extension(std::unordered_map<T_key, T_value>& self,
+                      std::unordered_map<T_key, T_value>&& other)
+{
+    self.clear();
+    for (auto& other_item : other)
+    {
+        T_key self_key(std::move(other_item.first));
+        T_value self_value;
+        assign_extension(self_value, std::move(other_item.second));
+        self.insert(std::make_pair(std::move(self_key), std::move(self_value)));
     }
 }
 
