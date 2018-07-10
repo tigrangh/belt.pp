@@ -21,7 +21,7 @@ namespace detail
 class event_slot;
 using event_slots = beltpp::queue<event_slot>;
 }
-using beltpp::scope_helper;
+using beltpp::on_failure;
 
 namespace detail
 {
@@ -156,7 +156,7 @@ uint64_t event_handler::add(ievent_item& ev_it, native::sk_handle const& handle,
 
     m_pimpl->m_poll_master.add(handle.handle, id, out, close);
 
-    beltpp::scope_helper scope_guard([]{},
+    beltpp::on_failure scope_guard(
     [this, handle, id, out]
     {
         m_pimpl->m_poll_master.remove(handle.handle,
@@ -166,7 +166,7 @@ uint64_t event_handler::add(ievent_item& ev_it, native::sk_handle const& handle,
     });
 
     it_ids->push(detail::event_slot(item_id, &ev_it));
-    scope_guard.commit();
+    scope_guard.dismiss();
 
     return id;
 }
