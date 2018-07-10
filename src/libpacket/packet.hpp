@@ -67,7 +67,8 @@ protected:
 template <typename T_message>
 void packet::set(T_message&& msg)
 {
-    using MessageValueT = typename std::remove_reference<T_message>::type;
+    using MessageValueT_temp = typename std::remove_reference<T_message>::type;
+    using MessageValueT = typename std::remove_const<MessageValueT_temp>::type;
     beltpp::void_unique_ptr pmsg(new_void_unique_ptr<MessageValueT>());
     void* pv = pmsg.get();
     MessageValueT* pmv = static_cast<MessageValueT*>(pv);
