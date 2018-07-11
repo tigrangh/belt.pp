@@ -9,6 +9,8 @@
 #include<iostream>
 #include<string>
 
+using std::cout;
+using std::endl;
 using std::string;
 using std::vector;
 using std::unordered_map;
@@ -64,20 +66,30 @@ string convert_type(string const& type_name, state_holder& state, g_type_info& t
     return type_name;
 }
 
-string construct_type_name (expression_tree const* member_type,
+void construct_type_name(expression_tree const* member_type,
                             state_holder& state,
                             g_type_info& type_detail,
-                            string& type_name)
+                            string* result)
 {
     if (member_type->lexem.rtt == identifier::rtt)
-        return convert_type(member_type->lexem.value, state, type_detail);
-    else if (member_type->lexem.rtt == keyword_array::rtt &&
-             member_type->children.size() == 1 &&
-             member_type->children.front()->lexem.rtt == identifier::rtt)
     {
-        type_name = convert_type(member_type->children.front()->lexem.value,
-                                        state, type_detail);
-        return "array";
+        result[0] = convert_type(member_type->lexem.value, state, type_detail);
+    }
+    else if (member_type->lexem.rtt == keyword_array::rtt &&
+             member_type->children.size() == 1 )
+    {
+
+        result[0] = "array";
+        int count = 1;
+        auto it = member_type->children.front();
+        for(; it->lexem.rtt != identifier::rtt; it = it->children.front()){
+            count++;
+        }
+        if(it->lexem.rtt == identifier::rtt)
+        {
+            result[1]=it->lexem.value;
+        }
+        result[2] = std::to_string(count);
     }
     /*else if (member_type->lexem.rtt == keyword_hash::rtt &&
              member_type->children.size() == 2 &&
@@ -233,16 +245,6 @@ class Rtt
     return result+resultMid;
 }
 
-
-template <typename T>
-inline bool set_contains(T const& value, unordered_set<T> const& set)
-{
-    auto it = set.find(value);
-    if (it == set.end())
-        return false;
-    return true;
-}
-
 string analyze_struct(state_holder& state,
                       expression_tree const* pexpression,
                       size_t rtt,
@@ -272,11 +274,6 @@ string analyze_struct(state_holder& state,
         members.push_back(std::make_pair(member_name, member_type));
     }
 
-    unordered_set<string> set_object_name;
-    unordered_set<string> set_extension_name;
-
-    unordered_map<string, string> map_member_name_type;
-
     string result;
     string params;
     string setFunction;
@@ -299,15 +296,10 @@ string analyze_struct(state_holder& state,
             throw runtime_error("use \"variable type\" syntax please");
 
         g_type_info type_detail;
-        string type;
-        string member_type_name = construct_type_name(member_type, state, type_detail, type);
 
-        /*if (type_detail & type_object)
-            set_object_name.insert(member_name.value);
-        else if (type_detail & type_extension)
-            set_extension_name.insert(member_name.value);*/
-
-        if (member_type_name == "::beltpp::packet")
+        string info[3];
+        construct_type_name(member_type, state, type_detail, info);
+        if (info[0] == "::beltpp::packet")
         {
 
             params +=
@@ -321,36 +313,53 @@ string analyze_struct(state_holder& state,
         } else
             params +=
                     "    /**\n"
-                    "    * @var "+ member_type_name + "\n" +
+                    "    * @var "+ info[0] + "\n" +
                     "    */ \n" +
                     "    private $" + member_name.value + ";\n";
 
-        if(     member_type_name=="array" &&
-                ( type != "int" &&
-                  type != "string" &&
-                  type != "bool" &&
-                  type != "float" &&
-                  type != "double" &&
-                  type != "integer"
+        if(     info[0]=="array" &&
+                ( info[1] != "int" &&
+                  info[1] != "string" &&
+                  info[1] != "bool" &&
+                  info[1] != "float" &&
+                  info[1] != "double" &&
+                  info[1] != "integer"
                 )
            )
         {
 
             string item = member_name.value+"Item";
+
             arrayCase +=
-                       "          foreach ($data->" + member_name.value + " as $" + item + ") { \n"
-                       "              $" + item + "Obj = new " + type + "(); \n"
-                       "              $" + item + "Obj->validate($" + item + "); \n"
-                       "           } \n";
+                       "          foreach ($data->" + member_name.value + " as $" + item + ") { \n";
+
+            for( int i=1; i!= std::stoi(info[2]); i++)
+            {
+                arrayCase +=
+                           "          foreach ($" + item + " as $" + item + std::to_string(i) + ") { \n";
+                item = item + std::to_string(i);
+            }
+                arrayCase +=
+                           "              $" + item + "Obj = new " + info[1] + "(); \n"
+                           "              $" + item + "Obj->validate($" + item + "); \n";
+
+            for( int i=1; i!= std::stoi(info[2]); i++)
+            {
+                arrayCase +=
+                           "           } \n";
+            }
+                arrayCase +=
+                           "           } \n";
+
         }
         else if (
-                 (              member_type_name=="array" &&
-                                (  type == "int" ||
-                                   type == "string" ||
-                                   type == "bool" ||
-                                   type == "float" ||
-                                   type == "double" ||
-                                   type == "integer"
+                 (              info[0] =="array" &&
+                                (  info[1] == "int" ||
+                                   info[1] == "string" ||
+                                   info[1] == "bool" ||
+                                   info[1] == "float" ||
+                                   info[1] == "double" ||
+                                   info[1] == "integer"
                                 )
                     )
                  )
@@ -359,59 +368,75 @@ string analyze_struct(state_holder& state,
             string item = member_name.value+"Item";
             addFunction +=
                          "    /**\n"
-                         "    * @param " + type + " $" + item +"\n"
+                         "    * @param " + info[1] + " $" + item +"\n"
                          "    */\n"
-                         "    public function add" + ((char)( member_name.value.at(0)-32 ) + member_name.value.substr( 1, member_name.value.length()-1 ))  +  "(" + type + " $" + item + ")\n"
+                         "    public function add" + ((char)( member_name.value.at(0)-32 ) + member_name.value.substr( 1, member_name.value.length()-1 ))  +  "(" + info[1] + " $" + item + ")\n"
                          "    {\n"
                          "        $this->" + member_name.value + "[] = $" + item + ";\n"
                          "    }\n";
 
-             arrayCase +=
-                         "        foreach ($data->" + member_name.value + " as $" + item + ") { \n"
-                         "            $this->add" + ((char)( member_name.value.at(0)-32 ) + member_name.value.substr( 1, member_name.value.length()-1 )) + "($" + item + ");\n"
-                         "        } \n";
+
+            arrayCase +=
+                       "          foreach ($data->" + member_name.value + " as $" + item + ") { \n";
+
+            for( int i=1; i!= std::stoi(info[2]); i++)
+            {
+                arrayCase +=
+                           "          foreach ($" + item + " as $" + item + std::to_string(i) + ") { \n";
+                item = item + std::to_string(i);
+            }
+                arrayCase +=
+                          "            $this->add" + ((char)( member_name.value.at(0)-32 ) + member_name.value.substr( 1, member_name.value.length()-1 )) + "($" + item + ");\n";
+
+            for( int i=1; i!= std::stoi(info[2]); i++)
+            {
+                arrayCase +=
+                           "           } \n";
+            }
+                arrayCase +=
+                           "           } \n";
         }
         else if (
-                 member_type_name == "int" ||
-                 member_type_name == "string" ||
-                 member_type_name == "bool" ||
-                 member_type_name == "float" ||
-                 member_type_name == "double" ||
-                 member_type_name == "integer"
+                 info[0] == "int" ||
+                 info[0] == "string" ||
+                 info[0] == "bool" ||
+                 info[0] == "float" ||
+                 info[0] == "double" ||
+                 info[0] == "integer"
                  )
         {
             trivialTypes +=
-                          "        $this->set" + ((char)(member_name.value.at(0)-32) + member_name.value.substr( 1,member_name.value.length()-1) ) + "($data->" + member_name.value + "); \n";
+                          "          $this->set" + ((char)(member_name.value.at(0)-32) + member_name.value.substr( 1,member_name.value.length()-1) ) + "($data->" + member_name.value + "); \n";
 
             setFunction +=
                          "    /** \n"
-                         "    * @param " + member_type_name + " $" + member_name.value + "\n"
+                         "    * @param " + info[0] + " $" + member_name.value + "\n"
                          "    */ \n"
-                         "    public function set" + (char)( member_name.value.at(0)-32 ) + member_name.value.substr( 1,member_name.value.length()-1 ) + "(" + member_type_name +" $" + member_name.value + ") \n"
+                         "    public function set" + (char)( member_name.value.at(0)-32 ) + member_name.value.substr( 1,member_name.value.length()-1 ) + "(" + info[0] +" $" + member_name.value + ") \n"
                          "    { \n"
                          "            $this->" + member_name.value + " = " ;
 
-            if (!(member_type_name == "integer"))
+            if (!(info[0] == "integer"))
                 setFunction += "$";
 
-            if (member_type_name == "integer")
-                setFunction += "strtotime(";
+            if (info[0] == "integer")
+                setFunction += "strtotime($";
 
             setFunction += member_name.value;
 
-            if (member_type_name == "integer")
+            if (info[0] == "integer")
                 setFunction += ")";
 
             setFunction +="; \n"
                         "    } \n";
         }
-        else if( !(member_type_name == "::beltpp::packet") )
+        else if( !(info[0] == "::beltpp::packet") )
         {
             objectTypes +=
-                         "        $" + member_name.value + "Obj = new "+member_type_name + "();\n"
-                         "        $" + member_name.value + "Obj -> validate($data-> "+member_name.value  + ");\n";
+                         "        $" + member_name.value + "Obj = new "+ info[0] + "();\n"
+                         "        $" + member_name.value + "Obj -> validate($data-> "+ member_name.value  + ");\n";
         }
-        map_member_name_type.insert(std::make_pair(member_name.value, member_type_name));
+
     }
 
     string  validation =
@@ -420,11 +445,8 @@ string analyze_struct(state_holder& state,
                                 + objectTypes + trivialTypes + arrayCase + mixedTypes +
                        "    } \n";
 
-    result += params + setFunction + addFunction;
-
-    if ( !(validation.empty()) )
-        result += validation;
-
+    result += params + setFunction + addFunction + validation;
     result += "} \n";
+
     return result;
 }

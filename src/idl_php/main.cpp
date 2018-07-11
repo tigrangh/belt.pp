@@ -73,13 +73,15 @@ int main(int argc, char* argv[])
                                 "}"
                                 "class Group"
                                 "{"
-                                    "TimePoint time"
-                                    "Array Person person"
+                                    "TimePoint time "
+                                    "Array Array Array Person person "
+                                    "Array Array Array int per "
+                                    "Array int pers "
 
                                 "}"
                                  "type jbbk"
                                   "{"
-                                        "Array Person person"
+                                        "Array Array Array Array Person person "
 
                                    "}"
                             "}";
