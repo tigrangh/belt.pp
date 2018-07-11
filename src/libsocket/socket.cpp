@@ -616,7 +616,7 @@ packets socket::receive(peer_id& peer)
                            it_begin)
                         current_channel.m_stream.pop();
 
-                    if (pmsgall.rtt == 0 ||
+                    if (pmsgall.rtt == size_t(-2) ||
                         pmsgall.rtt == m_pimpl->m_rtt_drop ||
                         pmsgall.rtt == m_pimpl->m_rtt_error ||
                         pmsgall.rtt == m_pimpl->m_rtt_join)

@@ -126,7 +126,7 @@ inline
     if (::beltpp::e_three_state_result::error == code)
     {
         iter_scan_begin = iter_scan_end;
-        return_value = ::beltpp::detail::pmsg_all(0,
+        return_value = ::beltpp::detail::pmsg_all(size_t(-2),
                                         ::beltpp::void_unique_ptr(nullptr, [](void*){}),
                                         nullptr);
     }
