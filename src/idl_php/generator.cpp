@@ -408,11 +408,17 @@ string analyze_struct(state_holder& state,
             trivialTypes +=
                           "          $this->set" + ((char)(member_name.value.at(0)-32) + member_name.value.substr( 1,member_name.value.length()-1) ) + "($data->" + member_name.value + "); \n";
 
+            string type;
+            if (info[0] == "integer")
+                type = "int";
+            else
+                type = info[0];
+
             setFunction +=
                          "    /** \n"
-                         "    * @param " + info[0] + " $" + member_name.value + "\n"
+                         "    * @param " + type + " $" + member_name.value + "\n"
                          "    */ \n"
-                         "    public function set" + (char)( member_name.value.at(0)-32 ) + member_name.value.substr( 1,member_name.value.length()-1 ) + "(" + info[0] +" $" + member_name.value + ") \n"
+                         "    public function set" + (char)( member_name.value.at(0)-32 ) + member_name.value.substr( 1,member_name.value.length()-1 ) + "(" + type +" $" + member_name.value + ") \n"
                          "    { \n"
                          "            $this->" + member_name.value + " = " ;
 
