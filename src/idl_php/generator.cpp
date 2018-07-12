@@ -41,14 +41,72 @@ state_holder::state_holder()
 
 namespace
 {
-enum g_type_info {type_empty = 0x0,
+enum g_type_info {
+                type_empty = 0x0,
                 type_simple = 0x1,
                 type_object=0x2,
                 type_extension=0x4,
                 type_simple_object = type_simple | type_object,
                 type_simple_extension = type_simple | type_extension,
                 type_object_extension = type_object | type_extension,
-                type_simple_object_extension = type_simple | type_object_extension};
+                type_simple_object_extension = type_simple | type_object_extension
+};
+
+string handleArrayForPrimitives(int count, string member_name){
+
+    string arrayCase;
+    string item = member_name + "Item";
+    arrayCase +=
+               "          foreach ($data->" + member_name + " as $" + item + ") { \n";
+
+    for( int i=1; i!= count; i++)
+    {
+        arrayCase +=
+                   "          foreach ($" + item + " as $" + item + std::to_string(i) + ") { \n";
+        item = item + std::to_string(i);
+    }
+        arrayCase +=
+                  "            $this->add" + ((char)( member_name.at(0)-32 ) + member_name.substr( 1, member_name.length()-1 )) + "($" + item + ");\n";
+
+    for( int i=1; i!= count; i++)
+    {
+        arrayCase +=
+                   "           } \n";
+    }
+        arrayCase +=
+                   "           } \n";
+        return arrayCase;
+}
+
+
+
+string handleArrayForObjects(int count, string member_name, string object_name){
+
+        string item = member_name +"Item";
+        string arrayCase;
+             arrayCase+=
+                       "          foreach ($data->" + member_name + " as $" + item + ") { \n";
+
+        for( int i=1; i!= count; i++)
+        {
+            arrayCase +=
+                       "          foreach ($" + item + " as $" + item + std::to_string(i) + ") { \n";
+            item = item + std::to_string(i);
+        }
+            arrayCase +=
+                       "              $" + item + "Obj = new " + object_name + "(); \n"
+                       "              $" + item + "Obj->validate($" + item + "); \n";
+
+        for( int i=1; i!= count; i++)
+        {
+            arrayCase +=
+                       "           } \n";
+        }
+            arrayCase +=
+                       "           } \n";
+            return arrayCase;
+
+}
 
 string convert_type(string const& type_name, state_holder& state, g_type_info& type_detail)
 {
@@ -327,29 +385,7 @@ string analyze_struct(state_holder& state,
                 )
            )
         {
-
-            string item = member_name.value+"Item";
-
-            arrayCase +=
-                       "          foreach ($data->" + member_name.value + " as $" + item + ") { \n";
-
-            for( int i=1; i!= std::stoi(info[2]); i++)
-            {
-                arrayCase +=
-                           "          foreach ($" + item + " as $" + item + std::to_string(i) + ") { \n";
-                item = item + std::to_string(i);
-            }
-                arrayCase +=
-                           "              $" + item + "Obj = new " + info[1] + "(); \n"
-                           "              $" + item + "Obj->validate($" + item + "); \n";
-
-            for( int i=1; i!= std::stoi(info[2]); i++)
-            {
-                arrayCase +=
-                           "           } \n";
-            }
-                arrayCase +=
-                           "           } \n";
+            arrayCase += handleArrayForObjects(std::stoi(info[2]), member_name.value, info[1]);
 
         }
         else if (
@@ -376,25 +412,8 @@ string analyze_struct(state_holder& state,
                          "    }\n";
 
 
-            arrayCase +=
-                       "          foreach ($data->" + member_name.value + " as $" + item + ") { \n";
+            arrayCase += handleArrayForPrimitives(std::stoi(info[2]), member_name.value);
 
-            for( int i=1; i!= std::stoi(info[2]); i++)
-            {
-                arrayCase +=
-                           "          foreach ($" + item + " as $" + item + std::to_string(i) + ") { \n";
-                item = item + std::to_string(i);
-            }
-                arrayCase +=
-                          "            $this->add" + ((char)( member_name.value.at(0)-32 ) + member_name.value.substr( 1, member_name.value.length()-1 )) + "($" + item + ");\n";
-
-            for( int i=1; i!= std::stoi(info[2]); i++)
-            {
-                arrayCase +=
-                           "           } \n";
-            }
-                arrayCase +=
-                           "           } \n";
         }
         else if (
                  info[0] == "int" ||
