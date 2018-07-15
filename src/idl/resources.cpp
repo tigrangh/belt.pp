@@ -70,7 +70,8 @@ bool message_list_load_helper(::beltpp::json::expression_tree* pexp,
         //  trying to fool us, by sending incorrect json structures
         return false;
     }
-    else if (false == detail::analyze_json_object(pexp, return_value, utl))
+    else if (size_t(-1) != return_value.rtt &&
+             false == detail::analyze_json_object(pexp, return_value, utl))
         return false;
 
     return true;
@@ -484,6 +485,8 @@ inline
 std::string saver(::beltpp::packet const& value)
 {
     auto buffer = value.save();
+    if (buffer.empty())
+        return std::string("{}");
     return std::string(buffer.begin(), buffer.end());
 }
 inline
@@ -503,9 +506,12 @@ bool analyze_json(::beltpp::packet& value,
     else if (false == detail::message_list_load_helper(pexp, return_value, utl))
         return false;
 
-    value.set(return_value.rtt,
-              std::move(return_value.pmsg),
-              return_value.fsaver);
+    if (size_t(-1) == return_value.rtt)
+        value.clean();
+    else
+        value.set(return_value.rtt,
+                  std::move(return_value.pmsg),
+                  return_value.fsaver);
 
     return true;
 }
@@ -1039,11 +1045,14 @@ bool analyze_json_object(::beltpp::json::expression_tree* pexp,
                          size_t& rtt)
 {
     bool code = false;
-    rtt = -1;
+    rtt = size_t(-1);
 
     if (nullptr == pexp ||
-        pexp->lexem.rtt != beltpp::json::scope_brace::rtt ||
-        1 != pexp->children.size())
+        pexp->lexem.rtt != beltpp::json::scope_brace::rtt)
+        code = false;
+    else if (0 == pexp->children.size())
+        code = true; // empty packet
+    else if (1 != pexp->children.size())
         code = false;
     else if (pexp->children.front() &&
              pexp->children.front()->lexem.rtt ==
@@ -1138,6 +1147,12 @@ bool analyze_colon(::beltpp::json::expression_tree* pexp,
 inline
 void assign_packet(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
 {
+    if (other.empty())
+    {
+        self.clean();
+        return;
+    }
+
     if ({namespace_name}::detail::storage<>::s_arr_fptr.size() <= other.type())
     {
         assert(false);

@@ -59,6 +59,11 @@ packet& packet::operator = (packet&& other) noexcept
     return *this;
 }
 
+bool packet::empty() const noexcept
+{
+    return m_pimpl->m_rtt == size_t(-1);
+}
+
 size_t packet::type() const
 {
     return m_pimpl->m_rtt;
