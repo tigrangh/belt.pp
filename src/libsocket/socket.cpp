@@ -36,9 +36,9 @@
 using std::string;
 using std::vector;
 using std::tuple;
-using beltpp::scope_helper;
+using beltpp::on_failure;
 
-using sockets = vector<tuple<beltpp::native::sk_handle, addrinfo*, scope_helper>>;
+using sockets = vector<tuple<beltpp::native::sk_handle, addrinfo*, on_failure>>;
 using peer_ids = beltpp::socket::peer_ids;
 using packets = beltpp::socket::packets;
 
@@ -159,13 +159,13 @@ void getaddressinfo(addrinfo* &servinfo,
                     ip_address::e_type type,
                     string const& str_address,
                     unsigned short port,
-                    beltpp::scope_helper& servinfo_cleaner,
+                    beltpp::on_failure& servinfo_cleaner,
                     bool hold_family_mismatch_exception = false);
 void getaddressinfo(addrinfo* &servinfo,
                     int ai_family,
                     string const& str_address,
                     unsigned short port,
-                    beltpp::scope_helper& servinfo_cleaner,
+                    beltpp::on_failure& servinfo_cleaner,
                     bool hold_family_mismatch_exception = false);
 sockets socket(addrinfo* servinfo,
                bool bind,
@@ -242,7 +242,7 @@ peer_ids socket::listen(ip_address const& address, int backlog/* = 100*/)
     string error_message;
 
     addrinfo* servinfo = nullptr;
-    beltpp::scope_helper servinfo_cleaner;
+    beltpp::on_failure servinfo_cleaner;
 
     detail::getaddressinfo(servinfo,
                            address.ip_type,
@@ -259,7 +259,7 @@ peer_ids socket::listen(ip_address const& address, int backlog/* = 100*/)
     {
         native::sk_handle socket_descriptor = std::get<0>(socket_info);
         addrinfo* pinfo = std::get<1>(socket_info);
-        scope_helper& guard = std::get<2>(socket_info);
+        on_failure& guard = std::get<2>(socket_info);
 
         assert(pinfo);
         string str_temp_address = detail::dump(*pinfo->ai_addr);
@@ -287,7 +287,7 @@ peer_ids socket::listen(ip_address const& address, int backlog/* = 100*/)
                                         detail::channel::type::listening,
                                         0,
                                         socket_bundle));
-        guard.commit();
+        guard.dismiss();
     }
 
     if (peers.empty() &&
@@ -308,7 +308,7 @@ void socket::open(ip_address address, size_t attempts/* = 0*/)
     }
 
     addrinfo* localinfo = nullptr;
-    beltpp::scope_helper localinfo_cleaner;
+    beltpp::on_failure localinfo_cleaner;
 
     bool bind = (false == address.local.empty());
 
@@ -330,7 +330,7 @@ void socket::open(ip_address address, size_t attempts/* = 0*/)
     {
         native::sk_handle socket_descriptor = std::get<0>(socket_info);
         addrinfo* pinfo = std::get<1>(socket_info);
-        scope_helper& guard = std::get<2>(socket_info);
+        on_failure& guard = std::get<2>(socket_info);
 
         string str_temp_address = detail::dump(*pinfo->ai_addr);
         str_temp_address += "\t";
@@ -340,7 +340,7 @@ void socket::open(ip_address address, size_t attempts/* = 0*/)
             hold_exception = true;
 
         addrinfo* remoteinfo = nullptr;
-        beltpp::scope_helper remoteinfo_cleaner;
+        beltpp::on_failure remoteinfo_cleaner;
         detail::getaddressinfo(remoteinfo,
                                pinfo->ai_family,
                                address.remote.address,
@@ -371,7 +371,7 @@ void socket::open(ip_address address, size_t attempts/* = 0*/)
                                         detail::channel::type::streaming,
                                         attempts,
                                         socket_bundle));
-        guard.commit();
+        guard.dismiss();
     }
 }
 
@@ -616,7 +616,7 @@ packets socket::receive(peer_id& peer)
                            it_begin)
                         current_channel.m_stream.pop();
 
-                    if (pmsgall.rtt == 0 ||
+                    if (pmsgall.rtt == size_t(-2) ||
                         pmsgall.rtt == m_pimpl->m_rtt_drop ||
                         pmsgall.rtt == m_pimpl->m_rtt_error ||
                         pmsgall.rtt == m_pimpl->m_rtt_join)
@@ -867,7 +867,7 @@ void getaddressinfo(addrinfo* &servinfo,
                     ip_address::e_type type,
                     string const& str_address,
                     unsigned short port,
-                    beltpp::scope_helper& servinfo_cleaner,
+                    beltpp::on_failure& servinfo_cleaner,
                     bool hold_family_mismatch_exception/* = false*/)
 {
     int ai_family;
@@ -907,7 +907,7 @@ void getaddressinfo(addrinfo* &servinfo,
                     int ai_family,
                     string const& str_address,
                     unsigned short port,
-                    beltpp::scope_helper& servinfo_cleaner,
+                    beltpp::on_failure& servinfo_cleaner,
                     bool hold_family_mismatch_exception/* = false*/)
 {
     addrinfo hints;
@@ -943,7 +943,7 @@ void getaddressinfo(addrinfo* &servinfo,
             throw std::runtime_error("assert(servinfo);");
     }
 
-    servinfo_cleaner = beltpp::scope_helper([]{}, [&servinfo]{freeaddrinfo(servinfo);});
+    servinfo_cleaner = beltpp::on_failure([&servinfo]{freeaddrinfo(servinfo);});
 }
 
 sockets socket(addrinfo* servinfo,
@@ -963,7 +963,7 @@ sockets socket(addrinfo* servinfo,
         socket_descriptor.handle = ::socket(p->ai_family,
                                             p->ai_socktype,
                                             p->ai_protocol);
-        scope_helper scope_guard([]{}, [socket_descriptor]()
+        on_failure scope_guard([socket_descriptor]()
         {
             if (0 != native::close(socket_descriptor))
                 throw std::runtime_error("let it terminate");
@@ -1107,7 +1107,7 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
 
     uint64_t eh_id = pimpl->m_peh->add(self, socket_descriptor, id, out, need_close_event);
 
-    beltpp::scope_helper scope_guard([]{},
+    beltpp::on_failure scope_guard(
     [pimpl, socket_descriptor, eh_id, out]
     {
         pimpl->m_peh->remove(socket_descriptor,
@@ -1121,7 +1121,7 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
                                       e_type,
                                       socket_bundle,
                                       eh_id));
-    scope_guard.commit();
+    scope_guard.dismiss();
 
     return current_peer;
 }

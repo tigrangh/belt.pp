@@ -24,6 +24,7 @@ public:
     using fptr_saver = detail::fptr_saver;
 
     packet();
+    packet(packet const&) = delete;
     packet(packet&& other);
     virtual ~packet();
 
@@ -36,6 +37,7 @@ public:
     packet& operator = (packet const&) = delete;
     packet& operator = (packet&&) noexcept;
 
+    bool empty() const noexcept;
     size_t type() const;
     void clean();
     std::vector<char> save() const;
@@ -45,6 +47,12 @@ public:
 
     template <typename T_message>
     void set(T_message&& msg);
+
+    template <typename T_message>
+    void get(T_message const* &pmsg) const;
+
+    template <typename T_message>
+    void get(T_message* &pmsg);
 
     template <typename T_message>
     void get(T_message& msg) const &;
@@ -67,7 +75,8 @@ protected:
 template <typename T_message>
 void packet::set(T_message&& msg)
 {
-    using MessageValueT = typename std::remove_reference<T_message>::type;
+    using MessageValueT_temp = typename std::remove_reference<T_message>::type;
+    using MessageValueT = typename std::remove_const<MessageValueT_temp>::type;
     beltpp::void_unique_ptr pmsg(new_void_unique_ptr<MessageValueT>());
     void* pv = pmsg.get();
     MessageValueT* pmv = static_cast<MessageValueT*>(pv);
@@ -79,28 +88,43 @@ void packet::set(T_message&& msg)
 }
 
 template <typename T_message>
-void packet::get(T_message& msg) const &
+void packet::get(T_message* &pmsg)
 {
     auto rtt = type();
     if (rtt == T_message::rtt)
     {
-        msg = *reinterpret_cast<T_message const*>(_get_internal());
+        pmsg = reinterpret_cast<T_message*>(_get_internal());
     }
     else
         throw std::runtime_error("wrong type on get from packet");
 }
 
 template <typename T_message>
-void packet::get(T_message& msg) &&
+void packet::get(T_message const* &pmsg) const
 {
     auto rtt = type();
     if (rtt == T_message::rtt)
     {
-        T_message* p = reinterpret_cast<T_message*>(_get_internal());
-        msg = std::move(*p);
+        pmsg = reinterpret_cast<T_message const*>(_get_internal());
     }
     else
         throw std::runtime_error("wrong type on get from packet");
+}
+
+template <typename T_message>
+void packet::get(T_message& msg) const &
+{
+    T_message const* p;
+    get(p);
+    msg = *p;
+}
+
+template <typename T_message>
+void packet::get(T_message& msg) &&
+{
+    T_message* p;
+    get(p);
+    msg = std::move(*p);
 }
 
 }

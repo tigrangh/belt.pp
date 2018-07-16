@@ -2,6 +2,7 @@
 
 #include <sstream>
 #include <iomanip>
+#include <random>
 
 namespace beltpp
 {
@@ -80,6 +81,31 @@ bool lc_string_to_gm_time_t(std::string const& strt, time_t& t)
 
     t = lc_tm_to_gm_time_t(st);
     return true;
+}
+
+double random_in_range(double from, double to)
+{
+    std::random_device rd;
+    std::mt19937 mt(rd());
+    std::uniform_real_distribution<double> dist(from, to);
+
+    return dist(mt);
+}
+
+bool chance_one_of(uint32_t count)
+{
+    if (0 == count)
+        return false;
+    if (1 == count)
+        return true;
+
+    std::random_device rd;
+    std::mt19937 mt(rd());
+    std::uniform_int_distribution<uint32_t> dist(0, count - 1);
+
+    if (0 == dist(mt))
+        return true;
+    return false;
 }
 }
 

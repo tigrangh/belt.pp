@@ -20,4 +20,6 @@ std::string analyze(state_holder& state,
 
 std::string analyze_struct(state_holder& state,
                            expression_tree const* pexpression,
-                           std::string const& type_name);
+                           size_t rtt,
+                           std::string const& type_name,
+                           bool serializable);

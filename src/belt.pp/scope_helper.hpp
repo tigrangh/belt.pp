@@ -4,45 +4,41 @@
 
 namespace beltpp
 {
-class scope_helper final
+class on_failure final
 {
 public:
-    scope_helper()
+    on_failure()
     {}
 
-    scope_helper(std::function<void()> const& init,
-                 std::function<void()> const& cleanup)
+    on_failure(std::function<void()> const& cleanup)
     {
-        if (init)
-            init();
-
         m_cleanup = cleanup;
     }
 
-    scope_helper(scope_helper const&) = delete;
-    scope_helper(scope_helper&& other)
+    on_failure(on_failure const&) = delete;
+    on_failure(on_failure&& other)
     {
         m_cleanup = other.m_cleanup;
-        other.commit();
+        other.dismiss();
     }
 
-    ~scope_helper()
+    ~on_failure()
     {
         if (m_cleanup)
             m_cleanup();
     }
 
-    void operator = (scope_helper const&) = delete;
-    void operator = (scope_helper&& other)
+    void operator = (on_failure const&) = delete;
+    void operator = (on_failure&& other)
     {
         if (m_cleanup)
             m_cleanup();
 
         m_cleanup = other.m_cleanup;
-        other.commit();
+        other.dismiss();
     }
 
-    void commit() noexcept
+    void dismiss() noexcept
     {
         m_cleanup = std::function<void()>();
     }
