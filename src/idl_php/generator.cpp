@@ -52,7 +52,8 @@ enum g_type_info {
                 type_simple_object_extension = type_simple | type_object_extension
 };
 
-string handleArrayForPrimitives(int count, string member_name){
+string handleArrayForPrimitives(int count, string member_name)
+{
 
     string arrayCase;
     string item = member_name + "Item";
@@ -78,9 +79,8 @@ string handleArrayForPrimitives(int count, string member_name){
         return arrayCase;
 }
 
-
-
-string handleArrayForObjects(int count, string member_name, string object_name){
+string handleArrayForObjects(int count, string member_name, string object_name)
+{
 
         string item = member_name +"Item";
         string arrayCase;
@@ -105,6 +105,68 @@ string handleArrayForObjects(int count, string member_name, string object_name){
             arrayCase +=
                        "           } \n";
             return arrayCase;
+
+}
+
+void handleHashForPrimitives(string info[], string& setFunction, string& hashCase, string member_name)
+{
+    setFunction +=
+     "    /**\n"
+     "    * @var string\n"
+     "    */\n"
+     "    private $" + member_name + "Key;\n"
+     "    /**\n"
+     "    * @param string  $" + member_name + "Key\n"
+     "    */\n"
+     "    public function set" + member_name + "Key(string $key)\n"
+     "    {\n"
+     "        $this->" + member_name + "Key = $key;\n"
+     "    }\n"
+
+     "    /**\n"
+     "    * @var " + info[3] + "\n"
+     "    */\n"
+     "    private $" + member_name + "Value;\n"
+     "    /**\n"
+     "    * @param " + info[3] + " $" + member_name + "Value\n"
+     "    */\n"
+     "    public function set" + member_name + "Value(" + info[3] + " $value)\n"
+     "    {\n"
+     "        $this->" + member_name + "Value = $value;\n"
+     "    }\n";
+
+  hashCase +=
+        "        foreach ($data->hash as $key => $value) {\n"
+        "            $this->set" + member_name + "Key($key);\n"
+        "            $this->set" + member_name + "Value($value);\n"
+        "        }\n";
+}
+
+void handleHashForObjects(string info[], string& setFunction, string& hashCase, string member_name)
+{
+
+        setFunction +=
+                "    /**\n"
+                "    * @var string\n"
+                "    */\n"
+                "    private $" + member_name + "Key;\n"
+                "    /**\n"
+                "    * @param string  $" + member_name + "Key\n"
+                "    */\n"
+                "    public function set" + member_name + "Key(string $key)\n"
+                "    {\n"
+                "        $this->" + member_name + "Key = $key;\n"
+                "    }\n";
+
+        string ObjType = info[3];
+        if(info[3] == "::beltpp::packet")
+            ObjType = "Object";
+          hashCase +=
+                    "        foreach ($data->hash as $key => $value) {\n"
+                    "            $this->set" + member_name + "Key($key);\n"
+                    "            $hashItemObj = new " + ObjType + "();\n"
+                    "            $hashItemObj->validate($value);\n"
+                    "         }\n";
 
 }
 
@@ -140,39 +202,38 @@ void construct_type_name(expression_tree const* member_type,
         result[0] = "array";
         int count = 1;
         auto it = member_type->children.front();
-        for(; it->lexem.rtt != identifier::rtt; it = it->children.front()){
+        for(; it->lexem.rtt != identifier::rtt; it = it->children.front())
+        {
             count++;
         }
         if(it->lexem.rtt == identifier::rtt)
         {
-            result[1]=it->lexem.value;
+            result[1] = convert_type(it->lexem.value, state, type_detail);
         }
         result[2] = std::to_string(count);
     }
-    /*else if (member_type->lexem.rtt == keyword_hash::rtt &&
-             member_type->children.size() == 2 &&
-             member_type->children.front()->lexem.rtt == identifier::rtt &&
-             member_type->children.back()->lexem.rtt == identifier::rtt)
+    else if (member_type->lexem.rtt == keyword_hash::rtt &&
+             member_type->children.size() == 2 )
     {
-        g_type_info type_detail_key, type_detail_value;
-        string key_type_name =
-                construct_type_name(member_type->children.front(),
-                                    state, type_detail_key, type_name);
-        string value_type_name =
-                construct_type_name(member_type->children.back(),
-                                    state, type_detail_value, type_name);
+        int count = 1;
+        auto it = member_type->children.front();
+        for(; it->lexem.rtt != identifier::rtt; it = it->children.front())
+        {
+            count++;
+        }
+        if(it->lexem.rtt == identifier::rtt)
+        {
+            result[1] = convert_type(it->lexem.value, state, type_detail);
+        }
 
-        type_detail = static_cast<g_type_info>(type_detail_key | type_detail_value);
+        result[0] = "hash";
+        result[2] = std::to_string(count);
+        result[3] = convert_type(member_type->children.back()->lexem.value, state, type_detail);
 
-        if ((type_detail & type_object) &&
-            (type_detail & type_extension))
-            throw runtime_error("hash object extension mix");
-        return "hash";
-        //return "std::unordered_map<" + key_type_name  + ", " + value_type_name + ">";
-    }*/
+    }
     else
         throw runtime_error("can't get type definition, wtf!");
-}
+    }
 }
 
 string analyze(state_holder& state,
@@ -234,9 +295,7 @@ class Rtt
                 string type_name = item->children.front()->lexem.value;
                 resultMid += analyze_struct(state,
                                          item->children.back(),
-                                         rtt,
-                                         type_name,
-                                         true);
+                                         type_name);
                 class_names.insert(std::make_pair(rtt, type_name));
 
             }
@@ -305,9 +364,7 @@ class Rtt
 
 string analyze_struct(state_holder& state,
                       expression_tree const* pexpression,
-                      size_t rtt,
-                      string const& type_name,
-                      bool serializable)
+                      string const& type_name)
 {
     if (state.namespace_name.empty())
         throw runtime_error("please specify package name");
@@ -340,6 +397,7 @@ string analyze_struct(state_holder& state,
     string trivialTypes;
     string objectTypes;
     string mixedTypes;
+    string hashCase;
 
     result += "class " + type_name + " implements Validator, JsonSerializable\n";
     result += "{\n";
@@ -355,8 +413,10 @@ string analyze_struct(state_holder& state,
 
         g_type_info type_detail;
 
-        string info[3];
+        string info[4];
         construct_type_name(member_type, state, type_detail, info);
+
+        cout<<endl;
         if (info[0] == "::beltpp::packet")
         {
 
@@ -415,6 +475,38 @@ string analyze_struct(state_holder& state,
             arrayCase += handleArrayForPrimitives(std::stoi(info[2]), member_name.value);
 
         }
+
+        if(     info[0]=="hash" &&
+                ( info[3] != "int" &&
+                  info[3] != "string" &&
+                  info[3] != "bool" &&
+                  info[3] != "float" &&
+                  info[3] != "double" &&
+                  info[3] != "integer"
+                )
+           )
+        {
+
+            handleHashForObjects(info, setFunction, hashCase, member_name.value);
+
+        }
+        else if (
+                 (              info[0] =="hash" &&
+                                (  info[3] == "int" ||
+                                   info[3] == "string" ||
+                                   info[3] == "bool" ||
+                                   info[3] == "float" ||
+                                   info[3] == "double" ||
+                                   info[3] == "integer"
+                                )
+                    )
+                 )
+        {
+             handleHashForPrimitives(info, setFunction, hashCase, member_name.value);
+
+        }
+
+
         else if (
                  info[0] == "int" ||
                  info[0] == "string" ||
@@ -467,7 +559,7 @@ string analyze_struct(state_holder& state,
     string  validation =
                        "    public function validate(stdClass $data) \n"
                        "    { \n"
-                                + objectTypes + trivialTypes + arrayCase + mixedTypes +
+                                + objectTypes + trivialTypes + arrayCase + mixedTypes + hashCase +
                        "    } \n";
 
     result += params + setFunction + addFunction + validation;
