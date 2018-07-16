@@ -24,6 +24,7 @@ public:
     using fptr_saver = detail::fptr_saver;
 
     packet();
+    packet(packet const&) = delete;
     packet(packet&& other);
     virtual ~packet();
 
