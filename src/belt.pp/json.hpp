@@ -550,7 +550,9 @@ public:
     beltpp::e_three_state_result check(char ch)
     {
         value += ch;
-        if ("." == value || "-" == value || "-." == value)
+        if ('e' == tolower(ch))
+            return beltpp::e_three_state_result::attempt;
+        else if ("." == value || "-" == value || "-." == value)
             return beltpp::e_three_state_result::attempt;
         else if (_check(value))
             return beltpp::e_three_state_result::attempt;
