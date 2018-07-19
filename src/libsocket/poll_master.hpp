@@ -528,6 +528,7 @@ namespace beltpp
                                     repeat = true;
                             } while (repeat);
 
+                            /* seems async result always fires
                             if (code || WSAGetLastError() != WSA_IO_PENDING)
                             {
                                 sync_completed = true;
@@ -535,6 +536,7 @@ namespace beltpp
                                 completed_code = code;
                                 break;
                             }
+                            */
                         }
                         else if (event_handler::task::connect == item.second->action)
                         {
@@ -549,6 +551,7 @@ namespace beltpp
                                 &item.second->overlapped,
                                 nullptr);
 
+                            /* seems async result always fires
                             if (SOCKET_ERROR != code || WSAGetLastError() != WSA_IO_PENDING)
                             {
                                 sync_completed = true;
@@ -556,6 +559,7 @@ namespace beltpp
                                 completed_code = (SOCKET_ERROR != code);
                                 break;
                             }
+                            */
                         }
 
                         item.second->running = true;
