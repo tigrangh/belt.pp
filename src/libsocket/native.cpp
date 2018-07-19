@@ -35,8 +35,6 @@ int get_connected_status(beltpp::detail::event_handler_impl* peh,
 SOCKET accept(beltpp::detail::event_handler_impl* peh,
               uint64_t id,
               SOCKET socket_descriptor,
-              struct sockaddr*,
-              socklen_t*,
               int& res,
               int& error_code)
 {
