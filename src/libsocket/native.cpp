@@ -93,8 +93,8 @@ int recv(beltpp::detail::event_handler_impl* peh,
     }
     else
     {
-        if (len > async_data->bytes_copied - async_data->bytes_offset)
-            len = async_data->bytes_copied - async_data->bytes_offset;
+        if ((DWORD)len > async_data->bytes_copied - async_data->bytes_offset)
+            len = (int)(async_data->bytes_copied - async_data->bytes_offset);
 
         memcpy(buf, async_data->receive_buffer + async_data->bytes_offset, len);
 
