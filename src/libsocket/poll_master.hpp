@@ -188,6 +188,7 @@ public:
         return set_ids;
     }
 
+    void terminate() {}
     void reset(uint64_t) {}
 
     int m_fd;
@@ -321,6 +322,7 @@ public:
         return set_ids;
     }
 
+    void terminate() {}
     void reset(uint64_t) {}
 
     int m_fd;
@@ -528,7 +530,6 @@ namespace beltpp
                                     repeat = true;
                             } while (repeat);
 
-                            /* seems async result always fires
                             if (code || WSAGetLastError() != WSA_IO_PENDING)
                             {
                                 sync_completed = true;
@@ -536,7 +537,6 @@ namespace beltpp
                                 completed_code = code;
                                 break;
                             }
-                            */
                         }
                         else if (event_handler::task::connect == item.second->action)
                         {
@@ -551,15 +551,13 @@ namespace beltpp
                                 &item.second->overlapped,
                                 nullptr);
 
-                            /* seems async result always fires
-                            if (SOCKET_ERROR != code || WSAGetLastError() != WSA_IO_PENDING)
+                            if (SOCKET_ERROR == code && WSAGetLastError() != WSA_IO_PENDING)
                             {
                                 sync_completed = true;
                                 completed_id = item.first;
                                 completed_code = (SOCKET_ERROR != code);
                                 break;
                             }
-                            */
                         }
 
                         item.second->running = true;
@@ -642,6 +640,13 @@ namespace beltpp
                 return set_ids;
             }
 
+            void terminate()
+            {
+                ::PostQueuedCompletionStatus(m_completion_port,
+                                             0, // bytesCopied
+                                             0, // completionKey
+                                             0)); // overlapped
+            }
             void reset(uint64_t /*reset_id*/)
             {   //  can probably get rid of this
             }

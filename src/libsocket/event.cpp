@@ -94,6 +94,11 @@ std::unordered_set<uint64_t> event_handler::waited(ievent_item& ev_it) const
         return find_it->second;
 }
 
+void event_handler::terminate()
+{
+    m_pimpl->m_poll_master.terminate();
+}
+
 void event_handler::set_timer(std::chrono::steady_clock::duration const& period)
 {
     m_pimpl->m_timer_helper.set(period);

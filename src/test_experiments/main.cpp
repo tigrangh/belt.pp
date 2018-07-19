@@ -155,6 +155,8 @@ int main(int argc, char** argv)
             }
         }
 #else
+        const int listen_count = 10;
+
         if (1 == argc) //server mode
         {
             //__debugbreak();
@@ -163,7 +165,7 @@ int main(int argc, char** argv)
             beltpp::socket sk = beltpp::getsocket<sf>(eh);
             eh.add(sk);
             
-            for (int i = 0; i < 10; ++i)
+            for (int i = 0; i < listen_count; ++i)
             {
                 beltpp::ip_address listen_addr("127.0.0.1", short(3550 + i));
                 listen_addr.ip_type = beltpp::ip_address::e_type::ipv4;
@@ -223,13 +225,13 @@ int main(int argc, char** argv)
             eh.add(sk);
 
             std::vector<beltpp::socket::peer_id> arr_channel_id;
-            arr_channel_id.resize(10);
+            arr_channel_id.resize(100);
 
             for (size_t i = 0; i < 20000; ++i)
             {
                 short index = short(i % arr_channel_id.size());
 
-                beltpp::ip_address open_address("", 0, "127.0.0.1", 3550 + index, beltpp::ip_address::e_type::ipv4);
+                beltpp::ip_address open_address("", 0, "127.0.0.1", 3550 + (i % listen_count), beltpp::ip_address::e_type::ipv4);
                 sk.open(open_address);
 
                 std::unordered_set<beltpp::ievent_item const*> set_items;
