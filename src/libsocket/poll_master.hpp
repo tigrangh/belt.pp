@@ -601,8 +601,7 @@ namespace beltpp
                         &poverlapped,
                         milliseconds);
 
-                    if (code ||
-                        (false == code && nullptr != poverlapped))
+                    if (poverlapped)
                     {
                         it = m_events.find(id);
 
@@ -645,7 +644,7 @@ namespace beltpp
                 ::PostQueuedCompletionStatus(m_completion_port,
                                              0, // bytesCopied
                                              0, // completionKey
-                                             0)); // overlapped
+                                             0); // overlapped
             }
             void reset(uint64_t /*reset_id*/)
             {   //  can probably get rid of this
