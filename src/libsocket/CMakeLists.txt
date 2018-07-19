@@ -5,13 +5,15 @@ add_library(socket
     global.hpp
     event.cpp
     event.hpp
+    event_impl.hpp
+    native.cpp
     native.hpp
     poll_master.hpp
     socket.cpp
     socket.hpp)
 
 if (WIN32)
-    set(wslib "Ws2_32.lib")
+    set(wslib "Ws2_32.lib Mswsock.lib")
 endif()
 # libraries this module links to
 target_link_libraries(socket PUBLIC belt.pp packet PRIVATE ${wslib})
@@ -25,5 +27,6 @@ install(TARGETS socket
 
 install(FILES
     global.hpp
+    event.hpp
     socket.hpp
     DESTINATION ${BELTPP_INSTALL_DESTINATION_INCLUDE}/libsocket)

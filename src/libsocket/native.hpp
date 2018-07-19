@@ -1,6 +1,9 @@
 #pragma once
 
+#include "global.hpp"
 #include "socket.hpp"
+
+#include <belt.pp/scope_helper.hpp>
 
 #ifndef B_OS_WINDOWS
 #include <netdb.h>
@@ -58,10 +61,45 @@ inline bool is_invalid(sk_handle const& socket_descriptor) noexcept
 #endif
 }
 
-inline string last_error() noexcept
+#ifdef B_OS_WINDOWS
+inline string win_last_error(int code) noexcept
+{
+    LPSTR msgbuf = nullptr;
+
+    FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL,
+        code,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPSTR)&msgbuf,
+        0,
+        NULL);
+
+    string native_error;
+    if (msgbuf)
+    {
+        native_error = msgbuf;
+        LocalFree(msgbuf);
+    }
+
+
+    return native_error;
+}
+#endif
+
+
+inline string net_error(int code) noexcept
 {
 #ifdef B_OS_WINDOWS
-    return std::to_string(WSAGetLastError());
+    return win_last_error(code);
+#else
+    return strerror(code);
+#endif
+}
+
+inline string net_last_error() noexcept
+{
+#ifdef B_OS_WINDOWS
+    return win_last_error(WSAGetLastError());
 #else
     return strerror(errno);
 #endif
@@ -83,7 +121,7 @@ inline void shutdown()
 {
 #ifdef B_OS_WINDOWS
     if (WSACleanup())
-        throw std::runtime_error(last_error());
+        throw std::runtime_error("wsacleanup(): " + net_last_error());
 #endif
 }
 
@@ -96,23 +134,53 @@ inline char const* gai_error(int ecode)
 #endif
 }
 
-inline bool check_recv_block(int res)
+inline bool check_connection_refused(int res, int error_code)
 {
 #ifdef B_OS_WINDOWS
-    return res == SOCKET_ERROR && WSAGetLastError() == WSAEWOULDBLOCK;
+    return -1 == res && error_code == ERROR_CONNECTION_REFUSED;
 #else
-    return -1 == res && (errno == EWOULDBLOCK || errno == EAGAIN);
+    return -1 == res && error_code == ECONNREFUSED;
 #endif
 }
 
-inline bool check_recv_connect(int res)
+inline bool check_connected_error(int res, int)
+{
+#ifdef B_OS_WINDOWS
+    return -1 == res;
+#else
+    return -1 == res;
+#endif
+}
+
+inline bool check_accepted_skip(int res, int error_code)
+{
+#ifdef B_OS_WINDOWS
+    return -1 == res && ERROR_NETNAME_DELETED == error_code;
+#else
+    return false;
+#endif
+}
+
+inline bool check_recv_block(int res, int error_code)
+{
+#ifdef B_OS_WINDOWS
+    return false;
+    //return res == SOCKET_ERROR && error_code == WSAEWOULDBLOCK;
+#else
+    return -1 == res && (error_code == EWOULDBLOCK || error_code == EAGAIN);
+#endif
+}
+
+inline bool check_recv_connect(int res, int error_code)
 {
 #ifdef B_OS_WINDOWS
     return res == SOCKET_ERROR && 
-                    (WSAGetLastError() == WSAECONNRESET ||
-                     WSAGetLastError() == WSAECONNABORTED);
+                    (error_code == WSAECONNRESET ||
+                     error_code == WSAECONNABORTED ||
+                     error_code == ERROR_NETNAME_DELETED ||
+                     error_code == ERROR_CONNECTION_ABORTED);
 #else
-    return -1 == res && errno == ECONNRESET;
+    return -1 == res && error_code == ECONNRESET;
 #endif
 }
 
@@ -138,36 +206,85 @@ inline int* sockopttype(int* param)
 #endif
 
 #ifdef B_OS_WINDOWS
-inline void connect(SOCKET fd,
-                    const struct sockaddr FAR * addr,
-                    size_t len,
-                    beltpp::ip_address const& address)
+inline SOCKET socket(int af, int type, int protocol)
 {
-    int res = ::connect(fd, addr, int(len));
-
-    if (SOCKET_ERROR != res || WSAGetLastError() != WSAEWOULDBLOCK)
-    {
-        char msgbuf[256];
-        msgbuf[0] = '\0';
-
-        FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                       NULL,
-                       WSAGetLastError(),
-                       MAKELANGID (LANG_NEUTRAL, SUBLANG_DEFAULT),
-                       msgbuf,
-                       sizeof (msgbuf),
-                       NULL);
-
-        string native_error(msgbuf);
-        string connect_error = "connect(";
-        connect_error += address.to_string();
-        connect_error += "): ";
-        connect_error += native_error;
-        throw std::runtime_error(connect_error);
-    }
+    return ::WSASocket(af, type, protocol, NULL, 0, WSA_FLAG_OVERLAPPED);
 }
 #else
-inline void connect(int fd,
+inline int socket(int af, int type, int protocol)
+{
+    return ::socket(af, type, protocol);
+}
+#endif
+#ifdef B_OS_WINDOWS
+int get_connected_status(beltpp::detail::event_handler_impl* peh, uint64_t id, SOCKET, int& error_code);
+#else
+inline int get_connected_status(beltpp::detail::event_handler_impl*, uint64_t, int socket_descriptor, int& error_code)
+{
+    int so_error;
+    socklen_t size = sizeof(so_error);
+
+    if (-1 == getsockopt(socket_descriptor,
+                         SOL_SOCKET, SO_ERROR,
+                         native::sockopttype(&so_error), &size))
+    {
+        error_code = so_error;
+        return -1;
+    }
+    else
+    {
+        if (0 == so_error)
+        {
+            error_code = so_error;
+            return 0;
+        }
+        else
+        {
+            error_code = so_error;
+            return -1;
+        }
+    }
+}
+#endif
+#ifdef B_OS_WINDOWS
+SOCKET accept(beltpp::detail::event_handler_impl* peh,
+              uint64_t id,
+              SOCKET,
+              int& res,
+              int& error_code);
+#else
+int accept(beltpp::detail::event_handler_impl*,
+           uint64_t,
+           int socket_descriptor,
+           int& res,
+           int& error_code);
+#endif
+#ifdef B_OS_WINDOWS
+int recv(beltpp::detail::event_handler_impl* peh,
+         uint64_t id,
+         SOCKET,
+         char* buf,
+         int len,
+         int& error_code);
+#else
+int recv(beltpp::detail::event_handler_impl*,
+         uint64_t,
+         int socket_descriptor,
+         void* buf,
+         int len,
+         int& error_code);
+#endif
+#ifdef B_OS_WINDOWS
+void connect(beltpp::detail::event_handler_impl* peh,
+             uint64_t id,
+             SOCKET fd,
+             const struct sockaddr* addr,
+             size_t len,
+             beltpp::ip_address const& address);
+#else
+inline void connect(beltpp::detail::event_handler_impl* /*peh*/,
+                    uint64_t /*id*/,
+                    int fd,
                     const struct sockaddr* addr,
                     socklen_t len,
                     beltpp::ip_address const& address)

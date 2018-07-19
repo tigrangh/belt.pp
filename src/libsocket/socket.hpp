@@ -17,7 +17,6 @@ namespace beltpp
 namespace detail
 {
     class socket_internals;
-    class socket_group_internals;
 }
 
 template <size_t _rtt_error,
