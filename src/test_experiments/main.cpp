@@ -173,7 +173,7 @@ int main(int argc, char** argv)
             std::cout << sk.dump() << std::endl;
 
             beltpp::socket::peer_id channel_id;
-            //size_t index = 0; // unused
+            size_t index = 0;
 
             while (true)
             {
@@ -198,8 +198,8 @@ int main(int argc, char** argv)
                         str_type = "unknown";
                     }
 
-                    //if (0 != ++index % 1000)
-                    //    continue;
+                    if (0 != ++index % 1000)
+                        continue;
 
                     std::cout << str_type
                               << " [msg code - "
@@ -225,7 +225,7 @@ int main(int argc, char** argv)
             std::vector<beltpp::socket::peer_id> arr_channel_id;
             arr_channel_id.resize(10);
 
-            for (size_t i = 0; i < 20; ++i)
+            for (size_t i = 0; i < 20000; ++i)
             {
                 short index = short(i % arr_channel_id.size());
 
@@ -235,19 +235,26 @@ int main(int argc, char** argv)
                 std::unordered_set<beltpp::ievent_item const*> set_items;
                 while (true)
                 {
-                    eh.wait(set_items);
                     beltpp::socket::peer_id channel_id;
-                    sk.receive(channel_id);
+                    
+                    beltpp::isocket::packets pcs;
+                    if (beltpp::ievent_handler::wait_result::event == eh.wait(set_items))
+                        pcs = sk.receive(channel_id);
 
                     if (channel_id.empty())
                         continue;
 
-                    //sk.send(channel_id, beltpp::message_drop()); //debug
+                    for (auto const& pc : pcs)
+                    {
+                        if (pc.type() == beltpp::message_join::rtt)
+                        {
+                            std::cout << i << std::endl;
+                            if (i >= arr_channel_id.size())
+                                sk.send(arr_channel_id[index], beltpp::message_drop());
 
-                    if (i >= 10)
-                        sk.send(arr_channel_id[index], beltpp::message_drop());
-
-                    arr_channel_id[index] = channel_id;
+                            arr_channel_id[index] = channel_id;
+                        }
+                    }
                     break;
                 }
 

@@ -23,6 +23,7 @@ namespace native
 class SOCKETSHARED_EXPORT event_handler : public ievent_handler
 {
 public:
+    enum class task {remove, accept, connect, receive};
     friend class ievent_item;
 
     event_handler();
@@ -36,10 +37,6 @@ public:
     void add(ievent_item& ev_it) override;
     void remove(ievent_item& ev_it) override;
 
-    uint64_t add(ievent_item& ev_it, native::sk_handle const& handle, uint64_t id, bool out, bool close);
-    void remove(native::sk_handle const& handle, uint64_t id, bool already_closed, bool out);
-    void reset(uint64_t reset_id);
-private:
     std::unique_ptr<detail::event_handler_impl> m_pimpl;
 };
 }
