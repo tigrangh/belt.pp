@@ -245,7 +245,7 @@ interface Validator
 {
     public function validate(stdClass $data);
 }
-trait RttSerializable
+trait RttSerializableTrait
 {
     public function jsonSerialize()
     {
@@ -256,7 +256,7 @@ trait RttSerializable
      }
 }
 
-trait RttToJson
+trait RttToJsonTrait
 {
     public function convertToJson()
     {
@@ -392,6 +392,7 @@ string analyze_struct(state_holder& state,
     string result;
     string params;
     string setFunction;
+    string getFunction;
     string addFunction;
     string arrayCase;
     string trivialTypes;
@@ -401,8 +402,8 @@ string analyze_struct(state_holder& state,
 
     result += "class " + type_name + " implements Validator, JsonSerializable\n";
     result += "{\n";
-    result += "    use RttSerializable;\n"
-              "    use RttToJson;\n";
+    result += "    use RttSerializableTrait;\n"
+              "    use RttToJsonTrait;\n";
 
     for (auto member_pair : members)
     {
@@ -416,7 +417,6 @@ string analyze_struct(state_holder& state,
         string info[4];
         construct_type_name(member_type, state, type_detail, info);
 
-        cout<<endl;
         if (info[0] == "::beltpp::packet")
         {
 
@@ -427,15 +427,26 @@ string analyze_struct(state_holder& state,
                     "    private $" + member_name.value + ";\n";
 
             mixedTypes +=
-                    "        Rtt::validate($data->" +  member_name.value + ");\n";
-        } else
+                    "            Rtt::validate($data->" +  member_name.value + ");\n";
+        }
+        else if(info[0] == "hash")
+        {
+            params +=
+                    "    /**\n"
+                    "    * @var array \n"
+                    "    */ \n"
+                    "    private $" + member_name.value + ";\n";
+        }
+        else
+        {
             params +=
                     "    /**\n"
                     "    * @var "+ info[0] + "\n" +
                     "    */ \n" +
                     "    private $" + member_name.value + ";\n";
+        }
 
-        if(     info[0]=="array" &&
+        if(     info[0] == "array" &&
                 ( info[1] != "int" &&
                   info[1] != "string" &&
                   info[1] != "bool" &&
@@ -449,7 +460,7 @@ string analyze_struct(state_holder& state,
 
         }
         else if (
-                 (              info[0] =="array" &&
+                 (              info[0] == "array" &&
                                 (  info[1] == "int" ||
                                    info[1] == "string" ||
                                    info[1] == "bool" ||
@@ -476,7 +487,7 @@ string analyze_struct(state_holder& state,
 
         }
 
-        if(     info[0]=="hash" &&
+        if(     info[0] == "hash" &&
                 ( info[3] != "int" &&
                   info[3] != "string" &&
                   info[3] != "bool" &&
@@ -491,7 +502,7 @@ string analyze_struct(state_holder& state,
 
         }
         else if (
-                 (              info[0] =="hash" &&
+                 (              info[0] == "hash" &&
                                 (  info[3] == "int" ||
                                    info[3] == "string" ||
                                    info[3] == "bool" ||
@@ -554,6 +565,11 @@ string analyze_struct(state_holder& state,
                          "        $" + member_name.value + "Obj -> validate($data-> "+ member_name.value  + ");\n";
         }
 
+        getFunction +=
+                    "    public function get" + ((char)( member_name.value.at(0)-32 ) + member_name.value.substr( 1, member_name.value.length()-1 )) + "() \n"
+                    "    {\n"
+                    "        return $this->" + member_name.value + ";\n"
+                    "    }\n";
     }
 
     string  validation =
@@ -562,7 +578,7 @@ string analyze_struct(state_holder& state,
                                 + objectTypes + trivialTypes + arrayCase + mixedTypes + hashCase +
                        "    } \n";
 
-    result += params + setFunction + addFunction + validation;
+    result += params + setFunction + getFunction + addFunction + validation;
     result += "} \n";
 
     return result;
