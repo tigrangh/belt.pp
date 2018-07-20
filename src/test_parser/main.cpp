@@ -109,8 +109,8 @@ int main()
     vectJson.push_back(make_pair(::beltpp::e_three_state_result::success,u8"{\"π\": \"Math.PI\",\"var\": 4,\"foo bar\": 5,\"\": 7}"));
     vectJson.push_back(make_pair(::beltpp::e_three_state_result::success,"{\"keyword\":\"Hello guy! \xF0\x9F\x98\x84\"}"));
     vectJson.push_back(make_pair(::beltpp::e_three_state_result::success,u8"[{\"keyword\":\"Hey! \\uD83D\\uDE01\"}]"));
-    vectJson.push_back(make_pair(::beltpp::e_three_state_result::attempt,u8"{\"message\":\"jjasdajdasjdj laslla aasdasd ssdfdsf!!! \\u{1F3FD}\", \"updated_time\":\"2015-04-14T22:37:13+0000\", \"id\":\"145193995506_148030368559\"}")); //by online - success
-    vectJson.push_back(make_pair(::beltpp::e_three_state_result::attempt,"{\"status\" : \"BAD_REQUEST\",\"message\" : \"Invalid data\",\"error\" : \"javax.validation.ConstraintViolationException\",\"validationErrors\" : [ {\"type\" : \"Pattern\",\"path\" : \"companyBic\",\"arguments\" : {\"flags\" : [ ],\"regexp\" : \"\\A[0-9]{7}[\\-]?[0-9]\\z\"}}, {\"type\" : \"NotBlank\",\"path\" : \"templateTag\",\"message\" : \"may not be empty\",\"arguments\" : { }} ],\"timestamp\" : \"2018-07-06T19:18:19.231Z\"}"));
+    vectJson.push_back(make_pair(::beltpp::e_three_state_result::attempt,u8"{\"message\":\"jjasdajdasjdj laslla aasdasd ssdfdsf!!! \\u{1F3FD}\", \"updated_time\":\"2015-04-14T22:37:13+0000\", \"id\":\"145193995506_148030368559\"}"));
+    vectJson.push_back(make_pair(::beltpp::e_three_state_result::success,R"f({"status" : "BAD_REQUEST","message" : "Invalid data","error" : "javax.validation.ConstraintViolationException","validationErrors" : [ {"type" : "Pattern","path" : "companyBic","arguments" : {"flags" : [ ],"regexp" : "\\A[0-9]{7}[\\-]?[0-9]\\z"}}, {"type" : "NotBlank","path" : "templateTag","message" : "may not be empty","arguments" : { }} ],"timestamp" : "2018-07-06T19:18:19.231Z"})f"));
     vectJson.push_back(make_pair(::beltpp::e_three_state_result::success,R"f({"regex" : "/^([\\w\\+\\-\\.\\/]+)\\s+(\\w+\\s)*($fileext\\s)/i"})f"));
 
     bool isPass{true};
