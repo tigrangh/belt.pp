@@ -13,7 +13,7 @@ add_library(socket
     socket.hpp)
 
 if (WIN32)
-    set(wslib "Ws2_32.lib Mswsock.lib")
+    set(wslib Ws2_32.lib Mswsock.lib)
 endif()
 # libraries this module links to
 target_link_libraries(socket PUBLIC belt.pp packet PRIVATE ${wslib})
