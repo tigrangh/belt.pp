@@ -79,7 +79,7 @@ std::vector<char> packet::save() const
 {
     fptr_saver& fsaver = m_pimpl->m_fsaver;
     if (nullptr == fsaver)
-        throw std::runtime_error("packet::save() on empty message");
+        return std::vector<char>();
 
     return fsaver(m_pimpl->m_ptr_message.get());
 }
