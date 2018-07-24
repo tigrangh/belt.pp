@@ -113,6 +113,9 @@ int main()
     vectJson.push_back(make_pair(state::attempt,u8"{\"message\":\"jjasdajdasjdj laslla aasdasd ssdfdsf!!! \\u{1F3FD}\", \"updated_time\":\"2015-04-14T22:37:13+0000\", \"id\":\"145193995506_148030368559\"}"));
     vectJson.push_back(make_pair(state::success,R"f({"status" : "BAD_REQUEST","message" : "Invalid data","error" : "javax.validation.ConstraintViolationException","validationErrors" : [ {"type" : "Pattern","path" : "companyBic","arguments" : {"flags" : [ ],"regexp" : "\\A[0-9]{7}[\\-]?[0-9]\\z"}}, {"type" : "NotBlank","path" : "templateTag","message" : "may not be empty","arguments" : { }} ],"timestamp" : "2018-07-06T19:18:19.231Z"})f"));
     vectJson.push_back(make_pair(state::success,R"f({"regex" : "/^([\\w\\+\\-\\.\\/]+)\\s+(\\w+\\s)*($fileext\\s)/i"})f"));
+    vectJson.push_back(make_pair(state::success,"{\"id_num\":09}"));
+
+    vectJson.push_back(make_pair(state::success,u8"{\"name\": \" Z͑ͫ̓ͪ̂ͫ̽͏̴̙̤̞͉͚̯̞̠͍A̴̵̜̰͔ͫ͗͢L̠ͨͧͩ͘G̴̻͈͍͔̹̑͗̎̅͛́Ǫ̵̹̻̝̳͂̌̌͘!͖̬̰̙̗̿̋ͥͥ̂ͣ̐́́͜͞ \"}"));
 
     bool isPass{true};
     for(size_t i = 0; i<vectJson.size(); ++i)
