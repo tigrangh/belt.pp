@@ -6,7 +6,6 @@
 
 namespace beltpp
 {
-using vector_buffer = std::vector<char>;
 using fptr_saver = packet::fptr_saver;
 /*
  * internals
@@ -75,11 +74,11 @@ void packet::clean()
     m_pimpl.reset(new detail::packet_internals());
 }
 
-std::vector<char> packet::save() const
+std::string packet::save() const
 {
     fptr_saver& fsaver = m_pimpl->m_fsaver;
     if (nullptr == fsaver)
-        return std::vector<char>();
+        return std::string();
 
     return fsaver(m_pimpl->m_ptr_message.get());
 }

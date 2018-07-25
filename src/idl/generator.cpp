@@ -516,19 +516,16 @@ string analyze_struct(state_holder& state,
     result += "        return false == (*this > other);\n";
     result += "    }\n";
 
-    result += "    static std::vector<char> saver(void* p)\n";
+    result += "    static std::string saver(void* p)\n";
     result += "    {\n";
     if (serializable)
     {
     result += "        " + type_name + "* pmc = static_cast<" + type_name + "*>(p);\n";
-    result += "        std::vector<char> result;\n";
-    result += "        std::string str_value = detail::saver(*pmc);\n";
-    result += "        std::copy(str_value.begin(), str_value.end(), std::back_inserter(result));\n";
-    result += "        return result;\n";
+    result += "        return detail::saver(*pmc);\n";
     }
     else
     {
-    result += "        return std::vector<char>();\n";
+    result += "        return std::string();\n";
     }
     result += "    }\n";
 

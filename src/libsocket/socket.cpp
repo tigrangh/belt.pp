@@ -682,7 +682,7 @@ void socket::send(peer_id const& peer, packet&& pack)
             throw std::runtime_error("send message on non streaming channel");
         {
             auto lambda_send = [](native::sk_handle const& sd,
-                                  vector<char> const& ms)
+                                  string const& ms)
             {
                 size_t sent = 0;
                 size_t length = ms.size();
@@ -707,7 +707,7 @@ void socket::send(peer_id const& peer, packet&& pack)
                 }
             };
 
-            vector<char> message_stream = pack.save();
+            string message_stream = pack.save();
             if (message_stream.empty())
                 throw std::runtime_error("send empty message");
 
@@ -718,7 +718,7 @@ void socket::send(peer_id const& peer, packet&& pack)
 
             if (fp)
             {
-                vector<char> ms = fp(sp_data, message_stream);
+                string ms = fp(sp_data, message_stream);
                 lambda_send(socket_descriptor, ms);
                 assert(fp == nullptr);
             }

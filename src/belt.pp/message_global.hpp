@@ -4,7 +4,7 @@
 #include "iterator_wrapper.hpp"
 #include "meta.hpp"
 
-#include <vector>
+#include <string>
 #include <list>
 
 namespace beltpp
@@ -19,7 +19,7 @@ using scan_result = std::pair<e_scan_result, size_t>;
 using fptr_scanner = scan_result(*)(void*,
                                     beltpp::iterator_wrapper<char const> const&,
                                     beltpp::iterator_wrapper<char const> const&);
-using fptr_saver = std::vector<char>(*)(void*);
+using fptr_saver = std::string(*)(void*);
 
 class pmsg_all
 {
@@ -44,7 +44,7 @@ public:
         : ptr_data(nullptr, [](void*){})
         , session_specal_handler(nullptr) {}
     beltpp::void_unique_ptr ptr_data;
-    std::vector<char>(*session_specal_handler)(session_special_data&, std::vector<char> const&);
+    std::string(*session_specal_handler)(session_special_data&, std::string const&);
 };
 
 using fptr_message_loader = detail::pmsg_all (*)(
@@ -152,14 +152,12 @@ public:
         return message_scanner(iter_scan_begin, iter_scan_end, pmc);
     }
 
-    static std::vector<char> saver(void* p)
+    static std::string saver(void* p)
     {
         T_message* pmc = static_cast<T_message*>(p);
-        std::vector<char> result;
         std::string str_rtt = std::to_string(message_base::rtt);
         str_rtt += ":" + message_saver(pmc);
-        std::copy(str_rtt.begin(), str_rtt.end(), std::back_inserter(result));
-        return result;
+        return str_rtt;
     }
 
 protected:

@@ -5,7 +5,7 @@
 #include <belt.pp/message_global.hpp>
 
 #include <memory>
-#include <vector>
+#include <string>
 #include <cassert>
 #include <utility>
 #include <type_traits>
@@ -40,7 +40,7 @@ public:
     bool empty() const noexcept;
     size_t type() const;
     void clean();
-    std::vector<char> save() const;
+    std::string save() const;
     void set(size_t rtt,
              beltpp::void_unique_ptr pmsg,
              fptr_saver fsaver);
