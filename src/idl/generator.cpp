@@ -535,9 +535,9 @@ string analyze_struct(state_holder& state,
     result += "    {\n";
     result += "        return detail::saver(*this);\n";
     result += "    }\n";
-    result += "    void from_string(std::string const& encoded)\n";
+    result += "    void from_string(std::string const& encoded, void* putl = nullptr)\n";
     result += "    {\n";
-    result += "        if (false == detail::loader(*this, encoded, nullptr))\n";
+    result += "        if (false == detail::loader(*this, encoded, putl))\n";
     result += "            throw std::runtime_error(\"cannot parse " + type_name + " data\");\n";
     result += "    }\n";
     }
