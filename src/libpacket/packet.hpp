@@ -40,7 +40,7 @@ public:
     bool empty() const noexcept;
     size_t type() const;
     void clean();
-    std::string save() const;
+    std::string to_string() const;
     void set(size_t rtt,
              beltpp::void_unique_ptr pmsg,
              fptr_saver fsaver);
@@ -84,7 +84,7 @@ void packet::set(T_message&& msg)
     ref = std::forward<T_message>(msg);
     set(MessageValueT::rtt,
         std::move(pmsg),
-        &MessageValueT::saver);
+        &MessageValueT::pvoid_saver);
 }
 
 template <typename T_message>

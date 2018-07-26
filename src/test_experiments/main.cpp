@@ -33,9 +33,9 @@ beltpp::message_drop::rtt,
 &beltpp::new_void_unique_ptr<beltpp::message_error>,
 &beltpp::new_void_unique_ptr<beltpp::message_join>,
 &beltpp::new_void_unique_ptr<beltpp::message_drop>,
-&beltpp::message_error::saver,
-&beltpp::message_join::saver,
-&beltpp::message_drop::saver,
+&beltpp::message_error::pvoid_saver,
+&beltpp::message_join::pvoid_saver,
+&beltpp::message_drop::pvoid_saver,
 &message_list_load_own
 >;
 

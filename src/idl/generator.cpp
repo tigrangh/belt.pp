@@ -224,7 +224,7 @@ std::vector<typename storage<T>::storage_item> const storage<T>::s_arr_fptr =
         {
             auto const& class_name = it->second;
             result += "    {\n";
-            result += "        &" + class_name + "::saver,\n";
+            result += "        &" + class_name + "::pvoid_saver,\n";
             result += "        &storage<>::analyze_json_template<" + class_name + ">,\n";
             result += "        (storage<>::fptr_new_void_unique_ptr)&::beltpp::new_void_unique_ptr<" + class_name + ">,\n";
             result += "        (storage<>::fptr_new_void_unique_ptr_copy)&::beltpp::new_void_unique_ptr_copy<" + class_name + ">\n";
@@ -516,7 +516,7 @@ string analyze_struct(state_holder& state,
     result += "        return false == (*this > other);\n";
     result += "    }\n";
 
-    result += "    static std::string saver(void* p)\n";
+    result += "    static std::string pvoid_saver(void* p)\n";
     result += "    {\n";
     if (serializable)
     {
@@ -531,13 +531,13 @@ string analyze_struct(state_holder& state,
 
     if (serializable)
     {
-    result += "    static std::string string_saver(" + type_name + " const& ob)\n";
+    result += "    std::string to_string() const\n";
     result += "    {\n";
-    result += "        return detail::saver(ob);\n";
+    result += "        return detail::saver(*this);\n";
     result += "    }\n";
-    result += "    static void string_loader(" + type_name + "& ob, std::string const& encoded)\n";
+    result += "    void from_string(std::string const& encoded)\n";
     result += "    {\n";
-    result += "        if (false == detail::loader(ob, encoded, nullptr))\n";
+    result += "        if (false == detail::loader(*this, encoded, nullptr))\n";
     result += "            throw std::runtime_error(\"cannot parse " + type_name + " data\");\n";
     result += "    }\n";
     }

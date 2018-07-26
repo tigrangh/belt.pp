@@ -484,7 +484,7 @@ bool analyze_json(ctime& value,
 inline
 std::string saver(::beltpp::packet const& value)
 {
-    auto buffer = value.save();
+    auto buffer = value.to_string();
     if (buffer.empty())
         return std::string("{}");
     return std::string(buffer.begin(), buffer.end());

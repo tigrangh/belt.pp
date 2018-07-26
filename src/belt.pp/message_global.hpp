@@ -152,7 +152,7 @@ public:
         return message_scanner(iter_scan_begin, iter_scan_end, pmc);
     }
 
-    static std::string saver(void* p)
+    static std::string pvoid_saver(void* p)
     {
         T_message* pmc = static_cast<T_message*>(p);
         std::string str_rtt = std::to_string(message_base::rtt);
@@ -169,7 +169,7 @@ int message_base<T_message, T_MessageList>::s_dummy =
         detail::store_fptr<message_base::rtt,
                             &new_void_unique_ptr<T_message>,
                             &message_base::scanner,
-                            &message_base::saver,
+                            &message_base::pvoid_saver,
                             detail::message_store<T_MessageList>>();
 
 namespace detail

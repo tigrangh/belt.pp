@@ -74,7 +74,7 @@ void packet::clean()
     m_pimpl.reset(new detail::packet_internals());
 }
 
-std::string packet::save() const
+std::string packet::to_string() const
 {
     fptr_saver& fsaver = m_pimpl->m_fsaver;
     if (nullptr == fsaver)

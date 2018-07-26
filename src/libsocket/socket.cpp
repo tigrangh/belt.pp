@@ -707,7 +707,7 @@ void socket::send(peer_id const& peer, packet&& pack)
                 }
             };
 
-            string message_stream = pack.save();
+            string message_stream = pack.to_string();
             if (message_stream.empty())
                 throw std::runtime_error("send empty message");
 

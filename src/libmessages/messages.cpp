@@ -76,7 +76,7 @@ beltpp::detail::pmsg_all message_list_load(
         return_value =
             beltpp::detail::pmsg_all(   message_error::rtt,
                                         new_void_unique_ptr<message_error>(),
-                                        &message_error::saver);
+                                        &message_error::pvoid_saver);
     }
     else if (result.first == detail::e_scan_result::success)
         clean_count = result.second;
