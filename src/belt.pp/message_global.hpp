@@ -10,6 +10,7 @@
 namespace beltpp
 {
 class message_loader_utility;
+class packet;
 namespace detail
 {
 using fptr_creator = beltpp::void_unique_ptr(*)();
@@ -44,7 +45,7 @@ public:
         : ptr_data(nullptr, [](void*){})
         , session_specal_handler(nullptr) {}
     beltpp::void_unique_ptr ptr_data;
-    std::string(*session_specal_handler)(session_special_data&, std::string const&);
+    std::string(*session_specal_handler)(session_special_data&, beltpp::packet const&);
 };
 
 using fptr_message_loader = detail::pmsg_all (*)(

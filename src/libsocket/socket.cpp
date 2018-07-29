@@ -707,22 +707,24 @@ void socket::send(peer_id const& peer, packet&& pack)
                 }
             };
 
-            string message_stream = pack.to_string();
-            if (message_stream.empty())
-                throw std::runtime_error("send empty message");
-
             auto socket_descriptor = current_channel.m_socket_descriptor;
 
             auto& sp_data = current_channel.m_special_data;
-            auto& fp = sp_data.session_specal_handler;
+            auto fp = sp_data.session_specal_handler;
 
             if (fp)
             {
-                string ms = fp(sp_data, message_stream);
+                string ms = fp(sp_data, pack);
                 lambda_send(socket_descriptor, ms);
-                assert(fp == nullptr);
+                assert(nullptr == sp_data.session_specal_handler);
             }
-            lambda_send(socket_descriptor, message_stream);
+            else
+            {
+                string message_stream = pack.to_string();
+                if (message_stream.empty())
+                    throw std::runtime_error("send empty message");
+                lambda_send(socket_descriptor, message_stream);
+            }
         }
     }
 }

@@ -15,11 +15,6 @@ namespace detail
     class event_handler_impl;
 }
 
-namespace native
-{
-    class sk_handle;
-}
-
 class SOCKETSHARED_EXPORT event_handler : public ievent_handler
 {
 public:
