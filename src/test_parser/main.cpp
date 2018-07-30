@@ -30,6 +30,9 @@ bool json_parse(string const& buf, ::beltpp::e_three_state_result status)
                                              1024*1024,
                                              proot);
 
+    //cout << buf << endl;
+    //cout << beltpp::dump(proot) << endl;
+
     if (::beltpp::e_three_state_result::success == code &&
         nullptr == pexp)
     {
@@ -39,35 +42,8 @@ bool json_parse(string const& buf, ::beltpp::e_three_state_result status)
         //  and not crash, not throw, only report an error
         code = ::beltpp::e_three_state_result::error;
     }
-    else if (::beltpp::e_three_state_result::success == code)
-    {
-        if(status != ::beltpp::e_three_state_result::success)
-        {
-            cout << "The test is failed!!!" << endl;
-            return false;
-        }
-    }
-    //
-    //
-    if (::beltpp::e_three_state_result::error == code)
-    {
-        if(status != ::beltpp::e_three_state_result::error)
-        {
-            cout << "The test is failed!!!" << endl;
-            return false;
-        }
-    }
-    else if (::beltpp::e_three_state_result::attempt == code)
-    {
-        if(status != ::beltpp::e_three_state_result::attempt)
-        {
-            cout << "The test is failed!!!" << endl;
-            return false;
-        }
-    }
 
-    //cout << beltpp::dump(proot);
-    return true;
+    return code == status;
 }
 
 
@@ -78,8 +54,9 @@ int main()
     using state = ::beltpp::e_three_state_result;
     vector< pair<state, string> > vectJson;
     vectJson.push_back(make_pair(state::success,"{{\"Status\":\"The JSON string into {{}}\"}}"));
-    vectJson.push_back(make_pair(state::attempt,"{\"Status\": \"Inside string \"exist double\" quotes\"}"));
-    vectJson.push_back(make_pair(state::attempt,"{\"escape_character\":\"Escape sequences 1\t2\n3\"}"));
+    vectJson.push_back(make_pair(state::success,"{\"Status\": \"Inside string \\\"exist double\\\" quotes\"}"));
+    vectJson.push_back(make_pair(state::error,"{\"Status\": \"Inside string \"exist double\" quotes\"}"));
+    vectJson.push_back(make_pair(state::error,"{\"escape_character\":\"Escape sequences 1\t2\n3\"}"));
     vectJson.push_back(make_pair(state::success,"{\"type\":\"double\", \"value\": 1e-4}"));
     vectJson.push_back(make_pair(state::success,"{\"person\": [\"ID\": \"1\",\"Name\": \"Tom\"]}"));
     vectJson.push_back(make_pair(state::success,"{\"cols\": [{\"id\":1, \"label:Artikelname\", \"type:string\"}] }"));
@@ -87,7 +64,7 @@ int main()
     vectJson.push_back(make_pair(state::success,"{\"type\":\"double\", \"value\":0.3, \"type\":\"integer\", \"value\":3, \"Status\":\"Duplicate key\"}"));
     vectJson.push_back(make_pair(state::success,"{\"type\":\"double\", \"value\": 5,5}"));
     vectJson.push_back(make_pair(state::success,"{\"list\":[{\"Summary\":{\"Id\":95,\"Name\":\"Martin\"},{\"Id\":96,\"Name\":\"Dennis\"}}], \"status\":\"expecting_strging\"}"));
-    vectJson.push_back(make_pair(state::attempt,"{\"hAxis\":{\"baselineColor\":\"transparent\n\", \"gridlines\":{\"color\":\"transparent\"}},\"vAxis\":{\"viewWindow\":{\"min\":0}},\"colors\":[\"#00bbde\",\"#fe6672\",\"#eeb058\"]}"));
+    vectJson.push_back(make_pair(state::error,"{\"hAxis\":{\"baselineColor\":\"transparent\n\", \"gridlines\":{\"color\":\"transparent\"}},\"vAxis\":{\"viewWindow\":{\"min\":0}},\"colors\":[\"#00bbde\",\"#fe6672\",\"#eeb058\"]}"));
     vectJson.push_back(make_pair(state::success,"{\"fields\": [{\"type\": \"string\", \"name\": \"cname\"}, {\"type\": \"int\", \"name\": \"id\"}] }"));
     vectJson.push_back(make_pair(state::success,"{\"url\":\"charting/Country.php?country=2&Type=0\", \"dataType\":\"json\", \"async\":false}"));
     vectJson.push_back(make_pair(state::success,u8"{\"face\": \"😂\" }"));
@@ -102,20 +79,23 @@ int main()
     vectJson.push_back(make_pair(state::success,"{\"web-app\": {\"servlet\": [{\"servlet-name\": \"cofaxCDS\",\"servlet-class\": \"org.cofax.cds.CDSServlet\",\"init-param\": {\"configGlossary:installationAt\": \"Philadelphia, PA\",\"configGlossary:adminEmail\": \"ksm@pobox.com\",\"configGlossary:poweredBy\": \"Cofax\",\"configGlossary:poweredByIcon\": \"/images/cofax.gif\",\"configGlossary:staticPath\": \"/content/static\",\"templateProcessorClass\": \"org.cofax.WysiwygTemplate\",\"templateLoaderClass\": \"org.cofax.FilesTemplateLoader\",\"templatePath\": \"templates\",\"templateOverridePath\": \"\",\"defaultListTemplate\": \"listTemplate.htm\",\"defaultFileTemplate\": \"articleTemplate.htm\",\"useJSP\": false,\"jspListTemplate\": \"listTemplate.jsp\",\"jspFileTemplate\": \"articleTemplate.jsp\",\"cachePackageTagsTrack\": 200,\"cachePackageTagsStore\": 200,\"cachePackageTagsRefresh\": 60,\"cacheTemplatesTrack\": 100,\"cacheTemplatesStore\": 50,\"cacheTemplatesRefresh\": 15,\"cachePagesTrack\": 200,\"cachePagesStore\": 100,\"cachePagesRefresh\": 10,\"cachePagesDirtyRead\": 10,\"searchEngineListTemplate\": \"forSearchEnginesList.htm\",\"searchEngineFileTemplate\": \"forSearchEngines.htm\",\"searchEngineRobotsDb\": \"WEB-INF/robots.db\",\"useDataStore\": true,\"dataStoreClass\": \"org.cofax.SqlDataStore\",\"redirectionClass\": \"org.cofax.SqlRedirection\",\"dataStoreName\": \"cofax\",\"dataStoreDriver\": \"com.microsoft.jdbc.sqlserver.SQLServerDriver\",\"dataStoreUrl\": \"jdbc:microsoft:sqlserver://LOCALHOST:1433;DatabaseName=goon\",\"dataStoreUser\": \"sa\",\"dataStorePassword\": \"dataStoreTestQuery\",\"dataStoreTestQuery\": \"SET NOCOUNT ON;select test='test';\",\"dataStoreLogFile\": \"/usr/local/tomcat/logs/datastore.log\",\"dataStoreInitConns\": 10,\"dataStoreMaxConns\": 100,\"dataStoreConnUsageLimit\": 100,\"dataStoreLogLevel\": \"debug\",\"maxUrlLength\": 500}},{\"servlet-name\": \"cofaxEmail\",\"servlet-class\": \"org.cofax.cds.EmailServlet\",\"init-param\": {\"mailHost\": \"mail1\",\"mailHostOverride\": \"mail2\"}},{\"servlet-name\": \"cofaxAdmin\",\"servlet-class\": \"org.cofax.cds.AdminServlet\"},{\"servlet-name\": \"fileServlet\",\"servlet-class\": \"org.cofax.cds.FileServlet\"},{\"servlet-name\": \"cofaxTools\",\"servlet-class\": \"org.cofax.cms.CofaxToolsServlet\",\"init-param\": {\"templatePath\": \"toolstemplates/\",\"log\": 1,\"logLocation\": \"/usr/local/tomcat/logs/CofaxTools.log\",\"logMaxSize\": \"\",\"dataLog\": 1,\"dataLogLocation\": \"/usr/local/tomcat/logs/dataLog.log\",\"dataLogMaxSize\": \"\",\"removePageCache\": \"/content/admin/remove?cache=pages&id=\",\"removeTemplateCache\": \"/content/admin/remove?cache=templates&id=\",\"fileTransferFolder\": \"/usr/local/tomcat/webapps/content/fileTransferFolder\",\"lookInContext\": 1,\"adminGroupID\": 4,\"betaServer\": true}}],\"servlet-mapping\": {\"cofaxCDS\": \"/\",\"cofaxEmail\": \"/cofaxutil/aemail/*\",\"cofaxAdmin\": \"/admin/*\",\"fileServlet\": \"/static/*\",\"cofaxTools\": \"/tools/*\"},\"taglib\": {\"taglib-uri\": \"cofax.tld\",\"taglib-location\": \"/WEB-INF/tlds/cofax.tld\"}}}"));
     vectJson.push_back(make_pair(state::success,u8"{\"Emoji in JSON\": \"I \u2661 JSON\"}"));
     vectJson.push_back(make_pair(state::success,"{\"journal\":[],\"timezone\":[{\"standard\":[{\"tzoffsetfrom\":[{\"value\":\"+0200\",\"name\":\"TZOFFSETFROM\",\"params\":[]}] }] }] }"));
-    vectJson.push_back(make_pair(state::attempt,"[\"{\"Status\":\"Json format is invalid. Please check JSON format\"}\"]"));
-    vectJson.push_back(make_pair(state::attempt,u8"{\"error\":\"Excepci\u00f3n - String could not be parsed as XML\",\"stacktrace\":\"* line 479 of /lib/googleapi.php: Exception thrown\n* line 479 of /lib/googleapi.php: call to SimpleXMLElement->__construct()\n* line 440 of /lib/googleapi.php: call to google_picasa->get_albums()\n* line 87 of /repository/picasa/lib.php: call to google_picasa->get_file_list()\n* line 140 of /repository/repository_ajax.php: call to repository_picasa->get_listing()\n\",\"debuginfo\":null,\"reproductionlink\":\"http://www.myweb.com/\"}"));
+    vectJson.push_back(make_pair(state::error,"[\"{\"Status\":\"Json format is invalid. Please check JSON format\"}\"]"));
+    vectJson.push_back(make_pair(state::error,u8"{\"error\":\"Excepci\u00f3n - String could not be parsed as XML\",\"stacktrace\":\"* line 479 of /lib/googleapi.php: Exception thrown\n* line 479 of /lib/googleapi.php: call to SimpleXMLElement->__construct()\n* line 440 of /lib/googleapi.php: call to google_picasa->get_albums()\n* line 87 of /repository/picasa/lib.php: call to google_picasa->get_file_list()\n* line 140 of /repository/repository_ajax.php: call to repository_picasa->get_listing()\n\",\"debuginfo\":null,\"reproductionlink\":\"http://www.myweb.com/\"}"));
     vectJson.push_back(make_pair(state::success,"{\"name\": \"GEOM\",\"description\": \"\",\"defaultValue\": \"<lt>?xml<space>version=<quote>1.0<quote><space>encoding=     <quote>US_ASCII<quote><space>standalone=<quote>no<quote><space>?<gt><lt>geometry<gt>  <lt>polygon<gt><lt>line<gt><lt>coord<space>x=<quote>-124<quote><space>y=<quote>48<quote><solidus><gt><lt>coord<space>x=<quote>-124<quote><space>y=<quote>49.399999999999999<quote><solidus><gt><lt><solidus>line<gt><lt><solidus>polygon<gt><lt><solidus>geometry<gt>\",\"optionsType\": \"SINGLECHOICE_CONFIG\",\"type\": \"GEOMETRY\",\"options\": {\"option\": {\"value\": \"GEOM\"}}}"));
     vectJson.push_back(make_pair(state::success,"{\"enpoint\":\"\",\"addresss\":\"bangalore\",\"id\":\"12345\"}"));
     vectJson.push_back(make_pair(state::success,"{\"api_key\":\"156462asd\",\"data\":{\"item\":[{\"value\":\"State of Sao Paulo\",\"label\":\"Region\",\"color\":\"60b8ec\"},{\"value\":\"State of Minas Gerais\",\"label\":\"Region\",\"color\":\"60b8ec\"}]}}"));
     vectJson.push_back(make_pair(state::success,u8"{\"π\": \"Math.PI\",\"var\": 4,\"foo bar\": 5,\"\": 7}"));
     vectJson.push_back(make_pair(state::success,"{\"keyword\":\"Hello guy! \xF0\x9F\x98\x84\"}"));
     vectJson.push_back(make_pair(state::success,u8"[{\"keyword\":\"Hey! \\uD83D\\uDE01\"}]"));
-    vectJson.push_back(make_pair(state::attempt,u8"{\"message\":\"jjasdajdasjdj laslla aasdasd ssdfdsf!!! \\u{1F3FD}\", \"updated_time\":\"2015-04-14T22:37:13+0000\", \"id\":\"145193995506_148030368559\"}"));
+    vectJson.push_back(make_pair(state::error,u8"{\"message\":\"jjasdajdasjdj laslla aasdasd ssdfdsf!!! \\u{1F3FD}\", \"updated_time\":\"2015-04-14T22:37:13+0000\", \"id\":\"145193995506_148030368559\"}"));
     vectJson.push_back(make_pair(state::success,R"f({"status" : "BAD_REQUEST","message" : "Invalid data","error" : "javax.validation.ConstraintViolationException","validationErrors" : [ {"type" : "Pattern","path" : "companyBic","arguments" : {"flags" : [ ],"regexp" : "\\A[0-9]{7}[\\-]?[0-9]\\z"}}, {"type" : "NotBlank","path" : "templateTag","message" : "may not be empty","arguments" : { }} ],"timestamp" : "2018-07-06T19:18:19.231Z"})f"));
     vectJson.push_back(make_pair(state::success,R"f({"regex" : "/^([\\w\\+\\-\\.\\/]+)\\s+(\\w+\\s)*($fileext\\s)/i"})f"));
     vectJson.push_back(make_pair(state::success,"{\"id_num\":09}"));
 
     vectJson.push_back(make_pair(state::success,u8"{\"name\": \" Z͑ͫ̓ͪ̂ͫ̽͏̴̙̤̞͉͚̯̞̠͍A̴̵̜̰͔ͫ͗͢L̠ͨͧͩ͘G̴̻͈͍͔̹̑͗̎̅͛́Ǫ̵̹̻̝̳͂̌̌͘!͖̬̰̙̗̿̋ͥͥ̂ͣ̐́́͜͞ \"}"));
+    vectJson.push_back(make_pair(state::error,"{\"id_nu\\:09}"));
+    vectJson.push_back(make_pair(state::attempt,"{\"id_nu"));
+    vectJson.push_back(make_pair(state::attempt,"{-1:-"));
 
     bool isPass{true};
     for(size_t i = 0; i<vectJson.size(); ++i)
@@ -129,6 +109,8 @@ int main()
 
     if(isPass)
         cout << u8"The test is passed 😁 " << endl;
+    else
+        cout << "The test is failed!!!" << endl;
 
     //string tempStr = R"FF({"some-dbl": "10."})FF";
 

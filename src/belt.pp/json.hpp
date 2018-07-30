@@ -225,6 +225,7 @@ class value_string :
     size_t escape_sequence_index = 0;
     size_t escape_sequence_remaining = 0;
     size_t index = size_t(-1);
+    bool final_check_status = false;
 public:
     beltpp::e_three_state_result check(unsigned char ch)
     {
@@ -285,11 +286,21 @@ public:
         assert(0 == escape_sequence_index);
 
         if ('\"' == ch)
+        {
+            final_check_status = true;
             return beltpp::e_three_state_result::success;
+        }
         if ('\x20' > ch)    //  unsupported charachter
             return beltpp::e_three_state_result::error;
 
         return beltpp::e_three_state_result::attempt;
+    }
+
+    template <typename T_iterator>
+    bool final_check(T_iterator const&/* it_begin*/,
+                     T_iterator const&/* it_end*/) const
+    {
+        return final_check_status;
     }
 
     static std::string encode(std::string const& utf8_value)
@@ -616,7 +627,7 @@ template <typename T_iterator>
 beltpp::e_three_state_result
 parse_stream(ptr_expression_tree& ptr_expression,
              T_iterator& it_begin,
-             T_iterator it_end,
+             T_iterator const& it_end,
              size_t const junk_limit,
              expression_tree* &proot)
 {
@@ -639,12 +650,6 @@ parse_stream(ptr_expression_tree& ptr_expression,
     //  parser can return attempt
     //  but it will not necessarily mean an error
     //  probably the stream will be filled later, and parser will succeed
-
-    if (beltpp::e_three_state_result::error == parser_code)
-    {
-        it_begin = it_end;
-        code = beltpp::e_three_state_result::error;
-    }
 
     bool is_value = false;
     proot = beltpp::root(ptr_expression.get(), is_value);
@@ -670,7 +675,8 @@ parse_stream(ptr_expression_tree& ptr_expression,
             ++temp;
         }
 
-        if (count > junk_limit)
+        if (count > junk_limit ||
+            beltpp::e_three_state_result::error == parser_code)
         {
             it_begin = it_end;
             code = beltpp::e_three_state_result::error;

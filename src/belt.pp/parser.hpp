@@ -334,7 +334,6 @@ e_three_state_result parse(std::unique_ptr<T_expression_tree>& ptr_expression,
     auto storage_initialized = storage::s_initializer;
     B_UNUSED(storage_initialized);  //  avoid warning/error
     auto readers = storage::s_readers;
-    B_UNUSED(readers);
 
     auto default_operator = typename T_expression_tree::ctoken();
     auto read_result = typename T_expression_tree::ctoken();
@@ -353,37 +352,39 @@ e_three_state_result parse(std::unique_ptr<T_expression_tree>& ptr_expression,
     e_three_state_result error_attempt = e_three_state_result::error;
     for (size_t reader_index = 0; reader_index < storage::count; ++reader_index)
     {
-    e_three_state_result read_op_code = readers[reader_index](it_copy, it_end, read_result);
-    if (e_three_state_result::success == read_op_code &&
-        it_copy == it_begin)
-    {
-        read_op_code = e_three_state_result::attempt;
-        //assert(false);
-        //read_op_code = e_three_state_result::error;
-    }
-
-    if (e_three_state_result::success == read_op_code)
-    {   //  try to place the operator token in the expression tree
-        //  if successful then update it_begin and return
-        auto ptr_expression_backup = ptr_expression.get();
-        B_UNUSED(ptr_expression_backup);
-
-        if (detail::parse_helper(ptr_expression, read_result, has_default_operator, default_operator))
+        e_three_state_result read_op_code =
+                readers[reader_index](it_copy, it_end, read_result);
+        if (e_three_state_result::success == read_op_code &&
+            it_copy == it_begin)
         {
-            it_begin = it_copy;
-            return e_three_state_result::success;
+            assert(false);
+            read_op_code = e_three_state_result::error;
         }
-        else
-        {   //  otherwise don't forget to reset it_copy to it_begin
-            it_copy = it_begin;
-            assert(ptr_expression.get() == ptr_expression_backup);
-            //return false;
+
+        if (e_three_state_result::success == read_op_code)
+        {   //  try to place the operator token in the expression tree
+            //  if successful then update it_begin and return
+            auto ptr_expression_backup = ptr_expression.get();
+            B_UNUSED(ptr_expression_backup);
+
+            if (detail::parse_helper(ptr_expression,
+                                     read_result,
+                                     has_default_operator,
+                                     default_operator))
+            {
+                it_begin = it_copy;
+                return e_three_state_result::success;
+            }
+            else
+            {   //  otherwise don't forget to reset it_copy to it_begin
+                it_copy = it_begin;
+                assert(ptr_expression.get() == ptr_expression_backup);
+            }
         }
-    }
-    else if (e_three_state_result::attempt == read_op_code)
-        //  if at least one lexer returns attempt, and not one success
-        //  will return attempt
-        error_attempt = e_three_state_result::attempt;
+        else if (e_three_state_result::attempt == read_op_code)
+            //  if at least one lexer returns attempt, and not one success
+            //  will return attempt
+            error_attempt = e_three_state_result::attempt;
     }
     //  will return error only if all lexers return error or
     //  success without successful parse_helper
@@ -679,19 +680,19 @@ bool lexer_helper(T_iterator& it_begin,
         }
     }
 
-    if (result &&   //  something accepted, but not sure if its final
+    if (result &&                   //  something accepted, but not sure if its final
         it_begin == it_backup &&    //  so it_begin was not altered yet
         false == detail::scan_beyond_helper<T_lexer>::check(&lexer))
-        it_begin = it_end;  //  now alter it_begin too, this will not happen by default
-    //  instead will have to scan past the last token to accept it
+        it_begin = it_end;          //  now alter it_begin too, this does not happen by default
+                                    //  alternatively the scanning goes past last "attempted" symbol accept it
 
     if (result && it_begin != it_backup)
     {
         if (false ==
-                detail::final_check_helper<T_lexer, T_string, T_iterator>
-                    ::check(&lexer,
-                            &it_backup,
-                            &it_begin))
+            detail::final_check_helper<T_lexer, T_string, T_iterator>
+                ::check(&lexer,
+                        &it_backup,
+                        &it_begin))
         {
             result = false;
             it_begin = it_backup;
@@ -727,9 +728,13 @@ public:
             result.rtt = T_discard_lexer::rtt;
             result.value.assign(it_begin, it_copy);
             it_begin = it_copy;
-        }
 
-        return code ? e_three_state_result::success : e_three_state_result::attempt;
+            return e_three_state_result::success;
+        }
+        else if (code)
+            return e_three_state_result::attempt;
+        else
+            return e_three_state_result::error;
     }
 
     beltpp::e_three_state_result check(char ch)
@@ -765,9 +770,13 @@ public:
             result.rtt = T_discard_lexer::rtt;
             result.value.assign(it_begin, it_copy);
             it_begin = it_copy;
-        }
 
-        return code ? e_three_state_result::success : e_three_state_result::attempt;
+            return e_three_state_result::success;
+        }
+        else if (code)
+            return e_three_state_result::attempt;
+        else
+            return e_three_state_result::error;
     }
 };
 
@@ -803,9 +812,13 @@ public:
             result.left_max = lexer.left_max;
             result.property = lexer.property;
             it_begin = it_copy;
-        }
 
-        return code ? e_three_state_result::success : e_three_state_result::attempt;
+            return e_three_state_result::success;
+        }
+        else if (code)
+            return e_three_state_result::attempt;
+        else
+            return e_three_state_result::error;
     }
 private:
     enum { previous_rtt = (rtt == 0) ? 0 : rtt - 1 };
@@ -856,9 +869,13 @@ public:
             result.property = 1;
             result.value.assign(it_begin, it_copy);
             it_begin = it_copy;
-        }
 
-        return code ? e_three_state_result::success : e_three_state_result::attempt;
+            return e_three_state_result::success;
+        }
+        else if (code)
+            return e_three_state_result::attempt;
+        else
+            return e_three_state_result::error;
     }
 };
 
