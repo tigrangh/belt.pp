@@ -18,12 +18,12 @@ template <typename T_string>
 class token
 {
 public:
-    size_t rtt = -1;
+    size_t rtt = size_t(-1);
     size_t priority = 0;
-    size_t right = -1;
-    size_t left_min = -1;
-    size_t left_max = -1;
-    size_t property = -1;
+    size_t right = size_t(-1);
+    size_t left_min = size_t(-1);
+    size_t left_max = size_t(-1);
+    size_t property = size_t(-1);
     T_string value;
 };
 
@@ -116,7 +116,7 @@ expression_tree<T_lexers, T_string>::~expression_tree() noexcept
 template <typename T_lexers, typename T_string>
 size_t expression_tree<T_lexers, T_string>::depth() const
 {
-    size_t depth = -1;
+    size_t depth = size_t(-1);
     queue<expression_tree<T_lexers, T_string> const*> items;
 
     items.push(this);
@@ -214,7 +214,7 @@ template <typename T_lexers, typename T_string, typename T_iterator>
 class storage
 {
 public:
-    using fptr_reader = bool (*)(T_iterator&, T_iterator, token<T_string>&);
+    using fptr_reader = beltpp::e_three_state_result (*)(T_iterator&, T_iterator const&, token<T_string>&);
     enum { count = T_lexers::count };
 public:
     storage() {++s_initializer;}
@@ -227,60 +227,6 @@ template <typename T_lexers, typename T_string, typename T_iterator, typename IN
 class dummy
 {
 public:
-    inline static
-    bool read(T_iterator& it_begin,
-              T_iterator it_end,
-              token<T_string>& result)
-    {
-        auto it_copy = it_begin;
-        auto const discard_result = token<T_string>();
-        if (INDEX::value >= T_lexers::count)
-            return false;
-        else
-        {
-            using T_lexer =
-                typename typelist::type_list_get<INDEX::value, T_lexers>::type;
-            auto current_result = discard_result;
-            bool current_code =
-                    T_lexer::template internal_read<T_string, T_iterator>
-                                            (it_copy,
-                                             it_end,
-                                             current_result);
-
-            if (INDEX::value + 1 == T_lexers::count ||
-                (current_code && it_copy != it_begin))
-            {
-                if (current_code && it_copy != it_begin)
-                    it_begin = it_copy;
-
-                result = current_result;
-                return current_code;
-            }
-            else    // if (INDEX::value + 1 < T_list::count)
-            {
-                it_copy = it_begin;
-                using cdummy = dummy<T_lexers, T_string, T_iterator,
-                std::integral_constant<size_t, INDEX::value + 1>>;
-
-                auto next_result = discard_result;
-                bool next_code = cdummy::read(it_copy,
-                                              it_end,
-                                              next_result);
-
-                if (current_code == false &&
-                    next_code == false)
-                    return false;
-                else if (next_code && it_copy != it_begin)
-                {
-                    it_begin = it_copy;
-                    result = next_result;
-                    return next_code;
-                }
-                else
-                    return true;
-            }
-        }
-    }
 
     inline static
     int list_readers()
@@ -344,13 +290,6 @@ class dummy<T_lexers, T_string, T_iterator,
         std::integral_constant<size_t, T_lexers::count>>
 {
 public:
-    inline static
-    bool read(T_iterator& it_begin,
-              T_iterator it_end,
-              token<T_string>& result)
-    {
-        return false;
-    }
 
     inline static
     int list_readers()
@@ -359,7 +298,7 @@ public:
     }
 
     inline static
-    bool get_default_operator(token<T_string>& result)
+    bool get_default_operator(token<T_string>&/* result*/)
     {
         return false;
     }
@@ -381,9 +320,9 @@ bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
 
 template <typename T_iterator,
           typename T_expression_tree>
-bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
-           T_iterator& it_begin,
-           T_iterator it_end)
+e_three_state_result parse(std::unique_ptr<T_expression_tree>& ptr_expression,
+                           T_iterator& it_begin,
+                           T_iterator const& it_end)
 {
     using storage =
         detail::storage<
@@ -393,10 +332,9 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
     //  fake, as if using the following member
     //  force template compiler to use it too
     auto storage_initialized = storage::s_initializer;
-    ++storage_initialized;  //  avoid warning/error
+    B_UNUSED(storage_initialized);  //  avoid warning/error
     auto readers = storage::s_readers;
-    char* p = (char*)(&readers);
-    ++p;
+    B_UNUSED(readers);
 
     auto default_operator = typename T_expression_tree::ctoken();
     auto read_result = typename T_expression_tree::ctoken();
@@ -412,11 +350,19 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
 
     bool has_default_operator = cdummy::get_default_operator(default_operator);
 
+    e_three_state_result error_attempt = e_three_state_result::error;
     for (size_t reader_index = 0; reader_index < storage::count; ++reader_index)
     {
-    //bool read_op_code = cdummy::read(it_copy, it_end, read_result);
-    bool read_op_code = readers[reader_index](it_copy, it_end, read_result);
-    if (read_op_code && it_copy != it_begin)
+    e_three_state_result read_op_code = readers[reader_index](it_copy, it_end, read_result);
+    if (e_three_state_result::success == read_op_code &&
+        it_copy == it_begin)
+    {
+        read_op_code = e_three_state_result::attempt;
+        //assert(false);
+        //read_op_code = e_three_state_result::error;
+    }
+
+    if (e_three_state_result::success == read_op_code)
     {   //  try to place the operator token in the expression tree
         //  if successful then update it_begin and return
         auto ptr_expression_backup = ptr_expression.get();
@@ -425,7 +371,7 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
         if (detail::parse_helper(ptr_expression, read_result, has_default_operator, default_operator))
         {
             it_begin = it_copy;
-            return true;
+            return e_three_state_result::success;
         }
         else
         {   //  otherwise don't forget to reset it_copy to it_begin
@@ -434,8 +380,14 @@ bool parse(std::unique_ptr<T_expression_tree>& ptr_expression,
             //return false;
         }
     }
+    else if (e_three_state_result::attempt == read_op_code)
+        //  if at least one lexer returns attempt, and not one success
+        //  will return attempt
+        error_attempt = e_three_state_result::attempt;
     }
-    return false;
+    //  will return error only if all lexers return error or
+    //  success without successful parse_helper
+    return error_attempt;
 }
 
 namespace detail
@@ -693,7 +645,7 @@ template <typename T_lexer,
           typename T_string,
           typename T_iterator>
 bool lexer_helper(T_iterator& it_begin,
-                  T_iterator it_end,
+                  T_iterator const& it_end,
                   T_lexer* p = nullptr)
 {
     bool result = true;
@@ -762,9 +714,9 @@ public:
     template <typename T_string,
               typename T_iterator>
     static
-    bool internal_read(T_iterator& it_begin,
-                       T_iterator it_end,
-                       detail::token<T_string>& result)
+    e_three_state_result internal_read(T_iterator& it_begin,
+                                       T_iterator const& it_end,
+                                       detail::token<T_string>& result)
     {
         auto it_copy = it_begin;
         result = detail::token<T_string>();
@@ -777,7 +729,7 @@ public:
             it_begin = it_copy;
         }
 
-        return code;
+        return code ? e_three_state_result::success : e_three_state_result::attempt;
     }
 
     beltpp::e_three_state_result check(char ch)
@@ -800,9 +752,9 @@ public:
     template <typename T_string,
               typename T_iterator>
     static
-    bool internal_read(T_iterator& it_begin,
-                       T_iterator it_end,
-                       detail::token<T_string>& result)
+    e_three_state_result internal_read(T_iterator& it_begin,
+                                       T_iterator const& it_end,
+                                       detail::token<T_string>& result)
     {
         auto it_copy = it_begin;
         result = detail::token<T_string>();
@@ -815,7 +767,7 @@ public:
             it_begin = it_copy;
         }
 
-        return code;
+        return code ? e_three_state_result::success : e_three_state_result::attempt;
     }
 };
 
@@ -832,9 +784,9 @@ public:
     template <typename T_string,
               typename T_iterator>
     static
-    bool internal_read(T_iterator& it_begin,
-                       T_iterator it_end,
-                       detail::token<T_string>& result)
+    e_three_state_result internal_read(T_iterator& it_begin,
+                                       T_iterator const& it_end,
+                                       detail::token<T_string>& result)
     {
         auto it_copy = it_begin;
         result = detail::token<T_string>();
@@ -853,7 +805,7 @@ public:
             it_begin = it_copy;
         }
 
-        return code;
+        return code ? e_three_state_result::success : e_three_state_result::attempt;
     }
 private:
     enum { previous_rtt = (rtt == 0) ? 0 : rtt - 1 };
@@ -886,9 +838,9 @@ public:
     template <typename T_string,
               typename T_iterator>
     static
-    bool internal_read(T_iterator& it_begin,
-                       T_iterator it_end,
-                       detail::token<T_string>& result)
+    e_three_state_result internal_read(T_iterator& it_begin,
+                                       T_iterator const& it_end,
+                                       detail::token<T_string>& result)
     {
         auto it_copy = it_begin;
         result = detail::token<T_string>();
@@ -906,7 +858,7 @@ public:
             it_begin = it_copy;
         }
 
-        return code;
+        return code ? e_three_state_result::success : e_three_state_result::attempt;
     }
 };
 
@@ -941,7 +893,7 @@ class standard_value_string_lexer :
         state_escape_symbol = 0x04
     };
     int state = state_none;
-    size_t index = -1;
+    size_t index = size_t(-1);
 public:
     beltpp::e_three_state_result check(char ch)
     {
@@ -1026,7 +978,7 @@ class standard_operator_comma_lexer :
 {
 public:
     size_t right = 1;
-    size_t left_max = -1;
+    size_t left_max = size_t(-1);
     size_t left_min = 1;
     size_t property = 1;
 
@@ -1071,7 +1023,7 @@ typename T_expression_tree::string dump(T_expression_tree const* pexpression)
             result += "\n";
         }
 
-        size_t next_child_index = -1;
+        size_t next_child_index = size_t(-1);
         if (false == p_iterator->children.empty())
         {
             size_t childindex = 0;

@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
             if (file_definition)
             {
                 file_definition.seekg(0, std::ios::end);
-                definition.reserve(file_definition.tellg());
+                definition.reserve(size_t(file_definition.tellg()));
                 file_definition.seekg(0, std::ios::beg);
 
                 definition.assign((std::istreambuf_iterator<char>(file_definition)),
@@ -83,7 +83,8 @@ int main(int argc, char* argv[])
         auto it_begin = definition.begin();
         auto it_end = definition.end();
         auto it_begin_keep = it_begin;
-        while (beltpp::parse(ptr_expression, it_begin, it_end))
+        while (beltpp::e_three_state_result::success ==
+               beltpp::parse(ptr_expression, it_begin, it_end))
         {
             if (it_begin == it_begin_keep)
                 break;

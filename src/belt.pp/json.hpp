@@ -36,7 +36,7 @@ class operator_comma :
 public:
     size_t right = 1;
     size_t left_min = 1;
-    size_t left_max = -1;
+    size_t left_max = size_t(-1);
     size_t property = 1;
     enum { grow_priority = 1 };
 
@@ -79,7 +79,7 @@ public:
 class scope_brace : public beltpp::operator_lexer_base<scope_brace, lexers>
 {
 public:
-    size_t right = -1;
+    size_t right = size_t(-1);
     size_t left_max = 0;
     size_t left_min = 0;
     size_t property = 8;
@@ -89,7 +89,7 @@ public:
     {
         if (ch == '{')
         {
-            right = -1;
+            right = size_t(-1);
             left_min = 0;
             left_max = 0;
             property = 8;
@@ -120,7 +120,7 @@ public:
 class scope_bracket : public beltpp::operator_lexer_base<scope_bracket, lexers>
 {
 public:
-    size_t right = -1;
+    size_t right = size_t(-1);
     size_t left_max = 0;
     size_t left_min = 0;
     size_t property = 8;
@@ -130,7 +130,7 @@ public:
     {
         if (ch == '[')
         {
-            right = -1;
+            right = size_t(-1);
             left_min = 0;
             left_max = 0;
             property = 8;
@@ -189,23 +189,23 @@ inline size_t utf32_to_utf8(uint32_t cp, char (&buffer)[4]) noexcept
     }
     if (cp <= 0x7FF)
     {
-        buffer[0] = 0xC0 | (cp >> 6);           //  110xxxxx
-        buffer[1] = 0x80 | (cp & 0x3F);         //  10xxxxxx
+        buffer[0] = char(0xC0 | (cp >> 6));     //  110xxxxx
+        buffer[1] = char(0x80 | (cp & 0x3F));   //  10xxxxxx
         return 2;
     }
     if (cp <= 0xFFFF)
     {
-        buffer[0] = 0xE0 | (cp >> 12);          //  1110xxxx
-        buffer[1] = 0x80 | ((cp >> 6) & 0x3F);  //  10xxxxxx
-        buffer[2] = 0x80 | (cp & 0x3F);         //  10xxxxxx
+        buffer[0] = char(0xE0 | (cp >> 12));          //  1110xxxx
+        buffer[1] = char(0x80 | ((cp >> 6) & 0x3F));  //  10xxxxxx
+        buffer[2] = char(0x80 | (cp & 0x3F));         //  10xxxxxx
         return 3;
     }
     if (cp <= 0x10FFFF)
     {
-        buffer[0] = 0xF0 | (cp >> 18);          //  11110xxx
-        buffer[1] = 0x80 | ((cp >> 12) & 0x3F); //  10xxxxxx
-        buffer[2] = 0x80 | ((cp >> 6) & 0x3F);  //  10xxxxxx
-        buffer[3] = 0x80 | (cp & 0x3F);         //  10xxxxxx
+        buffer[0] = char(0xF0 | (cp >> 18));          //  11110xxx
+        buffer[1] = char(0x80 | ((cp >> 12) & 0x3F)); //  10xxxxxx
+        buffer[2] = char(0x80 | ((cp >> 6) & 0x3F));  //  10xxxxxx
+        buffer[3] = char(0x80 | (cp & 0x3F));         //  10xxxxxx
         return 4;
     }
 
@@ -224,7 +224,7 @@ class value_string :
 {
     size_t escape_sequence_index = 0;
     size_t escape_sequence_remaining = 0;
-    size_t index = -1;
+    size_t index = size_t(-1);
 public:
     beltpp::e_three_state_result check(unsigned char ch)
     {
@@ -360,14 +360,14 @@ public:
         size_t escape_sequence_index = 0;
         size_t escape_sequence_remaining = 0;
 
-        uint32_t code_point_encoded = -1;
-        uint32_t surrogate_pair_high = -1;
+        uint32_t code_point_encoded = uint32_t(-1);
+        uint32_t surrogate_pair_high = uint32_t(-1);
 
         bool proper_ending = false;
 
         for (auto it = it_begin; code && it != it_end; ++it)
         {
-            unsigned char ch = *it;
+            char ch = *it;
             std::string item;
 
             if (it_begin == it)
@@ -420,9 +420,9 @@ public:
                 {
                     uint32_t ch_value = 0;
                     if ('0' <= ch && ch <= '9')
-                        ch_value = ch - '0';
+                        ch_value = uint32_t(ch - '0');
                     else if ('a' <= tolower(ch) && tolower(ch) <= 'f')
-                        ch_value = 10 + tolower(ch) - 'a';
+                        ch_value = uint32_t(10 + tolower(ch) - 'a');
 
                     if (2 == escape_sequence_index)
                         code_point_encoded = ch_value;
@@ -464,26 +464,26 @@ public:
 
                 if (uint32_t(-1) != surrogate_pair_high &&
                     uint32_t(-1) != code_point_encoded &&
-                    detail::utf16_check(code_point_encoded) ==
+                    detail::utf16_check(uint16_t(code_point_encoded)) ==
                         detail::utf16_range::low)
                 {
                     code_point_encoded =
                             detail::utf16_surrogate_pair_to_code_point(
-                                surrogate_pair_high, code_point_encoded);
-                    surrogate_pair_high = -1;
+                                uint16_t(surrogate_pair_high), uint16_t(code_point_encoded));
+                    surrogate_pair_high = uint32_t(-1);
                 }
                 else if (uint32_t(-1) != surrogate_pair_high)
                     code = false;
                 //  cases below this have (-1 == surrogate_pair_high)
                 else if (uint32_t(-1) != code_point_encoded &&
-                         detail::utf16_check(code_point_encoded) ==
+                         detail::utf16_check(uint16_t(code_point_encoded)) ==
                              detail::utf16_range::high)
                 {
                     surrogate_pair_high = code_point_encoded;
-                    code_point_encoded = -1;
+                    code_point_encoded = uint32_t(-1);
                 }
                 else if (uint32_t(-1) != code_point_encoded &&
-                         detail::utf16_check(code_point_encoded) ==
+                         detail::utf16_check(uint16_t(code_point_encoded)) ==
                              detail::utf16_range::low)
                     code = false;
 
@@ -495,7 +495,7 @@ public:
                     for (size_t index = 0; index < utf8size; ++index)
                         item += buffer[index];
 
-                    code_point_encoded = -1;
+                    code_point_encoded = uint32_t(-1);
                 }
 
                 if (code)
@@ -621,19 +621,30 @@ parse_stream(ptr_expression_tree& ptr_expression,
              expression_tree* &proot)
 {
     beltpp::e_three_state_result code = beltpp::e_three_state_result::attempt;
+    beltpp::e_three_state_result parser_code = beltpp::e_three_state_result::attempt;
 
     auto const it_backup = it_begin;
     auto it_begin_keep = it_begin;
-    while (beltpp::parse(ptr_expression, it_begin, it_end))
+    while (true)
     {
+        parser_code = beltpp::parse(ptr_expression, it_begin, it_end);
+        if (beltpp::e_three_state_result::success != parser_code)
+            break;
+
         if (it_begin == it_begin_keep)
             break;
         else
             it_begin_keep = it_begin;
     }
-    //  parser can give false or not advance the iterator
+    //  parser can return attempt
     //  but it will not necessarily mean an error
     //  probably the stream will be filled later, and parser will succeed
+
+    if (beltpp::e_three_state_result::error == parser_code)
+    {
+        it_begin = it_end;
+        code = beltpp::e_three_state_result::error;
+    }
 
     bool is_value = false;
     proot = beltpp::root(ptr_expression.get(), is_value);
