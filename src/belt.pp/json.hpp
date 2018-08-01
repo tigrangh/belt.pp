@@ -460,7 +460,7 @@ public:
                 else
                     proper_ending = true;
             }
-            else if ('\x20' > ch)    //  unsupported charachter
+            else if ('\x20' > (unsigned char)(ch))    //  unsupported charachter
                 code = false;
             else
                 item += ch;
