@@ -27,8 +27,9 @@ namespace detail
 {
 
 namespace chrono = std::chrono;
-using time_point = chrono::steady_clock::time_point;
-using duration = chrono::steady_clock::duration;
+using steady_clock = chrono::steady_clock;
+using time_point = steady_clock::time_point;
+using duration = steady_clock::duration;
 
 class timer_helper
 {
@@ -41,7 +42,7 @@ public:
 
     static time_point now()
     {
-        return chrono::steady_clock::now();
+        return steady_clock::now();
     }
 
     void set(duration const& period)
@@ -58,13 +59,13 @@ public:
 
     void update()
     {
-        last_point += timer_period;
+        while (expired())
+            last_point += timer_period;
     }
 
     bool expired() const
     {
-        auto time_since_started = now() - last_point;
-        return is_set && (time_since_started >= timer_period);
+        return is_set && (now() - last_point >= timer_period);
     }
 
     bool is_set;
