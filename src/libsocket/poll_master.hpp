@@ -10,70 +10,21 @@
 
 #include "native.hpp"
 
+#include <belt.pp/timer.hpp>
+
 #include <unordered_set>
 #include <unordered_map>
 #include <string>
 #include <cerrno>
 #include <cstring>
 #include <vector>
-#include <chrono>
 #include <cassert>
 #include <memory>
-
-
-namespace beltpp
-{
-namespace detail
-{
 
 namespace chrono = std::chrono;
 using steady_clock = chrono::steady_clock;
 using time_point = steady_clock::time_point;
 using duration = steady_clock::duration;
-
-class timer_helper
-{
-public:
-    timer_helper()
-        : is_set(false)
-        , last_point()
-        , timer_period()
-    {}
-
-    static time_point now()
-    {
-        return steady_clock::now();
-    }
-
-    void set(duration const& period)
-    {
-        is_set = true;
-        last_point = now();
-        timer_period = period;
-    }
-
-    void clean()
-    {
-        is_set = false;
-    }
-
-    void update()
-    {
-        while (expired())
-            last_point += timer_period;
-    }
-
-    bool expired() const
-    {
-        return is_set && (now() - last_point >= timer_period);
-    }
-
-    bool is_set;
-    time_point last_point;
-    duration timer_period;
-};
-}
-}
 
 #if defined B_OS_LINUX
 
@@ -144,7 +95,7 @@ public:
         m_arr_event.resize(m_arr_event.size() - 1);
     }
 
-    std::unordered_set<uint64_t> wait(timer_helper const& tm)
+    std::unordered_set<uint64_t> wait(beltpp::timer const& tm)
     {
         std::unordered_set<uint64_t> set_ids;
 
@@ -154,7 +105,7 @@ public:
             int milliseconds = -1;
             if (tm.is_set)
             {
-                auto timeout = (tm.last_point + tm.timer_period) - tm.now();
+                auto timeout = (tm.last_point_expired + tm.timer_period) - tm.now();
                 auto timeout_ms =
                         chrono::duration_cast<chrono::milliseconds>(timeout);
                 milliseconds = timeout_ms.count();
@@ -274,7 +225,7 @@ public:
         m_arr_event.resize(m_arr_event.size() - 1);
     }
 
-    std::unordered_set<uint64_t> wait(timer_helper const& tm)
+    std::unordered_set<uint64_t> wait(beltpp::timer const& tm)
     {
         std::unordered_set<uint64_t> set_ids;
 
@@ -284,7 +235,7 @@ public:
             int milliseconds = -1;
             if (tm.is_set)
             {
-                auto timeout = (tm.last_point + tm.timer_period) - tm.now();
+                auto timeout = (tm.last_point_expired + tm.timer_period) - tm.now();
                 auto timeout_ms =
                         chrono::duration_cast<chrono::milliseconds>(timeout);
                 milliseconds = timeout_ms.count();
@@ -491,7 +442,7 @@ namespace beltpp
                 it->second->action = event_handler::task::remove;
             }
 
-            std::unordered_set<uint64_t> wait(timer_helper const& tm)
+            std::unordered_set<uint64_t> wait(beltpp::timer const& tm)
             {
                 auto it = m_events.begin();
                 while (it != m_events.end())
@@ -578,7 +529,7 @@ namespace beltpp
                 DWORD milliseconds = WSA_INFINITE;
                 if (tm.is_set)
                 {
-                    auto timeout = (tm.last_point + tm.timer_period) - tm.now();
+                    auto timeout = (tm.last_point_expired + tm.timer_period) - tm.now();
                     auto timeout_ms = chrono::duration_cast<chrono::milliseconds>(timeout);
                     milliseconds = DWORD(timeout_ms.count());
                     if (milliseconds < 0)

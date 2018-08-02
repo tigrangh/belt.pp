@@ -4,6 +4,7 @@
 
 #include <belt.pp/queue.hpp>
 #include <belt.pp/scope_helper.hpp>
+#include <belt.pp/timer.hpp>
 
 #include <list>
 #include <mutex>
@@ -37,7 +38,7 @@ using event_slots = beltpp::queue<event_slot>;
 class event_handler_impl
 {
 public:
-    timer_helper m_timer_helper;
+    beltpp::timer m_timer_helper;
     poll_master m_poll_master;
     list<event_slots> m_ids;
     std::mutex m_mutex;

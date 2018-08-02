@@ -34,6 +34,7 @@ set(SRC_FILES
     queue.hpp
     scope_helper.hpp
     socket.hpp
+    timer.hpp
     utility.hpp)
 
 install(FILES
