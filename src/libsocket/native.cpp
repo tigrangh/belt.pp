@@ -114,11 +114,11 @@ int recv(beltpp::detail::event_handler_impl* peh,
 int recv(beltpp::detail::event_handler_impl*,
          uint64_t,
          int socket_descriptor,
-         void* buf,
+         char* buf,
          int len,
          int& error_code)
 {
-    auto result = ::recv(socket_descriptor, buf, len, 0);
+    auto result = ::recv(socket_descriptor, reinterpret_cast<void*>(buf), len, 0);
     error_code = errno;
 
     return result;

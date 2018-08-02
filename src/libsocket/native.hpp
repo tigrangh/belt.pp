@@ -270,9 +270,46 @@ int recv(beltpp::detail::event_handler_impl* peh,
 int recv(beltpp::detail::event_handler_impl*,
          uint64_t,
          int socket_descriptor,
-         void* buf,
+         char* buf,
          int len,
          int& error_code);
+#endif
+
+#ifdef B_OS_WINDOWS
+inline
+size_t send(SOCKET socket_descriptor, char const* buf, size_t size)
+{
+    int res = ::send(socket_descriptor, buf, (int)size, 0);
+    if (-1 == res &&
+        WSAEWOULDBLOCK == ::WSAGetLastError())
+        res = 0;
+
+    return size_t(res);
+}
+#else
+
+#ifndef MSG_NOSIGNAL
+# define MSG_NOSIGNAL 0
+# ifdef SO_NOSIGPIPE
+#  define BELT_USE_SO_NOSIGPIPE
+# else
+#  error "That's a problem, cannot block SIGPIPE..."
+# endif
+#endif
+
+inline
+size_t send(int socket_descriptor, char const* buf, size_t size)
+{
+    ssize_t res = ::send(socket_descriptor, reinterpret_cast<void const*>(buf), size, MSG_NOSIGNAL);
+    if (-1 == res &&
+        (
+            EWOULDBLOCK == errno ||
+            EAGAIN == errno
+        ))
+        res = 0;
+
+    return size_t(res);
+}
 #endif
 #ifdef B_OS_WINDOWS
 void connect(beltpp::detail::event_handler_impl* peh,

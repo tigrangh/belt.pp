@@ -44,15 +44,6 @@ using sockets = vector<tuple<beltpp::native::sk_handle, addrinfo*, on_failure>>;
 using peer_ids = beltpp::socket::peer_ids;
 using packets = beltpp::socket::packets;
 
-#ifndef MSG_NOSIGNAL
-# define MSG_NOSIGNAL 0
-# ifdef SO_NOSIGPIPE
-#  define BELT_USE_SO_NOSIGPIPE
-# else
-//#  error "That's a problem, cannot block SIGPIPE..."
-# endif
-#endif
-
 namespace beltpp
 {
 /*
@@ -689,14 +680,13 @@ void socket::send(peer_id const& peer, packet&& pack)
 
                 while (sent < length)
                 {
-                    int res = ::send(sd.handle,
-                                     &ms[sent],
-                                     int(ms.size() - sent),
-                                     MSG_NOSIGNAL);
+                    size_t res = native::send(sd.handle,
+                                              &ms[sent],
+                                              ms.size() - sent);
                     //  when sending to socket closed by the peer
                     //  we have res = -1 and errno set to EPIPE
 
-                    if (-1 == res)
+                    if (size_t(-1) == res)
                     {
                         string send_error = native::net_last_error();
                         throw std::runtime_error("send(): " +
