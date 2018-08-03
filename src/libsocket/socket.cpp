@@ -1048,6 +1048,8 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
 
         assert(false == socket_bundle.remote.empty());
     }
+    else
+        socket_bundle = detail::get_socket_bundle(socket_descriptor);
 
     beltpp::on_failure scope_guard(
     [pimpl, socket_descriptor, eh_id, action]
