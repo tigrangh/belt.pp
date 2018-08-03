@@ -17,7 +17,7 @@ class packet_internals
 {
 public:
     packet_internals()
-        : m_rtt(-1)
+        : m_rtt(size_t(-1))
         , m_ptr_message(nullptr, [](void*){})
         , m_fsaver(nullptr)
     {}
@@ -66,7 +66,6 @@ bool packet::empty() const noexcept
 size_t packet::type() const
 {
     return m_pimpl->m_rtt;
-    return 0;
 }
 
 void packet::clean()

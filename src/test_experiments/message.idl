@@ -1,0 +1,8 @@
+module TestExperiments
+{
+    //  standard socket messages
+    type Join {}
+    type Drop {}
+    type Error {}
+}
+

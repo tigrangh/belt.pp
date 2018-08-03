@@ -25,8 +25,7 @@ public:
         , str_name(_name)
         , file_name(_fname)
     { }
-    ~log_file()
-    { }
+    ~log_file() override {}
 
     std::string name() const noexcept override
     {

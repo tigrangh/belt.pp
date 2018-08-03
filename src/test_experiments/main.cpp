@@ -7,36 +7,30 @@
 #include <belt.pp/delegate.hpp>
 #include <belt.pp/processor.hpp>
 #include <belt.pp/packet.hpp>
-#include <belt.pp/messages.hpp>
 #include <belt.pp/socket.hpp>
 #include <belt.pp/event.hpp>
 #include <belt.pp/json.hpp>
 
-template beltpp::void_unique_ptr beltpp::new_void_unique_ptr<beltpp::message_error>();
-template beltpp::void_unique_ptr beltpp::new_void_unique_ptr<beltpp::message_join>();
-template beltpp::void_unique_ptr beltpp::new_void_unique_ptr<beltpp::message_drop>();
+#include "message.hpp"
 
-beltpp::detail::pmsg_all message_list_load_own(
-        beltpp::iterator_wrapper<char const>& iter_scan_begin,
-        beltpp::iterator_wrapper<char const> const& iter_scan_end,
-        beltpp::detail::session_special_data& ssd,
-        void* p)
+using namespace TestExperiments;
 
-{
-    return beltpp::message_list_load(iter_scan_begin, iter_scan_end, ssd, p);
-}
+template beltpp::void_unique_ptr beltpp::new_void_unique_ptr<Error>();
+template beltpp::void_unique_ptr beltpp::new_void_unique_ptr<Join>();
+template beltpp::void_unique_ptr beltpp::new_void_unique_ptr<Drop>();
+
 
 using sf = beltpp::socket_family_t<
-beltpp::message_error::rtt,
-beltpp::message_join::rtt,
-beltpp::message_drop::rtt,
-&beltpp::new_void_unique_ptr<beltpp::message_error>,
-&beltpp::new_void_unique_ptr<beltpp::message_join>,
-&beltpp::new_void_unique_ptr<beltpp::message_drop>,
-&beltpp::message_error::pvoid_saver,
-&beltpp::message_join::pvoid_saver,
-&beltpp::message_drop::pvoid_saver,
-&message_list_load_own
+Error::rtt,
+Join::rtt,
+Drop::rtt,
+&beltpp::new_void_unique_ptr<Error>,
+&beltpp::new_void_unique_ptr<Join>,
+&beltpp::new_void_unique_ptr<Drop>,
+&Error::pvoid_saver,
+&Join::pvoid_saver,
+&Drop::pvoid_saver,
+&message_list_load
 >;
 
 #define VERSION 11
@@ -190,10 +184,10 @@ int main(int argc, char** argv)
                     std::string str_type;
                     switch (packet.type())
                     {
-                    case beltpp::message_join::rtt:
+                    case Join::rtt:
                         str_type = "joined";
                         break;
-                    case beltpp::message_drop::rtt:
+                    case Drop::rtt:
                         str_type = "dropped";
                         break;
                     default:
@@ -248,11 +242,11 @@ int main(int argc, char** argv)
 
                     for (auto const& pc : pcs)
                     {
-                        if (pc.type() == beltpp::message_join::rtt)
+                        if (pc.type() == Join::rtt)
                         {
                             std::cout << i << std::endl;
                             if (i >= arr_channel_id.size())
-                                sk.send(arr_channel_id[index], beltpp::message_drop());
+                                sk.send(arr_channel_id[index], Drop());
 
                             arr_channel_id[index] = channel_id;
                         }

@@ -22,7 +22,7 @@ public:
     friend class ievent_item;
 
     event_handler();
-    virtual ~event_handler();
+    ~event_handler() override;
 
     wait_result wait(std::unordered_set<ievent_item const*>& set_items) override;
     std::unordered_set<uint64_t> waited(ievent_item& ev_it) const override;

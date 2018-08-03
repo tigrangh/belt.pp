@@ -200,7 +200,7 @@ public:
 class scope_brace : public beltpp::operator_lexer_base<scope_brace, lexers>
 {
 public:
-    size_t right = -1;
+    size_t right = size_t(-1);
     size_t left_max = 0;
     size_t left_min = 0;
     size_t property = 8;
@@ -210,7 +210,7 @@ public:
     {
         if (ch == '{')
         {
-            right = -1;
+            right = size_t(-1);
             left_min = 0;
             left_max = 0;
             property = 8;
@@ -220,7 +220,7 @@ public:
         {
             right = 0;
             left_min = 0;
-            left_max = -1;
+            left_max = size_t(-1);
             property = 4;
             return beltpp::e_three_state_result::success;
         }
@@ -238,7 +238,7 @@ public:
 
 class identifier : public beltpp::value_lexer_base<identifier, lexers>
 {
-    size_t index = -1;
+    size_t index = size_t(-1);
 public:
     beltpp::e_three_state_result check(char ch)
     {
@@ -265,8 +265,8 @@ public:
 
 class discard :
         public beltpp::discard_lexer_base<discard,
-                                            lexers,
-                                            beltpp::standard_white_space_set<void>>
+                                          lexers,
+                                          beltpp::standard_white_space_set<void>>
 {
 public:
     bool scan_beyond() const
@@ -277,9 +277,9 @@ public:
 
 class discard_comment :
         public beltpp::discard_lexer_base_flexible<discard_comment,
-                                                    lexers>
+                                                   lexers>
 {
-    size_t index = -1;
+    size_t index = size_t(-1);
 public:
     bool scan_beyond() const
     {

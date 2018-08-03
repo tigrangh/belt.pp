@@ -8,7 +8,7 @@
 namespace beltpp
 {
 
-inline void task(int i)
+inline void task(int /*i*/)
 {
     /*if (i > 0)
         std::this_thread::sleep_for(std::chrono::milliseconds(i));

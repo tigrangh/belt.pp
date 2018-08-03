@@ -78,23 +78,23 @@ int accept(beltpp::detail::event_handler_impl*,
 #endif
 
 #ifdef B_OS_WINDOWS
-int recv(beltpp::detail::event_handler_impl* peh,
-         uint64_t id,
-         SOCKET,
-         char* buf,
-         int len,
-         int& error_code)
+size_t recv(beltpp::detail::event_handler_impl* peh,
+            uint64_t id,
+            SOCKET,
+            char* buf,
+            size_t len,
+            int& error_code)
 {
     auto& async_data = peh->m_poll_master.m_events.at(id);
     if (0 != async_data->last_error)
     {
         error_code = async_data->last_error;
-        return SOCKET_ERROR;
+        return size_t(SOCKET_ERROR);
     }
     else
     {
-        if ((DWORD)len > async_data->bytes_copied - async_data->bytes_offset)
-            len = (int)(async_data->bytes_copied - async_data->bytes_offset);
+        if (len > async_data->bytes_copied - async_data->bytes_offset)
+            len = async_data->bytes_copied - async_data->bytes_offset;
 
         memcpy(buf, async_data->receive_buffer + async_data->bytes_offset, len);
 
@@ -111,17 +111,17 @@ int recv(beltpp::detail::event_handler_impl* peh,
     }
 }
 #else
-int recv(beltpp::detail::event_handler_impl*,
-         uint64_t,
-         int socket_descriptor,
-         char* buf,
-         int len,
-         int& error_code)
+size_t recv(beltpp::detail::event_handler_impl*,
+            uint64_t,
+            int socket_descriptor,
+            char* buf,
+            size_t len,
+            int& error_code)
 {
     auto result = ::recv(socket_descriptor, reinterpret_cast<void*>(buf), len, 0);
     error_code = errno;
 
-    return result;
+    return size_t(result);
 }
 #endif
 #ifdef B_OS_WINDOWS

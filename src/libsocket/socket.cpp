@@ -562,12 +562,12 @@ packets socket::receive(peer_id& peer)
             auto socket_descriptor = current_channel.m_socket_descriptor;
 
             int error_code = 0;
-            int res = native::recv(m_pimpl->m_peh->m_pimpl.get(),
-                                   current_channel.m_eh_id,
-                                   socket_descriptor.handle,
-                                   p_buffer,
-                                   int(size_buffer),
-                                   error_code);
+            size_t res = native::recv(m_pimpl->m_peh->m_pimpl.get(),
+                                      current_channel.m_eh_id,
+                                      socket_descriptor.handle,
+                                      p_buffer,
+                                      size_buffer,
+                                      error_code);
 
             if (native::check_recv_block(res, error_code))
                 continue;
@@ -600,7 +600,7 @@ packets socket::receive(peer_id& peer)
                 //  actually the stream here already has all new
                 //  data read from socket. only need to push, to
                 //  let the container know about it
-                for (int index = 0; index < res; ++index)
+                for (size_t index = 0; index < res; ++index)
                     current_channel.m_stream.push(p_buffer[index]);
 
                 while (true &&
@@ -816,7 +816,7 @@ uint64_t parse_peer_id(string const& peer_id)
         throw std::runtime_error("parse_peer_id");
 
     size_t parse_end;
-    uint64_t id = std::stoll(peer_id, &parse_end);
+    uint64_t id = beltpp::stoui64(peer_id, parse_end);
 
     if (parse_end != pos)
         throw std::runtime_error("parse_peer_id");
@@ -883,7 +883,7 @@ void getaddressinfo(addrinfo* &servinfo,
         ai_family = AF_INET;
         break;
     case ip_address::e_type::ipv6:
-    default:
+//    default:
         ai_family = AF_INET6;
     }
 
@@ -1058,9 +1058,9 @@ sockets socket(addrinfo* servinfo,
 
         if (bind)
         {
-            int res = ::bind(socket_descriptor.handle,
-                             p->ai_addr,
-                             int(p->ai_addrlen));
+            int res = native::bind(socket_descriptor.handle,
+                                   p->ai_addr,
+                                   p->ai_addrlen);
             if (-1 == res)
             {
                 string bind_error = native::net_last_error();
@@ -1120,11 +1120,11 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
     if (action == event_handler::task::connect)
     {
         native::connect(pimpl->m_peh->m_pimpl.get(),
-            eh_id,
-            socket_descriptor.handle,
-            addr,
-            len,
-            *paddress);
+                        eh_id,
+                        socket_descriptor.handle,
+                        addr,
+                        len,
+                        *paddress);
 
         socket_bundle2 = detail::get_socket_bundle(socket_descriptor);
 

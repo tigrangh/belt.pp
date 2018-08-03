@@ -124,7 +124,7 @@ inline float stof(std::string const& value, size_t& pos)
     char const* sz = value.c_str();
     char* endptr = nullptr;
     result = std::strtof(sz, &endptr);
-    pos = endptr - sz;
+    pos = size_t(endptr - sz);
 
     return result;
 }
@@ -134,7 +134,7 @@ inline double stod(std::string const& value, size_t& pos)
     char const* sz = value.c_str();
     char* endptr = nullptr;
     result = std::strtod(sz, &endptr);
-    pos = endptr - sz;
+    pos = size_t(endptr - sz);
 
     return result;
 }
@@ -145,7 +145,7 @@ inline int64_t stoi64(std::string const& value, size_t& pos)
     char const* sz = value.c_str();
     char* endptr = nullptr;
     result = std::strtoll(sz, &endptr, 0);
-    pos = endptr - sz;
+    pos = size_t(endptr - sz);
 
     return result;
 }
@@ -156,7 +156,7 @@ inline uint64_t stoui64(std::string const& value, size_t& pos)
     char const* sz = value.c_str();
     char* endptr = nullptr;
     result = std::strtoull(sz, &endptr, 0);
-    pos = endptr - sz;
+    pos = size_t(endptr - sz);
 
     return result;
 }

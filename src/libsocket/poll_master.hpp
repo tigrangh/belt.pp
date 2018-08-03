@@ -182,9 +182,9 @@ public:
     {
         assert(event_handler::task::remove != action);
         if (event_handler::task::connect == action)    //  win version cares for receive case too
-            EV_SET(&m_event, socket_descriptor, EVFILT_WRITE, EV_ADD, NOTE_WRITE, 0, nullptr);
+            EV_SET(&m_event, uintptr_t(socket_descriptor), EVFILT_WRITE, EV_ADD, NOTE_WRITE, 0, nullptr);
         else
-            EV_SET(&m_event, socket_descriptor, EVFILT_READ, EV_ADD, NOTE_WRITE, 0, nullptr);
+            EV_SET(&m_event, uintptr_t(socket_descriptor), EVFILT_READ, EV_ADD, NOTE_WRITE, 0, nullptr);
 
         static_assert(sizeof(void*) == sizeof(uint64_t), "64 bit pointers, no?");
         m_event.udata = reinterpret_cast<void*>(id);
@@ -204,9 +204,9 @@ public:
     void remove(int socket_descriptor, uint64_t id, bool already_closed, event_handler::task action)
     {
         if (event_handler::task::connect == action)
-            EV_SET(&m_event, socket_descriptor, EVFILT_WRITE, EV_DELETE, 0, 0, nullptr);
+            EV_SET(&m_event, uintptr_t(socket_descriptor), EVFILT_WRITE, EV_DELETE, 0, 0, nullptr);
         else
-            EV_SET(&m_event, socket_descriptor, EVFILT_READ, EV_DELETE, 0, 0, nullptr);
+            EV_SET(&m_event, uintptr_t(socket_descriptor), EVFILT_READ, EV_DELETE, 0, 0, nullptr);
 
         static_assert(sizeof(void*) == sizeof(uint64_t), "64 bit pointers, no?");
         m_event.udata = reinterpret_cast<void*>(id);
@@ -229,10 +229,10 @@ public:
     {
         std::unordered_set<uint64_t> set_ids;
 
-        int count = -1;
+        size_t count = size_t(-1);
 
         {
-            int milliseconds = -1;
+            long long milliseconds = -1;
             if (tm.is_set)
             {
                 auto timeout = (tm.last_point_expired + tm.timer_period) - tm.now();
@@ -248,16 +248,17 @@ public:
             tms.tv_nsec = (milliseconds % 1000) * 1000000;
             if (milliseconds > 0)
                 ptm = &tms;
-            count = kevent(m_fd,
-                           nullptr, 0,
-                           &m_arr_event.front(), m_arr_event.size(),
-                           ptm);
+            count = size_t(kevent(m_fd,
+                                  nullptr, 0,
+                                  &m_arr_event.front(),
+                                  int(m_arr_event.size()),
+                                  ptm));
         }
 
-        if (-1 == count && errno == EINTR)
+        if (size_t(-1) == count && errno == EINTR)
             count = 0;
 
-        if (-1 == count)
+        if (size_t(-1) == count)
         {
             std::string kevent_error = strerror(errno);
             throw std::runtime_error("kevent(): " +
@@ -265,7 +266,7 @@ public:
         }
 
         // for each ready socket
-        for(int i = 0; i < count; ++i)
+        for(size_t i = 0; i < count; ++i)
         {
             uint64_t id = reinterpret_cast<uint64_t>(m_arr_event[i].udata);
             set_ids.insert(id);

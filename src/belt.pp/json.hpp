@@ -161,6 +161,7 @@ public:
 namespace detail
 {
 enum class utf16_range {bmp, high, low};
+using uchar = unsigned char;
 inline utf16_range utf16_check(uint16_t code)
 {
     if (0xD800 <= code && code <= 0xDBFF)
@@ -460,7 +461,7 @@ public:
                 else
                     proper_ending = true;
             }
-            else if ('\x20' > (unsigned char)(ch))    //  unsupported charachter
+            else if ('\x20' > detail::uchar(ch))    //  unsupported charachter
                 code = false;
             else
                 item += ch;

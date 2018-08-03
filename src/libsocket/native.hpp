@@ -157,39 +157,41 @@ inline bool check_accepted_skip(int res, int error_code)
 #ifdef B_OS_WINDOWS
     return -1 == res && ERROR_NETNAME_DELETED == error_code;
 #else
+    B_UNUSED(res);
+    B_UNUSED(error_code);
     return false;
 #endif
 }
 
-inline bool check_recv_block(int res, int error_code)
+inline bool check_recv_block(size_t res, int error_code)
 {
 #ifdef B_OS_WINDOWS
     return false;
-    //return res == SOCKET_ERROR && error_code == WSAEWOULDBLOCK;
+    //return res == size_t(SOCKET_ERROR) && error_code == WSAEWOULDBLOCK;
 #else
-    return -1 == res && (error_code == EWOULDBLOCK || error_code == EAGAIN);
+    return size_t(-1) == res && (error_code == EWOULDBLOCK || error_code == EAGAIN);
 #endif
 }
 
-inline bool check_recv_connect(int res, int error_code)
+inline bool check_recv_connect(size_t res, int error_code)
 {
 #ifdef B_OS_WINDOWS
-    return res == SOCKET_ERROR && 
-                    (error_code == WSAECONNRESET ||
-                     error_code == WSAECONNABORTED ||
-                     error_code == ERROR_NETNAME_DELETED ||
-                     error_code == ERROR_CONNECTION_ABORTED);
+    return res == size_t(SOCKET_ERROR) &&
+            (error_code == WSAECONNRESET ||
+             error_code == WSAECONNABORTED ||
+             error_code == ERROR_NETNAME_DELETED ||
+             error_code == ERROR_CONNECTION_ABORTED);
 #else
-    return -1 == res && error_code == ECONNRESET;
+    return size_t(-1) == res && error_code == ECONNRESET;
 #endif
 }
 
-inline bool check_recv_fail(int res)
+inline bool check_recv_fail(size_t res)
 {
 #ifdef B_OS_WINDOWS
-    return res == SOCKET_ERROR;
+    return res == size_t(SOCKET_ERROR);
 #else
-    return -1 == res;
+    return size_t(-1) == res;
 #endif
 }
 
@@ -260,19 +262,19 @@ int accept(beltpp::detail::event_handler_impl*,
            int& error_code);
 #endif
 #ifdef B_OS_WINDOWS
-int recv(beltpp::detail::event_handler_impl* peh,
-         uint64_t id,
-         SOCKET,
-         char* buf,
-         int len,
-         int& error_code);
+size_t recv(beltpp::detail::event_handler_impl* peh,
+            uint64_t id,
+            SOCKET,
+            char* buf,
+            size_t len,
+            int& error_code);
 #else
-int recv(beltpp::detail::event_handler_impl*,
-         uint64_t,
-         int socket_descriptor,
-         char* buf,
-         int len,
-         int& error_code);
+size_t recv(beltpp::detail::event_handler_impl*,
+            uint64_t,
+            int socket_descriptor,
+            char* buf,
+            size_t len,
+            int& error_code);
 #endif
 
 #ifdef B_OS_WINDOWS
@@ -323,10 +325,10 @@ inline void connect(beltpp::detail::event_handler_impl* /*peh*/,
                     uint64_t /*id*/,
                     int fd,
                     const struct sockaddr* addr,
-                    socklen_t len,
+                    size_t len,
                     beltpp::ip_address const& address)
 {
-    int res = ::connect(fd, addr, len);
+    int res = ::connect(fd, addr, socklen_t(len));
 
     if (-1 != res || errno != EINPROGRESS)
     {
@@ -337,6 +339,17 @@ inline void connect(beltpp::detail::event_handler_impl* /*peh*/,
         connect_error += native_error;
         throw std::runtime_error(connect_error);
     }
+}
+#endif
+#ifdef B_OS_WINDOWS
+inline int bind(SOCKET socket_descriptor, const struct sockaddr* addr, size_t namelen)
+{
+    return ::bind(socket_descriptor, addr, int(namelen));
+}
+#else
+inline int bind(int socket_descriptor, const struct sockaddr* addr, socklen_t namelen)
+{
+    return ::bind(socket_descriptor, addr, namelen);
 }
 #endif
 }

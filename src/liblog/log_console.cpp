@@ -18,7 +18,7 @@ public:
         , fresh_line(true)
         , str_name(_name)
     {}
-    ~log_console() {}
+    ~log_console() override {}
 
     std::string name() const noexcept override
     {

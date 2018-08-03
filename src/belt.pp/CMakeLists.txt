@@ -26,7 +26,6 @@ set(SRC_FILES
     json.hpp
     log.hpp
     message_global.hpp
-    messages.hpp
     meta.hpp
     packet.hpp
     parser.hpp

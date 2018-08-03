@@ -64,7 +64,7 @@ public:
            detail::fptr_message_loader _fmessage_loader,
            beltpp::void_unique_ptr&& putl);
     socket(socket&& other);
-    virtual ~socket();
+    ~socket() override;
 
     peer_ids listen(ip_address const& address,
                     int backlog = 100);

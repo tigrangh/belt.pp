@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 namespace beltpp
 {
 namespace typelist
@@ -89,12 +91,12 @@ public:                                                                 \
 };                                                                      \
 
 using test_type_list = typelist::type_list<int, char, class test_type>;
-static_assert(typelist::type_list_index<int, test_type_list>::value ==
-              0, "type list check");
-static_assert(typelist::type_list_index<char, test_type_list>::value ==
-              1, "type list check");
-static_assert(typelist::type_list_index<class test_type, test_type_list>::value ==
-              2, "type list check");
+static_assert((typelist::type_list_index<int, test_type_list>::value ==
+              0), "type list check");
+static_assert((typelist::type_list_index<char, test_type_list>::value ==
+              1), "type list check");
+static_assert((typelist::type_list_index<class test_type, test_type_list>::value ==
+              2), "type list check");
 //
 //  the following one should be error
 /*static_assert(typelist::type_list_index<double, test_type_list>::value ==
