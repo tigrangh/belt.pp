@@ -232,5 +232,25 @@ public:
                       packet&& pack) = 0;
 };
 
+class isocket_join
+{
+public:
+    static const size_t rtt = size_t(-10);
+    static std::string pvoid_saver(void*) { return std::string(); }
+};
+class isocket_drop
+{
+public:
+    static const size_t rtt = size_t(-11);
+    static std::string pvoid_saver(void*) { return std::string(); }
+};
+
+class isocket_error
+{
+public:
+    static const size_t rtt = size_t(-12);
+    static std::string pvoid_saver(void*) { return std::string(); }
+};
+
 }
 

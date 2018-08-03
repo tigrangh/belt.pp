@@ -15,23 +15,7 @@
 
 using namespace TestExperiments;
 
-template beltpp::void_unique_ptr beltpp::new_void_unique_ptr<Error>();
-template beltpp::void_unique_ptr beltpp::new_void_unique_ptr<Join>();
-template beltpp::void_unique_ptr beltpp::new_void_unique_ptr<Drop>();
-
-
-using sf = beltpp::socket_family_t<
-Error::rtt,
-Join::rtt,
-Drop::rtt,
-&beltpp::new_void_unique_ptr<Error>,
-&beltpp::new_void_unique_ptr<Join>,
-&beltpp::new_void_unique_ptr<Drop>,
-&Error::pvoid_saver,
-&Join::pvoid_saver,
-&Drop::pvoid_saver,
-&message_list_load
->;
+using sf = beltpp::socket_family_t<&message_list_load>;
 
 #define VERSION 11
 
@@ -184,10 +168,10 @@ int main(int argc, char** argv)
                     std::string str_type;
                     switch (packet.type())
                     {
-                    case Join::rtt:
+                    case beltpp::isocket_join::rtt:
                         str_type = "joined";
                         break;
-                    case Drop::rtt:
+                    case beltpp::isocket_drop::rtt:
                         str_type = "dropped";
                         break;
                     default:
@@ -242,11 +226,11 @@ int main(int argc, char** argv)
 
                     for (auto const& pc : pcs)
                     {
-                        if (pc.type() == Join::rtt)
+                        if (pc.type() == beltpp::isocket_join::rtt)
                         {
                             std::cout << i << std::endl;
                             if (i >= arr_channel_id.size())
-                                sk.send(arr_channel_id[index], Drop());
+                                sk.send(arr_channel_id[index], beltpp::isocket_drop());
 
                             arr_channel_id[index] = channel_id;
                         }
