@@ -46,12 +46,12 @@ public:
     unordered_set<ievent_item*> m_event_items;
 
     inline uint64_t add(ievent_item& ev_it,
-                        native::sk_handle const& handle,
+                        native::socket_handle::handle_type handle,
                         uint64_t id,
                         event_handler::task action,
                         bool reuse_slot = false,
                         uint64_t slot_id = 0);
-    inline void remove(native::sk_handle const& handle,
+    inline void remove(native::socket_handle::handle_type handle,
                        uint64_t id, bool already_closed,
                        event_handler::task action,
                        bool keep_slot = false);
@@ -59,7 +59,7 @@ public:
 };
 
 inline uint64_t event_handler_impl::add(ievent_item& ev_it,
-                                        native::sk_handle const& handle,
+                                        native::socket_handle::handle_type handle,
                                         uint64_t item_id,
                                         event_handler::task action,
                                         bool reuse_slot/* = false*/,
@@ -91,15 +91,15 @@ inline uint64_t event_handler_impl::add(ievent_item& ev_it,
         id = it_ids->end_index();
     }
 
-    m_poll_master.add(handle.handle, id, action);
+    m_poll_master.add(handle, id, action);
 
     beltpp::on_failure scope_guard(
         [this, handle, id, action]
     {
-        m_poll_master.remove(handle.handle,
-            id,
-            false,  //  already_closed
-            action);
+        m_poll_master.remove(handle,
+                             id,
+                             false,  //  already_closed
+                             action);
     });
 
     if (reuse_slot)
@@ -116,7 +116,7 @@ inline uint64_t event_handler_impl::add(ievent_item& ev_it,
     return id;
 }
 
-inline void event_handler_impl::remove(native::sk_handle const& handle,
+inline void event_handler_impl::remove(native::socket_handle::handle_type handle,
                                        uint64_t id,
                                        bool already_closed,
                                        event_handler::task action,
@@ -140,10 +140,10 @@ inline void event_handler_impl::remove(native::sk_handle const& handle,
 
             current_event_slot.m_closed = true;
 
-            m_poll_master.remove(handle.handle,
-                id,
-                already_closed,
-                action);
+            m_poll_master.remove(handle,
+                                 id,
+                                 already_closed,
+                                 action);
 
             if (keep_slot == false)
             {

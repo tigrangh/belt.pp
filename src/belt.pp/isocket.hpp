@@ -41,22 +41,22 @@ public:
                unsigned short remote_port = 0,
                e_type en_type = e_type::any)
         : ip_type(en_type)
-        , local{str_local_address, local_port}
-        , remote{str_remote_address, remote_port}
+        , local(str_local_address, local_port)
+        , remote(str_remote_address, remote_port)
     {}
 
     ip_address(std::string const& str_local_address,
                unsigned short local_port,
                e_type en_type)
         : ip_type(en_type)
-        , local{str_local_address, local_port}
+        , local(str_local_address, local_port)
         , remote()
     {}
 
     ip_address(ip_destination const& dest,
                e_type en_type)
         : ip_type(en_type)
-        , local{dest.address, dest.port}
+        , local(dest.address, dest.port)
         , remote()
     {}
 
@@ -245,11 +245,35 @@ public:
     static std::string pvoid_saver(void*) { return std::string(); }
 };
 
-class isocket_error
+class isocket_protocol_error
 {
 public:
     static const size_t rtt = size_t(-12);
     static std::string pvoid_saver(void*) { return std::string(); }
+
+    isocket_protocol_error(std::string const& buf = std::string())
+        : buffer(buf) {}
+
+    std::string buffer;
+};
+
+class isocket_open_refused
+{
+public:
+    static const size_t rtt = size_t(-13);
+    static std::string pvoid_saver(void*) { return std::string(); }
+};
+
+class isocket_open_error
+{
+public:
+    static const size_t rtt = size_t(-14);
+    static std::string pvoid_saver(void*) { return std::string(); }
+
+    isocket_open_error(std::string const& reason_ = std::string())
+        : reason(reason_) {}
+
+    std::string reason;
 };
 
 }

@@ -31,35 +31,62 @@ namespace beltpp
 {
 namespace native
 {
-class sk_handle
+class socket_handle
 {
 public:
-    sk_handle() :handle(0) {}
-
 #ifdef B_OS_WINDOWS
-    SOCKET handle;
+using handle_type = SOCKET;
+static handle_type const invalid_value = INVALID_SOCKET;
 #else
-    int handle;
+using handle_type = int;
+static handle_type const invalid_value = -1;
 #endif
+
+    socket_handle()
+        : handle(invalid_value)
+    {}
+    socket_handle(handle_type handle_)
+        : handle(handle_)
+    {}
+    socket_handle(socket_handle const&) = delete;
+    socket_handle(socket_handle&& other)
+    {
+        handle = other.handle;
+        other.handle = invalid_value;
+    }
+
+    socket_handle& operator = (socket_handle const&) = delete;
+    socket_handle& operator = (socket_handle&& other)
+    {
+        handle = other.handle;
+        other.handle = invalid_value;
+        return *this;
+    }
+
+    ~socket_handle()
+    {
+        reset();
+    }
+
+    bool is_invalid() const noexcept
+    {
+        return handle == invalid_value;
+    }
+    int reset() noexcept
+    {
+        if (handle != invalid_value)
+        {
+            #ifdef B_OS_WINDOWS
+            return closesocket(handle);
+            #else
+            return ::close(handle);
+            #endif
+        }
+        return 0;
+    }
+
+    handle_type handle;
 };
-
-inline int close(sk_handle const& socket_descriptor) noexcept
-{
-#ifdef B_OS_WINDOWS
-    return closesocket(socket_descriptor.handle);
-#else
-    return ::close(socket_descriptor.handle);
-#endif
-}
-
-inline bool is_invalid(sk_handle const& socket_descriptor) noexcept
-{
-#ifdef B_OS_WINDOWS
-    return socket_descriptor.handle == INVALID_SOCKET;
-#else
-    return socket_descriptor.handle == -1;
-#endif
-}
 
 #ifdef B_OS_WINDOWS
 inline string win_last_error(int code) noexcept

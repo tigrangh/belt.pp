@@ -30,17 +30,18 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <cassert>
-#include <tuple>
 #include <mutex>
 #include <memory>
 #include <list>
+#include <utility>
 //
 using std::string;
 using std::vector;
-using std::tuple;
+using std::pair;
 using beltpp::on_failure;
+using ptr_addrinfo = std::unique_ptr<addrinfo, void(*)(addrinfo*)>;
 
-using sockets = vector<tuple<beltpp::native::sk_handle, addrinfo*, on_failure>>;
+using sockets = vector<pair<beltpp::native::socket_handle, addrinfo*>>;
 using peer_ids = beltpp::socket::peer_ids;
 using packets = beltpp::socket::packets;
 
@@ -59,12 +60,12 @@ public:
     //enum class status {idle, need_scan, need_read};
 
     channel(size_t attempts = 0,
-            native::sk_handle socket_descriptor = native::sk_handle(),
+            native::socket_handle&& socket_descriptor = native::socket_handle(),
             type e_type = type::listening,
             ip_address socket_bundle = ip_address(),
             uint64_t eh_id = 0)
         : m_closed(false)
-        , m_socket_descriptor(socket_descriptor)
+        , m_socket_descriptor(std::move(socket_descriptor))
         , m_type(e_type)
         , m_attempts(attempts)
         , m_eh_id(eh_id)
@@ -72,7 +73,7 @@ public:
     {}
 
     bool m_closed;
-    native::sk_handle m_socket_descriptor;
+    native::socket_handle m_socket_descriptor;
     type m_type;
     size_t m_attempts;
     uint64_t m_eh_id;
@@ -120,17 +121,15 @@ size_t socket_internals::counter = 0;
 string construct_peer_id(uint64_t id, ip_address const& socket_bundle);
 uint64_t parse_peer_id(string const& peer_id);
 string dump(sockaddr& address);
-void getaddressinfo(addrinfo* &servinfo,
+void getaddressinfo(ptr_addrinfo& servinfo,
                     ip_address::e_type type,
                     string const& str_address,
                     unsigned short port,
-                    beltpp::on_failure& servinfo_cleaner,
                     bool hold_family_mismatch_exception = false);
-void getaddressinfo(addrinfo* &servinfo,
+void getaddressinfo(ptr_addrinfo& servinfo,
                     int ai_family,
                     string const& str_address,
                     unsigned short port,
-                    beltpp::on_failure& servinfo_cleaner,
                     bool hold_family_mismatch_exception = false);
 sockets socket(addrinfo* servinfo,
                bool bind,
@@ -138,7 +137,7 @@ sockets socket(addrinfo* servinfo,
                bool non_blocking);
 beltpp::socket::peer_id add_channel(beltpp::socket& self,
                                     detail::socket_internals* pimpl,
-                                    native::sk_handle const& socket_descriptor,
+                                    native::socket_handle&& socket_descriptor,
                                     detail::channel::type e_type,
                                     size_t attempts,
                                     const struct sockaddr* addr = nullptr,
@@ -152,7 +151,7 @@ bool get_channel_safe(detail::channel* &pchannel,
     uint64_t id);
 void delete_channel(detail::socket_internals* pimpl,
                     uint64_t current_id);
-ip_address get_socket_bundle(native::sk_handle const& socket_descriptor);
+ip_address get_socket_bundle(native::socket_handle const& socket_descriptor);
 
 }
 /*
@@ -174,12 +173,12 @@ socket::~socket()
 {
     if (m_pimpl)    //  check if the socket has been moved out from
     {
-        for (auto const& channels_item : m_pimpl->m_lst_channels)
-        for (auto const& channel_data : channels_item)
+        for (auto& channels_item : m_pimpl->m_lst_channels)
+        for (auto& channel_data : channels_item)
         {
             if (channel_data.m_closed)
                 continue;
-            if (0 != native::close(channel_data.m_socket_descriptor))
+            if (0 != channel_data.m_socket_descriptor.reset())
             {
                 assert(false);
                 std::terminate();
@@ -193,25 +192,22 @@ peer_ids socket::listen(ip_address const& address, int backlog/* = 100*/)
     peer_ids peers;
     string error_message;
 
-    addrinfo* servinfo = nullptr;
-    beltpp::on_failure servinfo_cleaner;
+    ptr_addrinfo ptr_servinfo(nullptr, [](addrinfo*){});
 
-    detail::getaddressinfo(servinfo,
+    detail::getaddressinfo(ptr_servinfo,
                            address.ip_type,
                            address.local.address,
-                           address.local.port,
-                           servinfo_cleaner);
+                           address.local.port);
 
-    sockets arr_sockets = detail::socket(servinfo,
+    sockets arr_sockets = detail::socket(ptr_servinfo.get(),
                                          true,    //  bind
                                          true,    //  reuse
                                          true);   //  non blocking
 
     for (auto& socket_info : arr_sockets)
     {
-        native::sk_handle socket_descriptor = std::get<0>(socket_info);
-        addrinfo* pinfo = std::get<1>(socket_info);
-        on_failure& guard = std::get<2>(socket_info);
+        native::socket_handle socket_descriptor = std::move(socket_info.first);
+        addrinfo* pinfo = socket_info.second;
 
         assert(pinfo);
         string str_temp_address = detail::dump(*pinfo->ai_addr);
@@ -233,10 +229,9 @@ peer_ids socket::listen(ip_address const& address, int backlog/* = 100*/)
         peers.emplace_back(
                     detail::add_channel(*this,
                                         m_pimpl.get(),
-                                        socket_descriptor,
+                                        std::move(socket_descriptor),
                                         detail::channel::type::listening,
                                         0));
-        guard.dismiss();
     }
 
     if (peers.empty() &&
@@ -256,32 +251,32 @@ peer_ids socket::open(ip_address address, size_t attempts/* = 0*/)
         address.local = ip_destination();
     }
 
-    addrinfo* localinfo = nullptr;
-    beltpp::on_failure localinfo_cleaner;
+    ptr_addrinfo ptr_localinfo(nullptr, [](addrinfo*){});
 
     bool bind = true;// (false == address.local.empty());
     //  setting bind to true always, for connectex on windows
-    //  does not seems to have other side effects
+    //  does not seem to have other side effects
+    //
+    //  even if address.local is not set, the socket will
+    //  be bound to an arbitraty port
 
-    detail::getaddressinfo(localinfo,
+    detail::getaddressinfo(ptr_localinfo,
                            address.ip_type,
                            address.local.address,
-                           address.local.port,
-                           localinfo_cleaner);
+                           address.local.port);
 
     if (attempts == 0)
         attempts = 1;
 
-    sockets arr_sockets = detail::socket(localinfo,
-                                         bind,    //  bind
+    sockets arr_sockets = detail::socket(ptr_localinfo.get(),
+                                         bind,    //  bind, always true
                                          true,    //  reuse
                                          true);   //  non blocking
 
     for (auto& socket_info : arr_sockets)
     {
-        native::sk_handle socket_descriptor = std::get<0>(socket_info);
-        addrinfo* pinfo = std::get<1>(socket_info);
-        on_failure& guard = std::get<2>(socket_info);
+        native::socket_handle socket_descriptor = std::move(socket_info.first);
+        addrinfo* pinfo = socket_info.second;
 
         string str_temp_address = detail::dump(*pinfo->ai_addr);
         str_temp_address += "\t";
@@ -290,30 +285,27 @@ peer_ids socket::open(ip_address address, size_t attempts/* = 0*/)
         if (address.ip_type == ip_address::e_type::any)
             hold_exception = true;
 
-        addrinfo* remoteinfo = nullptr;
-        beltpp::on_failure remoteinfo_cleaner;
-        detail::getaddressinfo(remoteinfo,
+        ptr_addrinfo ptr_remoteinfo(nullptr, [](addrinfo*){});
+
+        detail::getaddressinfo(ptr_remoteinfo,
                                pinfo->ai_family,
                                address.remote.address,
                                address.remote.port,
-                               remoteinfo_cleaner,
                                hold_exception);
 
-        if (nullptr == remoteinfo)
+        if (nullptr == ptr_remoteinfo)
             continue;
-        str_temp_address += detail::dump(*remoteinfo->ai_addr);
+        str_temp_address += detail::dump(*ptr_remoteinfo->ai_addr);
 
         peers.emplace_back(
                     detail::add_channel(*this,
                                         m_pimpl.get(),
-                                        socket_descriptor,
+                                        std::move(socket_descriptor),
                                         detail::channel::type::streaming,
                                         attempts,
-                                        remoteinfo->ai_addr,
-                                        remoteinfo->ai_addrlen,
+                                        ptr_remoteinfo->ai_addr,
+                                        ptr_remoteinfo->ai_addrlen,
                                         &address));
-
-        guard.dismiss();
     }
 
     return peers;
@@ -387,7 +379,7 @@ packets socket::receive(peer_id& peer)
         if (current_channel.m_attempts)
         {
             --current_channel.m_attempts;
-            auto socket_descriptor = current_channel.m_socket_descriptor;
+            auto const& socket_descriptor = current_channel.m_socket_descriptor;
 
             e_three_state_result connect_result = e_three_state_result::success;
             string connect_error;
@@ -403,14 +395,14 @@ packets socket::receive(peer_id& peer)
             else if (native::check_connected_error(res, error_code))
             {
                 connect_result = e_three_state_result::error;
-                connect_error = "get_connected_status(): " + native::net_error(error_code);
+                connect_error = native::net_error(error_code);
             }
             else
                 connect_result = e_three_state_result::success;
 
             if (connect_result == e_three_state_result::success)
             {
-                m_pimpl->m_peh->m_pimpl->remove(socket_descriptor,
+                m_pimpl->m_peh->m_pimpl->remove(socket_descriptor.handle,
                                                 current_channel.m_eh_id,
                                                 false,   //  already_closed
                                                 event_handler::task::connect,
@@ -418,7 +410,7 @@ packets socket::receive(peer_id& peer)
 
                 current_channel.m_eh_id =
                         m_pimpl->m_peh->m_pimpl->add(*this,
-                                                     socket_descriptor,
+                                                     socket_descriptor.handle,
                                                      current_id,
                                                      event_handler::task::receive,
                                                      true,
@@ -436,40 +428,55 @@ packets socket::receive(peer_id& peer)
             else if (connect_result == e_three_state_result::attempt)
             {
                 auto attempts = current_channel.m_attempts;
+                auto local_peer = detail::construct_peer_id(current_id,
+                                                            current_channel.m_socket_bundle);
+
                 detail::delete_channel(m_pimpl.get(), current_id);
 
                 if (attempts)
                     open(current_channel.m_socket_bundle, attempts);
+                else
+                {
+                    result.emplace_back(beltpp::isocket_open_refused());
+                    peer = local_peer;
+                    break;
+                }
             }
             else if (connect_result == e_three_state_result::error)
             {
                 detail::delete_channel(m_pimpl.get(), current_id);
 
-                throw std::runtime_error(connect_error);
+                result.emplace_back(beltpp::isocket_open_error(connect_error));
+                peer = detail::construct_peer_id(current_id,
+                                                 current_channel.m_socket_bundle);
+                break;
             }
         }
         else if (current_channel.m_type == detail::channel::type::listening)
         {
-            native::sk_handle joined_socket_descriptor;
-            
             int error_code = 0;
             int res = 0;
 
-            joined_socket_descriptor.handle =
+            native::socket_handle joined_socket_descriptor(
                     native::accept(m_pimpl->m_peh->m_pimpl.get(),
                                    current_channel.m_eh_id,
                                    current_channel.m_socket_descriptor.handle,
                                    res,
-                                   error_code);
+                                   error_code)
+                        );
 
             if (native::check_accepted_skip(res, error_code))
+            {
+                assert(joined_socket_descriptor.is_invalid());
                 continue;
+            }
             else if (native::check_connected_error(res, error_code))
             {
+                assert(joined_socket_descriptor.is_invalid());
                 string accept_error = native::net_error(error_code);
                 throw std::runtime_error("accept(): " + accept_error);
             }
-            else if (native::is_invalid(joined_socket_descriptor))
+            else if (joined_socket_descriptor.is_invalid())
             {
                 string accept_error = native::net_last_error();
                 throw std::runtime_error("accept(): " + accept_error);
@@ -482,7 +489,7 @@ packets socket::receive(peer_id& peer)
 
             peer = detail::add_channel(*this,
                                        m_pimpl.get(),
-                                       joined_socket_descriptor,
+                                       std::move(joined_socket_descriptor),
                                        detail::channel::type::streaming,
                                        0);
 
@@ -496,7 +503,7 @@ packets socket::receive(peer_id& peer)
             size_t size_buffer = 0;
             current_channel.m_stream.get_free_range(p_buffer, size_buffer);
 
-            auto socket_descriptor = current_channel.m_socket_descriptor;
+            auto const& socket_descriptor = current_channel.m_socket_descriptor;
 
             int error_code = 0;
             size_t res = native::recv(m_pimpl->m_peh->m_pimpl.get(),
@@ -546,13 +553,17 @@ packets socket::receive(peer_id& peer)
                                                               current_channel.m_special_data,
                                                               m_pimpl->m_putl.get());
 
+                    string buf;
+                    if (pmsgall.rtt == size_t(-2))
+                        buf.assign(stm.cbegin(), stm.cend());
+
                     while (false == current_channel.m_stream.empty() &&
                            beltpp::iterator_wrapper<char const>(stm.cbegin()) !=
                            it_begin)
                         current_channel.m_stream.pop();
 
                     if (pmsgall.rtt == size_t(-2))
-                        result.emplace_back(beltpp::isocket_error());
+                        result.emplace_back(beltpp::isocket_protocol_error(buf));
                     else if (pmsgall.pmsg)
                     {
                         packet pack;
@@ -595,7 +606,7 @@ void socket::send(peer_id const& peer, packet&& pack)
         if (current_channel.m_type != detail::channel::type::streaming)
             throw std::runtime_error("send message on non streaming channel");
         {
-            auto lambda_send = [](native::sk_handle const& sd,
+            auto lambda_send = [](native::socket_handle const& sd,
                                   string const& ms)
             {
                 size_t sent = 0;
@@ -620,7 +631,7 @@ void socket::send(peer_id const& peer, packet&& pack)
                 }
             };
 
-            auto socket_descriptor = current_channel.m_socket_descriptor;
+            auto const& socket_descriptor = current_channel.m_socket_descriptor;
 
             auto& sp_data = current_channel.m_special_data;
             auto fp = sp_data.session_specal_handler;
@@ -683,7 +694,7 @@ namespace detail
 ip_address dumpaddr(sockaddr &address);
 //string dump(beltpp::address const& addr);
 
-ip_address get_socket_bundle(native::sk_handle const& socket_descriptor)
+ip_address get_socket_bundle(native::socket_handle const& socket_descriptor)
 {
     ip_address result;
 
@@ -782,11 +793,10 @@ string dump(sockaddr& address)
     return addr.to_string();
 }
 
-void getaddressinfo(addrinfo* &servinfo,
+void getaddressinfo(ptr_addrinfo& servinfo,
                     ip_address::e_type type,
                     string const& str_address,
                     unsigned short port,
-                    beltpp::on_failure& servinfo_cleaner,
                     bool hold_family_mismatch_exception/* = false*/)
 {
     int ai_family;
@@ -807,7 +817,6 @@ void getaddressinfo(addrinfo* &servinfo,
                    ai_family,
                    str_address,
                    port,
-                   servinfo_cleaner,
                    hold_family_mismatch_exception);
 }
 
@@ -822,11 +831,10 @@ bool getaddressinfo_is_family_mismatch_error(int rv)
 #endif
 }
 
-void getaddressinfo(addrinfo* &servinfo,
+void getaddressinfo(ptr_addrinfo& ptr_servinfo,
                     int ai_family,
                     string const& str_address,
                     unsigned short port,
-                    beltpp::on_failure& servinfo_cleaner,
                     bool hold_family_mismatch_exception/* = false*/)
 {
     addrinfo hints;
@@ -841,10 +849,11 @@ void getaddressinfo(addrinfo* &servinfo,
     else
         sz_address = str_address.c_str();
 
+    addrinfo* pservinfo = nullptr;
     int gai_rv = ::getaddrinfo(sz_address,
                                std::to_string(port).c_str(),
                                &hints,
-                               &servinfo);
+                               &pservinfo);
     //
     //  throw any error, except EAI_ADDRFAMILY when
     //  hold_family_mismatch_exception is true
@@ -854,15 +863,14 @@ void getaddressinfo(addrinfo* &servinfo,
         throw std::runtime_error(native::gai_error(gai_rv));
 
     if (gai_rv) // in case of error that was not thrown
-        servinfo = nullptr;
+        ptr_servinfo = ptr_addrinfo(nullptr, [](addrinfo*){});
     else
     {
-        assert(servinfo);
-        if (nullptr == servinfo)
-            throw std::runtime_error("assert(servinfo);");
+        assert(pservinfo);
+        if (nullptr == pservinfo)
+            throw std::runtime_error("assert(pservinfo);");
+        ptr_servinfo = ptr_addrinfo(pservinfo, &freeaddrinfo);
     }
-
-    servinfo_cleaner = beltpp::on_failure([&servinfo]{freeaddrinfo(servinfo);});
 }
 
 sockets socket(addrinfo* servinfo,
@@ -878,17 +886,13 @@ sockets socket(addrinfo* servinfo,
 
     for (addrinfo* p = servinfo; p != nullptr; p = p->ai_next)
     {
-        native::sk_handle socket_descriptor;
+        native::socket_handle socket_descriptor(
         socket_descriptor.handle = native::socket(p->ai_family,
                                                   p->ai_socktype,
-                                                  p->ai_protocol);
-        on_failure scope_guard([socket_descriptor]()
-        {
-            if (0 != native::close(socket_descriptor))
-                throw std::runtime_error("let it terminate");
-        });
+                                                  p->ai_protocol)
+                );
 
-        if (native::is_invalid(socket_descriptor))
+        if (socket_descriptor.is_invalid())
         {
             string socket_error = native::net_last_error();
             throw std::runtime_error("socket(): " + socket_error);
@@ -984,9 +988,7 @@ sockets socket(addrinfo* servinfo,
             }
         }
 
-        result.push_back(std::make_tuple(socket_descriptor,
-                                         p,
-                                         std::move(scope_guard)));
+        result.push_back(std::make_pair(std::move(socket_descriptor), p));
     }
 
     return result;
@@ -994,7 +996,7 @@ sockets socket(addrinfo* servinfo,
 
 beltpp::socket::peer_id add_channel(beltpp::socket& self,
                                     detail::socket_internals* pimpl,
-                                    native::sk_handle const& socket_descriptor,
+                                    native::socket_handle&& socket_descriptor,
                                     detail::channel::type e_type,
                                     size_t attempts,
                                     const struct sockaddr* addr/* = nullptr*/,
@@ -1028,7 +1030,20 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
             action = event_handler::task::connect;
     }
 
-    uint64_t eh_id = pimpl->m_peh->m_pimpl->add(self, socket_descriptor, id, action);
+    auto native_handle = socket_descriptor.handle;
+    uint64_t eh_id = pimpl->m_peh->m_pimpl->add(self,
+                                                native_handle,
+                                                id,
+                                                action);
+
+    beltpp::on_failure scope_guard(
+    [pimpl, native_handle, eh_id, action]
+    {
+        pimpl->m_peh->m_pimpl->remove(native_handle,
+                                      eh_id,
+                                      false,  //  already_closed
+                                      action);
+    });
 
     ip_address socket_bundle;
 
@@ -1051,24 +1066,16 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
     else
         socket_bundle = detail::get_socket_bundle(socket_descriptor);
 
-    beltpp::on_failure scope_guard(
-    [pimpl, socket_descriptor, eh_id, action]
-    {
-        pimpl->m_peh->m_pimpl->remove(socket_descriptor,
-                                      eh_id,
-                                      false,  //  already_closed
-                                      action);
-    });
-
     it_channels->push(detail::channel(attempts,
-                                      socket_descriptor,
+                                      std::move(socket_descriptor),
                                       e_type,
                                       socket_bundle,
                                       eh_id));
-    scope_guard.dismiss();
 
     beltpp::socket::peer_id current_peer =
         detail::construct_peer_id(id, socket_bundle);
+
+    scope_guard.dismiss();
 
     return current_peer;
 }
@@ -1126,7 +1133,7 @@ void delete_channel(detail::socket_internals* pimpl, uint64_t current_id)
             }
 
             bool close_succeeded = true;
-            if (0 != native::close(current_channel.m_socket_descriptor))
+            if (0 != current_channel.m_socket_descriptor.reset())
             {
                 close_succeeded = false;
                 assert(false);
@@ -1138,7 +1145,7 @@ void delete_channel(detail::socket_internals* pimpl, uint64_t current_id)
             if (current_channel.m_type == detail::channel::type::streaming)
                 action = event_handler::task::receive;
 
-            pimpl->m_peh->m_pimpl->remove(current_channel.m_socket_descriptor,
+            pimpl->m_peh->m_pimpl->remove(current_channel.m_socket_descriptor.handle,
                                           current_channel.m_eh_id,
                                           true,   //  already_closed
                                           action);
