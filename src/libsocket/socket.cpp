@@ -886,11 +886,9 @@ sockets socket(addrinfo* servinfo,
 
     for (addrinfo* p = servinfo; p != nullptr; p = p->ai_next)
     {
-        native::socket_handle socket_descriptor(
-        socket_descriptor.handle = native::socket(p->ai_family,
-                                                  p->ai_socktype,
-                                                  p->ai_protocol)
-                );
+        native::socket_handle socket_descriptor(native::socket(p->ai_family,
+                                                               p->ai_socktype,
+                                                               p->ai_protocol));
 
         if (socket_descriptor.is_invalid())
         {
