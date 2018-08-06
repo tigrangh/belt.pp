@@ -378,6 +378,10 @@ namespace beltpp
                         &dwBytes,
                         &overlapped);
 
+                    //  to support sync completion, will need to return code and last error
+                    //  to native::connect
+                    //  and will leave running to false value
+
                     if (code)
                         throw std::runtime_error("connectex(): sync completion instead of async");
 

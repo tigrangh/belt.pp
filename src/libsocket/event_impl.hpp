@@ -44,6 +44,7 @@ public:
     std::mutex m_mutex;
     unordered_map<ievent_item*, unordered_set<uint64_t>> m_event_item_ids;
     unordered_set<ievent_item*> m_event_items;
+    unordered_set<uint64_t> sync_eh_ids;
 
     inline uint64_t add(ievent_item& ev_it,
                         native::socket_handle::handle_type handle,
@@ -56,6 +57,7 @@ public:
                        event_handler::task action,
                        bool keep_slot = false);
     inline void reset(uint64_t reset_id);
+    inline void set_sync_result(uint64_t eh_id);
 };
 
 inline uint64_t event_handler_impl::add(ievent_item& ev_it,
@@ -172,6 +174,11 @@ inline void event_handler_impl::remove(native::socket_handle::handle_type handle
 inline void event_handler_impl::reset(uint64_t reset_id)
 {
     m_poll_master.reset(reset_id);
+}
+
+inline void event_handler_impl::set_sync_result(uint64_t eh_id)
+{
+    sync_eh_ids.insert(eh_id);
 }
 }   //  end namespace detail
 }   //  end namespace beltpp

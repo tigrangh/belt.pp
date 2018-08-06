@@ -36,7 +36,18 @@ event_handler::wait_result event_handler::wait(std::unordered_set<ievent_item co
         return event_handler::timer_out;
     }
 
-    std::unordered_set<uint64_t> set_ids = m_pimpl->m_poll_master.wait(m_pimpl->m_timer_helper);
+    std::unordered_set<uint64_t> set_ids;
+    {
+        std::lock_guard<std::mutex> lock(m_pimpl->m_mutex);
+        auto it = m_pimpl->sync_eh_ids.begin();
+        if (it != m_pimpl->sync_eh_ids.end())
+        {
+            set_ids.insert(*it);
+            m_pimpl->sync_eh_ids.erase(it);
+        }
+    }
+    if (set_ids.empty())
+        set_ids = m_pimpl->m_poll_master.wait(m_pimpl->m_timer_helper);
 
     std::lock_guard<std::mutex> lock(m_pimpl->m_mutex);
     auto it = set_ids.begin();
@@ -53,12 +64,7 @@ event_handler::wait_result event_handler::wait(std::unordered_set<ievent_item co
                 set_items.insert(pitem);
                 found = true;
 
-                auto& ref_event_item_ids = m_pimpl->m_event_item_ids;
-                auto find_it = ref_event_item_ids.find(pitem);
-                if (find_it == ref_event_item_ids.end())
-                    ref_event_item_ids.insert(std::make_pair(pitem, unordered_set<uint64_t>{ref_item.m_item_id}));
-                else
-                    find_it->second.insert(ref_item.m_item_id);
+                m_pimpl->m_event_item_ids[pitem].insert(ref_item.m_item_id);
 
                 break;
             }
@@ -83,15 +89,7 @@ event_handler::wait_result event_handler::wait(std::unordered_set<ievent_item co
 
 std::unordered_set<uint64_t> event_handler::waited(ievent_item& ev_it) const
 {
-    auto& ref_event_item_ids = m_pimpl->m_event_item_ids;
-    auto find_it = ref_event_item_ids.find(&ev_it);
-    if (find_it == ref_event_item_ids.end())
-    {
-        //assert(false);
-        throw std::runtime_error("event_handler::waited");
-    }
-    else
-        return find_it->second;
+    return m_pimpl->m_event_item_ids.at(&ev_it);
 }
 
 void event_handler::terminate()

@@ -6,10 +6,10 @@ namespace beltpp
 namespace native
 {
 #ifdef B_OS_WINDOWS
-int get_connected_status(beltpp::detail::event_handler_impl* peh,
-                         uint64_t id,
-                         SOCKET socket_descritor,
-                         int& error_code)
+bool get_connected_status(beltpp::detail::event_handler_impl* peh,
+                          uint64_t id,
+                          SOCKET socket_descritor,
+                          int& error_code)
 {
     auto& async_data = peh->m_poll_master.m_events.at(id);
     error_code = async_data->last_error;
@@ -28,7 +28,7 @@ int get_connected_status(beltpp::detail::event_handler_impl* peh,
             throw std::runtime_error("setsockopt(): " + native::net_last_error());
     }
 
-    return res;
+    return res == 0;
 }
 #endif
 #ifdef B_OS_WINDOWS
@@ -130,10 +130,12 @@ void connect(beltpp::detail::event_handler_impl* peh,
              SOCKET /*fd*/,
              const struct sockaddr* addr,
              size_t len,
-             beltpp::ip_address const& address)
+             beltpp::ip_address const& address,
+             sync_result& result)
 {
     auto& async_data = peh->m_poll_master.m_events.at(id);
     async_data->connect(addr, len, address);
+    B_UNUSED(result);
 }
 #endif
 }

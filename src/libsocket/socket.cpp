@@ -63,13 +63,15 @@ public:
             native::socket_handle&& socket_descriptor = native::socket_handle(),
             type e_type = type::listening,
             ip_address socket_bundle = ip_address(),
-            uint64_t eh_id = 0)
+            uint64_t eh_id = 0,
+            native::sync_result const& sync_result = native::sync_result())
         : m_closed(false)
         , m_socket_descriptor(std::move(socket_descriptor))
         , m_type(e_type)
         , m_attempts(attempts)
         , m_eh_id(eh_id)
         , m_socket_bundle(socket_bundle)
+        , m_sync_result(sync_result)
     {}
 
     bool m_closed;
@@ -80,6 +82,7 @@ public:
     ip_address m_socket_bundle;
     beltpp::queue<char> m_stream;
     session_special_data m_special_data;
+    native::sync_result m_sync_result;
 };
 using channels = beltpp::queue<channel>;
 
@@ -385,13 +388,26 @@ packets socket::receive(peer_id& peer)
             string connect_error;
             
             int error_code = 0;
-            int res = native::get_connected_status(m_pimpl->m_peh->m_pimpl.get(),
-                current_channel.m_eh_id,
-                socket_descriptor.handle,
-                error_code);
+            bool res = false;
+            if (current_channel.m_sync_result.is_set)
+            {
+                error_code = current_channel.m_sync_result.error_code;
+                res = current_channel.m_sync_result.succeeded;
+                current_channel.m_sync_result = native::sync_result();
+            }
+            else
+            {
+                res = native::get_connected_status(m_pimpl->m_peh->m_pimpl.get(),
+                                                   current_channel.m_eh_id,
+                                                   socket_descriptor.handle,
+                                                   error_code);
+            }
 
             if (native::check_connection_refused(res, error_code))
+            {
                 connect_result = e_three_state_result::attempt;
+                connect_error = native::net_error(error_code);
+            }
             else if (native::check_connected_error(res, error_code))
             {
                 connect_result = e_three_state_result::error;
@@ -437,7 +453,7 @@ packets socket::receive(peer_id& peer)
                     open(current_channel.m_socket_bundle, attempts);
                 else
                 {
-                    result.emplace_back(beltpp::isocket_open_refused());
+                    result.emplace_back(beltpp::isocket_open_refused(connect_error));
                     peer = local_peer;
                     break;
                 }
@@ -1045,14 +1061,21 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
 
     ip_address socket_bundle;
 
+    native::sync_result connect_result;
+
     if (action == event_handler::task::connect)
     {
+
         native::connect(pimpl->m_peh->m_pimpl.get(),
                         eh_id,
                         socket_descriptor.handle,
                         addr,
                         len,
-                        *paddress);
+                        *paddress,
+                        connect_result);
+
+        if (connect_result.is_set)
+            pimpl->m_peh->m_pimpl->set_sync_result(eh_id);
 
         socket_bundle = detail::get_socket_bundle(socket_descriptor);
 
@@ -1068,7 +1091,8 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
                                       std::move(socket_descriptor),
                                       e_type,
                                       socket_bundle,
-                                      eh_id));
+                                      eh_id,
+                                      connect_result));
 
     beltpp::socket::peer_id current_peer =
         detail::construct_peer_id(id, socket_bundle);

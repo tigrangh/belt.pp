@@ -31,6 +31,15 @@ namespace beltpp
 {
 namespace native
 {
+
+class sync_result
+{
+public:
+    bool is_set = false;
+    bool succeeded = false;
+    int error_code = 0;
+};
+
 class socket_handle
 {
 public:
@@ -83,7 +92,6 @@ static handle_type const invalid_value = -1;
             #else
             return ::close(copy);
             #endif
-            handle = invalid_value;
         }
         return 0;
     }
@@ -164,21 +172,21 @@ inline char const* gai_error(int ecode)
 #endif
 }
 
-inline bool check_connection_refused(int res, int error_code)
+inline bool check_connection_refused(bool res, int error_code)
 {
 #ifdef B_OS_WINDOWS
-    return -1 == res && error_code == ERROR_CONNECTION_REFUSED;
+    return false == res && error_code == ERROR_CONNECTION_REFUSED;
 #else
-    return -1 == res && error_code == ECONNREFUSED;
+    return false == res && error_code == ECONNREFUSED;
 #endif
 }
 
-inline bool check_connected_error(int res, int)
+inline bool check_connected_error(bool res, int)
 {
 #ifdef B_OS_WINDOWS
-    return -1 == res;
+    return false == res;
 #else
-    return -1 == res;
+    return false == res;
 #endif
 }
 
@@ -249,9 +257,15 @@ inline int socket(int af, int type, int protocol)
 }
 #endif
 #ifdef B_OS_WINDOWS
-int get_connected_status(beltpp::detail::event_handler_impl* peh, uint64_t id, SOCKET, int& error_code);
+bool get_connected_status(beltpp::detail::event_handler_impl* peh,
+                          uint64_t id,
+                          SOCKET,
+                          int& error_code);
 #else
-inline int get_connected_status(beltpp::detail::event_handler_impl*, uint64_t, int socket_descriptor, int& error_code)
+inline bool get_connected_status(beltpp::detail::event_handler_impl*,
+                                 uint64_t,
+                                 int socket_descriptor,
+                                 int& error_code)
 {
     int so_error;
     socklen_t size = sizeof(so_error);
@@ -261,19 +275,19 @@ inline int get_connected_status(beltpp::detail::event_handler_impl*, uint64_t, i
                          native::sockopttype(&so_error), &size))
     {
         error_code = so_error;
-        return -1;
+        return false;
     }
     else
     {
         if (0 == so_error)
         {
             error_code = so_error;
-            return 0;
+            return true;
         }
         else
         {
             error_code = so_error;
-            return -1;
+            return false;
         }
     }
 }
@@ -343,31 +357,32 @@ size_t send(int socket_descriptor, char const* buf, size_t size)
     return size_t(res);
 }
 #endif
+
 #ifdef B_OS_WINDOWS
 void connect(beltpp::detail::event_handler_impl* peh,
              uint64_t id,
              SOCKET fd,
              const struct sockaddr* addr,
              size_t len,
-             beltpp::ip_address const& address);
+             beltpp::ip_address const& address,
+             sync_result& result);
 #else
 inline void connect(beltpp::detail::event_handler_impl* /*peh*/,
                     uint64_t /*id*/,
                     int fd,
                     const struct sockaddr* addr,
                     size_t len,
-                    beltpp::ip_address const& address)
+                    beltpp::ip_address const& /*address*/,
+                    sync_result& result)
 {
     int res = ::connect(fd, addr, socklen_t(len));
 
     if (-1 != res || errno != EINPROGRESS)
     {
-        string native_error = ::strerror(errno);
-        string connect_error = "connect(";
-        connect_error += address.to_string();
-        connect_error += "): ";
-        connect_error += native_error;
-        throw std::runtime_error(connect_error);
+        result.is_set = true;
+        result.succeeded = (0 == res);
+        if (false == result.succeeded)
+            result.error_code = errno;
     }
 }
 #endif
