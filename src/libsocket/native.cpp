@@ -98,7 +98,7 @@ size_t recv(beltpp::detail::event_handler_impl* peh,
 
         memcpy(buf, async_data->receive_buffer + async_data->bytes_offset, len);
 
-        async_data->bytes_offset += len;
+        async_data->bytes_offset += (DWORD)len;
         if (async_data->bytes_copied == async_data->bytes_offset)
         {
             async_data->running = false;

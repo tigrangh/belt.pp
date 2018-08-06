@@ -76,11 +76,14 @@ static handle_type const invalid_value = -1;
     {
         if (handle != invalid_value)
         {
+            auto copy = handle;
+            handle = invalid_value;
             #ifdef B_OS_WINDOWS
-            return closesocket(handle);
+            return closesocket(copy);
             #else
-            return ::close(handle);
+            return ::close(copy);
             #endif
+            handle = invalid_value;
         }
         return 0;
     }
