@@ -190,10 +190,10 @@ inline bool check_connected_error(bool res, int)
 #endif
 }
 
-inline bool check_accepted_skip(int res, int error_code)
+inline bool check_accepted_skip(bool res, int error_code)
 {
 #ifdef B_OS_WINDOWS
-    return -1 == res && ERROR_NETNAME_DELETED == error_code;
+    return false == res && ERROR_NETNAME_DELETED == error_code;
 #else
     B_UNUSED(res);
     B_UNUSED(error_code);
@@ -296,13 +296,13 @@ inline bool get_connected_status(beltpp::detail::event_handler_impl*,
 SOCKET accept(beltpp::detail::event_handler_impl* peh,
               uint64_t id,
               SOCKET,
-              int& res,
+              bool& res,
               int& error_code);
 #else
 int accept(beltpp::detail::event_handler_impl*,
            uint64_t,
            int socket_descriptor,
-           int& res,
+           bool& res,
            int& error_code);
 #endif
 #ifdef B_OS_WINDOWS

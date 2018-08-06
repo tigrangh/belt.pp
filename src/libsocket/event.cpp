@@ -64,7 +64,8 @@ event_handler::wait_result event_handler::wait(std::unordered_set<ievent_item co
                 set_items.insert(pitem);
                 found = true;
 
-                m_pimpl->m_event_item_ids[pitem].insert(ref_item.m_item_id);
+                auto& item = m_pimpl->m_event_item_ids[pitem];
+                item.insert(ref_item.m_item_id);
 
                 break;
             }

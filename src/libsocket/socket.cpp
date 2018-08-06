@@ -471,7 +471,7 @@ packets socket::receive(peer_id& peer)
         else if (current_channel.m_type == detail::channel::type::listening)
         {
             int error_code = 0;
-            int res = 0;
+            bool res = 0;
 
             native::socket_handle joined_socket_descriptor(
                     native::accept(m_pimpl->m_peh->m_pimpl.get(),

@@ -161,7 +161,9 @@ int main(int argc, char** argv)
                 
                 eh.wait(set_items);
 
-                auto packets = sk.receive(channel_id);
+                beltpp::socket::packets packets;
+                if (set_items.find(&sk) != set_items.end())
+                    packets = sk.receive(channel_id);
 
                 for (auto const& packet : packets)
                 {

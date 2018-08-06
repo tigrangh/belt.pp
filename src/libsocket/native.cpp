@@ -35,26 +35,26 @@ bool get_connected_status(beltpp::detail::event_handler_impl* peh,
 SOCKET accept(beltpp::detail::event_handler_impl* peh,
               uint64_t id,
               SOCKET socket_descriptor,
-              int& res,
+              bool& res,
               int& error_code)
 {
     auto& async_data = peh->m_poll_master.m_events.at(id);
 
     error_code = async_data->last_error;
-    res = (0 == error_code ? 0 : -1);
+    res = (0 == error_code ? true : false);
     SOCKET result = INVALID_SOCKET;
 
-    if (0 == res)
+    if (res)
     {
         result = async_data->accept_socket;
 
-        int res = ::setsockopt(result,
+        int res2 = ::setsockopt(result,
             SOL_SOCKET,
             SO_UPDATE_ACCEPT_CONTEXT,
             (char const*)(&socket_descriptor),
             sizeof(SOCKET));
 
-        if (res != NO_ERROR)
+        if (res2 != NO_ERROR)
             throw std::runtime_error("setsockopt(): " + native::net_last_error());
     }
 
@@ -66,12 +66,12 @@ SOCKET accept(beltpp::detail::event_handler_impl* peh,
 int accept(beltpp::detail::event_handler_impl*,
            uint64_t,
            int socket_descriptor,
-           int& res,
+           bool& res,
            int& error_code)
 {
     sockaddr_storage address;
     socklen_t size = sizeof(sockaddr_storage);
-    res = 0;
+    res = true;
     error_code = 0;
     return ::accept(socket_descriptor, reinterpret_cast<sockaddr*>(&address), &size);
 }
