@@ -841,7 +841,7 @@ bool getaddressinfo_is_family_mismatch_error(int rv)
 #ifdef B_OS_MACOS
     return (rv == EAI_ADDRFAMILY) || (rv == EAI_NONAME);
 #elif defined B_OS_WINDOWS
-    return (rv == WSANO_DATA);
+    return (rv == WSANO_DATA) || (rv == WSAHOST_NOT_FOUND);
 #else
     return rv == EAI_ADDRFAMILY;
 #endif
