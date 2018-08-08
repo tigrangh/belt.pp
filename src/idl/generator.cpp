@@ -610,7 +610,7 @@ string analyze_struct(state_holder& state,
     result += "{\n";
     result += "    bool code = true;\n";
     result += "    std::unordered_map<std::string, beltpp::json::expression_tree*> members;\n";
-    result += "    size_t rtt = -1;\n";
+    result += "    size_t rtt = size_t(-1);\n";
     result += "    if (false == analyze_json_common(rtt, pexp, members) ||\n";
     result += "        rtt != " + type_name + "::rtt)\n";
     result += "        code = false;\n";
