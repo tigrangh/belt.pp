@@ -23,6 +23,7 @@ set(SRC_FILES
     iprocessor.hpp
     isocket.hpp
     iterator_wrapper.hpp
+    itransaction.hpp
     json.hpp
     log.hpp
     message_global.hpp
