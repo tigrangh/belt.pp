@@ -843,7 +843,7 @@ bool getaddressinfo_is_family_mismatch_error(int rv)
 #elif defined B_OS_WINDOWS
     return (rv == WSANO_DATA) || (rv == WSAHOST_NOT_FOUND);
 #else
-    return rv == EAI_ADDRFAMILY;
+    return (rv == EAI_ADDRFAMILY) || (rv == EAI_NONAME);
 #endif
 }
 
