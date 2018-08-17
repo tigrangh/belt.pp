@@ -226,8 +226,8 @@ std::vector<typename storage<T>::storage_item> const storage<T>::s_arr_fptr =
             result += "    {\n";
             result += "        &" + class_name + "::pvoid_saver,\n";
             result += "        &storage<>::analyze_json_template<" + class_name + ">,\n";
-            result += "        (storage<>::fptr_new_void_unique_ptr)&::beltpp::new_void_unique_ptr<" + class_name + ">,\n";
-            result += "        (storage<>::fptr_new_void_unique_ptr_copy)&::beltpp::new_void_unique_ptr_copy<" + class_name + ">\n";
+            result += "        storage<>::fptr_new_void_unique_ptr(&::beltpp::new_void_unique_ptr<" + class_name + ">),\n";
+            result += "        storage<>::fptr_new_void_unique_ptr_copy(&::beltpp::new_void_unique_ptr_copy<" + class_name + ">)\n";
             result += "    }";
         }
         if (index != max_rtt)
@@ -467,7 +467,9 @@ string analyze_struct(state_holder& state,
         result += "    }\n";
     }
 
-    result += "    bool operator == (" + type_name + " const& other) const\n";
+    string const placeholder_other = members.empty() ? string() : " other";
+
+    result += "    bool operator == (" + type_name + " const&" + placeholder_other + ") const\n";
     result += "    {\n";
     for (auto member_pair : members)
     {
@@ -487,7 +489,7 @@ string analyze_struct(state_holder& state,
     result += "        return false == (operator == (other));\n";
     result += "    }\n";
 
-    result += "    bool operator < (" + type_name + " const& other) const\n";
+    result += "    bool operator < (" + type_name + " const&" + placeholder_other + ") const\n";
     result += "    {\n";
     for (auto member_pair : members)
     {
@@ -597,6 +599,9 @@ string analyze_struct(state_holder& state,
         result += "}\n";
         result += "}   // end of namespace beltpp\n";
     }
+    string const message_placeholder = members.empty() ? string() : " message";
+    string const utl_placeholder = members.empty() ? string() : " utl";
+    string const self_placeholder = members.empty() ? string() : " self";
     if (serializable)
     {
     result += "namespace " + state.namespace_name + "\n";
@@ -604,9 +609,9 @@ string analyze_struct(state_holder& state,
     result += "namespace detail\n";
     result += "{\n";
     result += "inline\n";
-    result += "bool analyze_json(" + type_name + "& msgcode,\n";
+    result += "bool analyze_json(" + type_name + "&" + message_placeholder + ",\n";
     result += "                  beltpp::json::expression_tree* pexp,\n";
-    result += "                  ::beltpp::message_loader_utility const& utl)\n";
+    result += "                  ::beltpp::message_loader_utility const&" + utl_placeholder + ")\n";
     result += "{\n";
     result += "    bool code = true;\n";
     result += "    std::unordered_map<std::string, beltpp::json::expression_tree*> members;\n";
@@ -644,7 +649,7 @@ string analyze_struct(state_holder& state,
     result += "            {\n";
     result += "                beltpp::json::expression_tree* item = it_find->second;\n";
     result += "                assert(item);\n";
-    result += "                code = analyze_json(msgcode." + member_name.value + ", item, " + utl_var_name + ");\n";
+    result += "                code = analyze_json(message." + member_name.value + ", item, " + utl_var_name + ");\n";
     result += "            }\n";
     if (is_extension)
     {
@@ -657,7 +662,7 @@ string analyze_struct(state_holder& state,
     result += "}\n";
 
     result += "inline\n";
-    result += "std::string saver(" + type_name + " const& self)\n";
+    result += "std::string saver(" + type_name + " const&" + self_placeholder + ")\n";
     result += "{\n";
     result += "    std::string result, temp;\n";
     result += "    result += \"{\";\n";
