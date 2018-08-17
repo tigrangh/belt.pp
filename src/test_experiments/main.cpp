@@ -134,14 +134,15 @@ int main(int argc, char** argv)
         }
 #else
         const int listen_count = 10;
+        beltpp::event_handler eh;
+        beltpp::socket sk = beltpp::getsocket<sf>(eh);
+        eh.add(sk);
 
         if (1 == argc) //server mode
         {
             //__debugbreak();
 
-            beltpp::event_handler eh;
-            beltpp::socket sk = beltpp::getsocket<sf>(eh);
-            eh.add(sk);
+
             
             for (int i = 0; i < listen_count; ++i)
             {
@@ -199,10 +200,6 @@ int main(int argc, char** argv)
         else // client mode
         {
             //__debugbreak();
-
-            beltpp::event_handler eh;
-            beltpp::socket sk = beltpp::getsocket<sf>(eh);
-            eh.add(sk);
 
             std::vector<beltpp::socket::peer_id> arr_channel_id;
             arr_channel_id.resize(100);
