@@ -9,6 +9,7 @@
 #include <exception>
 #include <list>
 #include <cassert>
+#include <functional>
 
 namespace beltpp
 {

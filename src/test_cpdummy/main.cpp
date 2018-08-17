@@ -2,6 +2,7 @@
 #include <thread>
 #include <chrono>
 #include <memory>
+#include <functional>
 
 #include <belt.pp/processor.hpp>
 
