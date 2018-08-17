@@ -40,7 +40,7 @@ add_subdirectory(test_cpdummy)
 add_subdirectory(test_experiments)
 add_subdirectory(test_file_logger)
 add_subdirectory(test_parser)
-add_subdirectory(test_files_diff)
+#add_subdirectory(test_files_diff) # forgot to add the files to commit?
 
 # following is used for find_package functionality
 install(FILES belt.pp-config.cmake DESTINATION ${BELTPP_INSTALL_DESTINATION_LIBRARY})
