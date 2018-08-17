@@ -116,6 +116,8 @@ public:
             local_holder.from_string_dest(str_local);
             remote_holder.from_string_dest(str_remote);
 
+            ip_type = e_type::any;
+
             if (local_holder.ip_type == e_type::ipv6 ||
                 remote_holder.ip_type == e_type::ipv6)
             {
@@ -148,6 +150,8 @@ private:
         size_t op_brace_index = value.find("{");
         size_t cl_brace_index = value.find("}");
 
+        ip_type = e_type::ipv4;
+
         size_t scope_index = std::string::npos;
 
         size_t bracket_index = std::string::npos;
@@ -165,11 +169,12 @@ private:
         {
             brace_index = cl_brace_index;
             scope_index = brace_index;
+            ip_type = e_type::any;
         }
 
         std::string error_help = "cannot parse \"" + value +
                 "\". use host_name::port [or"
-                " [host_name]::port for ipv6] to specify ip address";
+                " [host_name]::port for ipv6 [or {host_name}::port for any]] to specify ip address";
 
         if (std::string::npos == brace_index &&
             (std::string::npos != op_brace_index ||
