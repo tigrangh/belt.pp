@@ -1253,20 +1253,10 @@ void assign_packet(std::unordered_map<T_key, T_value>& self,
     }
 }
 inline
-void assign_extension(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
+void assign_extension(::beltpp::packet&, ::beltpp::packet const&) noexcept
 {
-    //  todo
-    //  if ({namespace_name}::detail::storage<>::s_arr_fptr.size() <= other.type())
-    {
-        assert(false);
-        std::terminate();
-    }
-
-    auto const& item = {namespace_name}::detail::storage<>::s_arr_fptr[other.type()];
-
-    self.set(other.type(),
-             item.fp_new_void_unique_ptr_copy(other.data()),
-             item.fp_saver);
+    assert(false);
+    std::terminate();
 }
 inline
 void assign_extension(::beltpp::packet& self, ::beltpp::packet&& other) noexcept

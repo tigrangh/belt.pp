@@ -247,9 +247,9 @@ class Rtt
 
 string analyze_struct(state_holder& state,
                       expression_tree const* pexpression,
-                      size_t rtt,
+                      size_t /*rtt*/,
                       string const& type_name,
-                      bool serializable)
+                      bool /*serializable*/)
 {
     if (state.namespace_name.empty())
         throw runtime_error("please specify package name");

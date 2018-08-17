@@ -216,7 +216,8 @@ inline size_t utf32_to_utf8(uint32_t cp, char (&buffer)[4]) noexcept
     //  so reaching here is not possible
     std::terminate();
 
-    return 0;
+    //  unreachable code
+    //return 0;
 }
 }
 

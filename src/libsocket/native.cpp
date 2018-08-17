@@ -17,7 +17,6 @@ bool get_connected_status(beltpp::detail::event_handler_impl* peh,
 
     if (0 == res)
     {
-        int option = 0;
         int res2 = ::setsockopt(socket_descritor,
             SOL_SOCKET,
             SO_UPDATE_CONNECT_CONTEXT,

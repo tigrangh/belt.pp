@@ -828,8 +828,8 @@ void getaddressinfo(ptr_addrinfo& servinfo,
     case ip_address::e_type::ipv4:
         ai_family = AF_INET;
         break;
-    case ip_address::e_type::ipv6:
-//    default:
+//    case ip_address::e_type::ipv6:
+    default:
         ai_family = AF_INET6;
     }
 

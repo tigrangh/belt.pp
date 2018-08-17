@@ -21,6 +21,9 @@ using sf = beltpp::socket_family_t<&message_list_load>;
 
 int main(int argc, char** argv)
 {
+    B_UNUSED(argc);
+    B_UNUSED(argv);
+
     try
     {
 #if (VERSION == 1)

@@ -50,6 +50,9 @@ void consumer(bobo object)
  */
 int main(int argc, char** argv)
 {
+    B_UNUSED(argc);
+    B_UNUSED(argv);
+
     namespace chrono = std::chrono;
     using steady_clock = chrono::steady_clock;
     using time_point = steady_clock::time_point;

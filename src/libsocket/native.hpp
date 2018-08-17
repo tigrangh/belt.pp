@@ -204,6 +204,8 @@ inline bool check_accepted_skip(bool res, int error_code)
 inline bool check_recv_block(size_t res, int error_code)
 {
 #ifdef B_OS_WINDOWS
+    B_UNUSED(res);
+    B_UNUSED(error_code);
     return false;
     //return res == size_t(SOCKET_ERROR) && error_code == WSAEWOULDBLOCK;
 #else
