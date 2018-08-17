@@ -11,7 +11,6 @@ public:
     timer()
         : is_set(false)
         , last_point_expired()
-        , last_point_elapsed(now())
         , timer_period()
     {}
 
@@ -23,7 +22,7 @@ public:
     void set(std::chrono::steady_clock::duration const& period)
     {
         is_set = true;
-        last_point_expired = now();
+        last_point_expired = now() - period;
         timer_period = period;
     }
 
@@ -43,16 +42,8 @@ public:
         return is_set && (now() - last_point_expired >= timer_period);
     }
 
-    std::chrono::steady_clock::duration elapsed()
-    {
-        auto res = now() - last_point_elapsed;
-        last_point_elapsed = now();
-        return res;
-    }
-
     bool is_set;
     std::chrono::steady_clock::time_point last_point_expired;
-    std::chrono::steady_clock::time_point last_point_elapsed;
     std::chrono::steady_clock::duration timer_period;
 };
 }
