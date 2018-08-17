@@ -1022,7 +1022,7 @@ bool analyze_json_common(size_t& rtt,
         auto pcomma = pexp->children.front();
         for (auto item : pcomma->children)
         {
-            size_t rtt_temp = -1;
+            size_t rtt_temp = size_t(-1);
             if (false == analyze_colon(item, rtt_temp) &&
                 false == analyze_colon(item, members))
                 break;
@@ -1091,7 +1091,7 @@ inline
 bool analyze_colon(::beltpp::json::expression_tree* pexp,
                    size_t& rtt)
 {
-    rtt = -1;
+    rtt = size_t(-1);
 
     if (pexp &&
         pexp->lexem.rtt == ::beltpp::json::operator_colon::rtt &&
@@ -1114,7 +1114,7 @@ bool analyze_colon(::beltpp::json::expression_tree* pexp,
             auto const& value = pexp->children.back()->lexem.value;
             rtt = beltpp::stoui32(value, pos);
             if (pos != value.size())
-                rtt = -1;
+                rtt = size_t(-1);
         }
     }
 
