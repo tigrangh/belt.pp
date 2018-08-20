@@ -107,7 +107,7 @@ inline
     auto code = ::beltpp::json::parse_stream(pexp,
                                              iter_scan_begin,
                                              iter_scan_end,
-                                             1024*1024,
+                                             10*1024*1024,
                                              proot);
 
     if (::beltpp::e_three_state_result::success == code &&
