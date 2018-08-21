@@ -195,14 +195,12 @@ peer_ids socket::listen(ip_address const& address, int backlog/* = 100*/)
     peer_ids peers;
     string error_message;
 
-    ip_address address2 = address;
-    address2.ip_type = ip_address::e_type::ipv4;
     ptr_addrinfo ptr_servinfo(nullptr, [](addrinfo*){});
 
     detail::getaddressinfo(ptr_servinfo,
-                           address2.ip_type,
-                           address2.local.address,
-                           address2.local.port);
+                           address.ip_type,
+                           address.local.address,
+                           address.local.port);
 
     sockets arr_sockets = detail::socket(ptr_servinfo.get(),
                                          true,    //  bind
@@ -249,8 +247,6 @@ peer_ids socket::listen(ip_address const& address, int backlog/* = 100*/)
 peer_ids socket::open(ip_address address, size_t attempts/* = 0*/)
 {
     peer_ids peers;
-
-    address.ip_type = ip_address::e_type::ipv4;
 
     if (address.remote.empty())
     {
@@ -457,7 +453,7 @@ packets socket::receive(peer_id& peer)
                     open(current_channel.m_socket_bundle, attempts);
                 else
                 {
-                    result.emplace_back(beltpp::isocket_open_refused(connect_error));
+                    result.emplace_back(beltpp::isocket_open_refused(connect_error, current_channel.m_socket_bundle));
                     peer = local_peer;
                     break;
                 }
@@ -466,7 +462,7 @@ packets socket::receive(peer_id& peer)
             {
                 detail::delete_channel(m_pimpl.get(), current_id);
 
-                result.emplace_back(beltpp::isocket_open_error(connect_error));
+                result.emplace_back(beltpp::isocket_open_error(connect_error, current_channel.m_socket_bundle));
                 peer = detail::construct_peer_id(current_id,
                                                  current_channel.m_socket_bundle);
                 break;

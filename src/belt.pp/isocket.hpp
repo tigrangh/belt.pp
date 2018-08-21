@@ -268,10 +268,14 @@ public:
     static const size_t rtt = size_t(-13);
     static std::string pvoid_saver(void*) { return std::string(); }
 
-    isocket_open_refused(std::string const& reason_ = std::string())
-        : reason(reason_) {}
+    isocket_open_refused(std::string const& reason_ = std::string(),
+                         ip_address const& addr = ip_address())
+        : reason(reason_)
+        , address(addr)
+    {}
 
     std::string reason;
+    ip_address address;
 };
 
 class isocket_open_error
@@ -280,10 +284,14 @@ public:
     static const size_t rtt = size_t(-14);
     static std::string pvoid_saver(void*) { return std::string(); }
 
-    isocket_open_error(std::string const& reason_ = std::string())
-        : reason(reason_) {}
+    isocket_open_error(std::string const& reason_ = std::string(),
+                       ip_address const& addr = ip_address())
+        : reason(reason_)
+        , address(addr)
+    {}
 
     std::string reason;
+    ip_address address;
 };
 
 }
