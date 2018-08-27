@@ -78,6 +78,9 @@ inline uint64_t event_handler_impl::add(ievent_item& ev_it,
     uint64_t id = 0;
     if (reuse_slot)
     {
+        while (it_ids != ids.begin() &&
+               false == it_ids->valid_index(slot_id))
+            --it_ids;
         assert(it_ids->valid_index(slot_id));
         id = slot_id;
     }
