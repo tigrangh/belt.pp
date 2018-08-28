@@ -486,6 +486,9 @@ packets socket::receive(peer_id& peer)
                 assert(joined_socket_descriptor.is_invalid());
                 continue;
             }
+            else if (joined_socket_descriptor.is_invalid())
+                //  hope this will cover below assert(false == socket_bundle_temp.remote.empty());
+                continue;
             else if (native::check_connected_error(res, error_code))
             {
                 assert(joined_socket_descriptor.is_invalid());
