@@ -50,6 +50,18 @@ template <typename T>
 using t_unique_ptr = std::unique_ptr<T, detail::fptr_deleter<T>>;
 using void_unique_ptr = t_unique_ptr<void>;
 
+template <typename T>
+t_unique_ptr<T> t_unique_nullptr()
+{
+    return t_unique_ptr<T>(nullptr, [](T*){});
+}
+
+inline
+t_unique_ptr<void> void_unique_nullptr()
+{
+    return t_unique_nullptr<void>();
+}
+
 template <typename T1, typename T2, typename... Ts>
 inline t_unique_ptr<T1> new_dc_unique_ptr(Ts... args)
 {

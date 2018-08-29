@@ -31,13 +31,21 @@ public:
     fptr_saver fsaver;
 };
 
+class iscan_status
+{
+public:
+    virtual ~iscan_status() {}
+};
+
 class session_special_data
 {
 public:
     session_special_data()
-        : ptr_data(nullptr, [](void*){})
+        : parser_unrecognized_limit(1024)
+        , ptr_data(beltpp::t_unique_nullptr<iscan_status>())
         , session_specal_handler(nullptr) {}
-    beltpp::void_unique_ptr ptr_data;
+    size_t parser_unrecognized_limit;
+    beltpp::t_unique_ptr<iscan_status> ptr_data;
     std::string(*session_specal_handler)(session_special_data&, beltpp::packet const&);
 };
 

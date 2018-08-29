@@ -337,7 +337,7 @@ namespace beltpp
                     }
                     else/* if (event_handler::task::receive == action)*/
                     {
-                        wsa_receive_buffer.len = 1024 * 512;
+                        wsa_receive_buffer.len = 1024 * 4;
                         wsa_receive_buffer.buf = receive_buffer;
                     }
 
@@ -398,7 +398,7 @@ namespace beltpp
                 //  actually not using accept_buffer
                 char accept_buffer[2 * (sizeof(sockaddr_storage) + 16)];
                 SOCKET accept_socket;
-                char receive_buffer[1024*512];
+                char receive_buffer[1024 * 4];
                 WSABUF wsa_receive_buffer;
                 int last_error;
                 DWORD bytes_copied;

@@ -1151,53 +1151,47 @@ void delete_channel(detail::socket_internals* pimpl, uint64_t current_id)
             detail::channel& current_channel =
                     it_channels->operator [](current_id);
 
-            if (current_channel.m_closed)
+            if (false == current_channel.m_closed)
             {
-                assert(false);
-                throw std::runtime_error("delete_channel");
+                bool close_succeeded = true;
+                if (0 != current_channel.m_socket_descriptor.reset())
+                {
+                    close_succeeded = false;
+                    assert(false);
+                }
+
+                current_channel.m_closed = true;
+
+                event_handler::task action = event_handler::task::accept;
+                if (current_channel.m_type == detail::channel::type::streaming)
+                    action = event_handler::task::receive;
+
+                pimpl->m_peh->m_pimpl->remove(current_channel.m_socket_descriptor.handle,
+                                              current_channel.m_eh_id,
+                                              true,   //  already_closed
+                                              action);
+
+                while (false == it_channels->empty())
+                {
+                    if (false == it_channels->front().m_closed)
+                        break;
+                    it_channels->pop();
+                }
+
+                auto it_channels_check = it_channels;
+                ++it_channels_check;
+                if (it_channels->empty() &&
+                    it_channels_check != pimpl->m_lst_channels.end())
+                    pimpl->m_lst_channels.erase(it_channels);
+
+                if (false == close_succeeded)
+                    throw std::runtime_error("::close unsuccessful");
+                return;
             }
-
-            bool close_succeeded = true;
-            if (0 != current_channel.m_socket_descriptor.reset())
-            {
-                close_succeeded = false;
-                assert(false);
-            }
-
-            current_channel.m_closed = true;
-
-            event_handler::task action = event_handler::task::accept;
-            if (current_channel.m_type == detail::channel::type::streaming)
-                action = event_handler::task::receive;
-
-            pimpl->m_peh->m_pimpl->remove(current_channel.m_socket_descriptor.handle,
-                                          current_channel.m_eh_id,
-                                          true,   //  already_closed
-                                          action);
-
-            while (false == it_channels->empty())
-            {
-                if (false == it_channels->front().m_closed)
-                    break;
-                it_channels->pop();
-            }
-
-            auto it_channels_check = it_channels;
-            ++it_channels_check;
-            if (it_channels->empty() &&
-                it_channels_check != pimpl->m_lst_channels.end())
-                pimpl->m_lst_channels.erase(it_channels);
-
-            if (false == close_succeeded)
-                throw std::runtime_error("::close unsuccessful");
-            return;
         }
     }
 
-    //  this will terminate
-    //      not sure why this is not noexcept considering the above comment
-    assert(false);
-    throw std::runtime_error("delete_channel");
+    return;
 }
 
 }// end detail

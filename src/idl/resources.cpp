@@ -84,16 +84,32 @@ void extension_helper(::beltpp::message_loader_utility& utl)
 }
 }
 
+class scan_status : public beltpp::detail::iscan_status
+{
+public:
+    ~scan_status() override
+    {}
+    ::beltpp::json::ptr_expression_tree pexp;
+};
+
 inline
 ::beltpp::detail::pmsg_all message_list_load(
         beltpp::iterator_wrapper<char const>& iter_scan_begin,
         beltpp::iterator_wrapper<char const> const& iter_scan_end,
-        beltpp::detail::session_special_data&,
+        beltpp::detail::session_special_data& ssd,
         void* putl)
 {
-    auto const it_backup = iter_scan_begin;
+    if (nullptr == ssd.ptr_data)
+        ssd.ptr_data = beltpp::new_dc_unique_ptr<beltpp::detail::iscan_status, scan_status>();
 
-    ::beltpp::json::ptr_expression_tree pexp;
+    ::beltpp::json::ptr_expression_tree pexp_local;
+    ::beltpp::json::ptr_expression_tree* p_temp = &pexp_local;
+    auto pss = dynamic_cast<scan_status*>(ssd.ptr_data.get());
+
+    if (pss)
+        p_temp = &pss->pexp;
+
+    ::beltpp::json::ptr_expression_tree& pexp = *p_temp;
     ::beltpp::json::expression_tree* proot = nullptr;
 
     ::beltpp::message_loader_utility utl;
@@ -101,13 +117,13 @@ inline
         utl = *static_cast<::beltpp::message_loader_utility*>(putl);
 
     ::beltpp::detail::pmsg_all return_value(size_t(-1),
-                            ::beltpp::void_unique_ptr(nullptr, [](void*){}),
+                            ::beltpp::void_unique_nullptr(),
                             nullptr);
 
     auto code = ::beltpp::json::parse_stream(pexp,
                                              iter_scan_begin,
                                              iter_scan_end,
-                                             10*1024*1024,
+                                             ssd.parser_unrecognized_limit,
                                              proot);
 
     if (::beltpp::e_three_state_result::success == code &&
@@ -126,20 +142,29 @@ inline
     //
     if (::beltpp::e_three_state_result::error == code)
     {
+        if (pss)
+            ssd.ptr_data = beltpp::t_unique_nullptr<beltpp::detail::iscan_status>();
+
+        pexp = nullptr;
         iter_scan_begin = iter_scan_end;
         return_value = ::beltpp::detail::pmsg_all(size_t(-2),
-                                        ::beltpp::void_unique_ptr(nullptr, [](void*){}),
+                                        ::beltpp::void_unique_nullptr(),
                                         nullptr);
     }
     else if (::beltpp::e_three_state_result::attempt == code)
-    {   //  revert the cursor, so everything will be rescanned
-        //  once there is more data to scan
-        //  in future may implement persistent state, so rescan will not
-        //  be needed
-        iter_scan_begin = it_backup;
+    {
+        //  leave iter_scan_begin, and pexp
+        //  on the next run will continue from there
         return_value = ::beltpp::detail::pmsg_all(size_t(-1),
-                                        ::beltpp::void_unique_ptr(nullptr, [](void*){}),
+                                        ::beltpp::void_unique_nullptr(),
                                         nullptr);
+    }
+    else
+    {
+        if (pss)
+            ssd.ptr_data = beltpp::t_unique_nullptr<beltpp::detail::iscan_status>();
+        //  clean up expression tree, for the next run
+        pexp = nullptr;
     }
 
     return return_value;
@@ -495,7 +520,7 @@ bool analyze_json(::beltpp::packet& value,
                   ::beltpp::message_loader_utility const& utl)
 {
     ::beltpp::detail::pmsg_all return_value(size_t(-1),
-                            ::beltpp::void_unique_ptr(nullptr, [](void*){}),
+                            ::beltpp::void_unique_nullptr(),
                             nullptr);
 
     if (utl.m_fp_message_list_load_helper)

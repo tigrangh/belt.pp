@@ -18,7 +18,7 @@ class packet_internals
 public:
     packet_internals()
         : m_rtt(size_t(-1))
-        , m_ptr_message(nullptr, [](void*){})
+        , m_ptr_message(beltpp::void_unique_nullptr())
         , m_fsaver(nullptr)
     {}
     ~packet_internals() noexcept
