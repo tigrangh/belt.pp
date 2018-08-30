@@ -159,13 +159,8 @@ inline
                                         ::beltpp::void_unique_nullptr(),
                                         nullptr);
     }
-    else
-    {
-        if (pss)
-            ssd.ptr_data = beltpp::t_unique_nullptr<beltpp::detail::iscan_status>();
-        //  clean up expression tree, for the next run
-        pexp = nullptr;
-    }
+    else if (pss)
+        ssd.ptr_data = beltpp::t_unique_nullptr<beltpp::detail::iscan_status>();
 
     return return_value;
 }
