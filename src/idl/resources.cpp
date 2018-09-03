@@ -956,10 +956,8 @@ bool loader(T& value,
             std::string const& encoded,
             void* putl)
 {
-    //  add space, because parser assumes a stream, and may not parse last symbols
-    std::string encoded2 = encoded + " ";
-    ::beltpp::iterator_wrapper<char const> iter_scan_begin(encoded2.begin());
-    ::beltpp::iterator_wrapper<char const> iter_scan_end(encoded2.end());
+    auto iter_scan_begin(encoded.begin());
+    auto iter_scan_end(encoded.end());
 
     ::beltpp::json::ptr_expression_tree pexp;
     ::beltpp::json::expression_tree* proot = nullptr;
@@ -968,8 +966,11 @@ bool loader(T& value,
     if (putl)
         utl = *static_cast<::beltpp::message_loader_utility*>(putl);
 
-    auto code = ::beltpp::json::parse_stream(pexp, iter_scan_begin,
-                                             iter_scan_end, 1024*1024, proot);
+    auto code = ::beltpp::json::parse_stream(pexp,
+                                             iter_scan_begin,
+                                             iter_scan_end,
+                                             0,
+                                             proot);
 
     if (code != ::beltpp::e_three_state_result::success)
         return false;
