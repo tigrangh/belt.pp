@@ -42,14 +42,21 @@ public:
 
     beltpp::e_three_state_result check(char ch)
     {
-        return beltpp::standard_operator_check<operator_set<>>(ch);
+        //return beltpp::standard_operator_check<operator_set<>>(ch);
+        return ch == ',' ? beltpp::e_three_state_result::attempt
+                         : beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
     bool final_check(T_iterator const& it_begin,
                      T_iterator const& it_end) const
     {
-        return std::string(it_begin, it_end) == ",";
+        //return std::string(it_begin, it_end) == ",";
+        T_iterator other = it_begin;
+        ++other;
+        return (it_begin != it_end &&
+                other == it_end &&
+                *it_begin == ',');
     }
 };
 
@@ -65,14 +72,21 @@ public:
 
     beltpp::e_three_state_result check(char ch)
     {
-        return beltpp::standard_operator_check<operator_set<>>(ch);
+        //return beltpp::standard_operator_check<operator_set<>>(ch);
+        return ch == ':' ? beltpp::e_three_state_result::attempt
+                         : beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
     bool final_check(T_iterator const& it_begin,
                      T_iterator const& it_end) const
     {
-        return std::string(it_begin, it_end) == ":";
+        //return std::string(it_begin, it_end) == ":";
+        T_iterator other = it_begin;
+        ++other;
+        return (it_begin != it_end &&
+                other == it_end &&
+                *it_begin == ':');
     }
 };
 
@@ -110,10 +124,15 @@ public:
     bool final_check(T_iterator const& it_begin,
                      T_iterator const& it_end) const
     {
-        std::string value(it_begin, it_end);
+        /*std::string value(it_begin, it_end);
         if (value == "{" || value == "}")
             return true;
-        return false;
+        return false;*/
+        T_iterator other = it_begin;
+        ++other;
+        return (it_begin != it_end &&
+                other == it_end &&
+                (*it_begin == '{' || *it_begin == '}'));
     }
 };
 
@@ -151,10 +170,15 @@ public:
     bool final_check(T_iterator const& it_begin,
                      T_iterator const& it_end) const
     {
-        std::string value(it_begin, it_end);
+        /*std::string value(it_begin, it_end);
         if (value == "[" || value == "]")
             return true;
-        return false;
+        return false;*/
+        T_iterator other = it_begin;
+        ++other;
+        return (it_begin != it_end &&
+                other == it_end &&
+                (*it_begin == '[' || *it_begin == ']'));
     }
 };
 

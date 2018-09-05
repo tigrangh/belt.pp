@@ -78,7 +78,15 @@ public:
     {
         return m_fpderef(m_iterator.get());
     }
+    T const& operator* () const noexcept
+    {
+        return m_fpderef(m_iterator.get());
+    }
     T* operator-> () noexcept
+    {
+        return &m_fpderef(m_iterator.get());
+    }
+    T const* operator-> () const noexcept
     {
         return &m_fpderef(m_iterator.get());
     }
