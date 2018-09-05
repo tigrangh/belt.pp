@@ -28,7 +28,6 @@ endif()
 
 add_subdirectory(belt.pp)
 add_subdirectory(idl)
-add_subdirectory(idl_TypeScript)
 add_subdirectory(liblog)
 add_subdirectory(libpacket)
 add_subdirectory(libprocessor)
