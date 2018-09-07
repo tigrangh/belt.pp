@@ -24,7 +24,12 @@ public:
         : enabled(true)
         , str_name(name)
         , file_name(file_name)
-    {}
+    {
+        ofstream of;
+        of.open(file_name, std::ios_base::app);
+        if (!of)
+            throw std::runtime_error("cannot open file: " + file_name);
+    }
     ~log_file() override {}
 
     std::string name() const noexcept override
