@@ -664,16 +664,12 @@ string analyze_struct(state_holder& state,
     result += "inline\n";
     result += "std::string saver(" + type_name + " const&" + self_placeholder + ")\n";
     result += "{\n";
-    result += "    std::string result, temp;\n";
-    result += "    result += \"{\";\n";
-    result += "    result += \"\\\"rtt\\\":\" + saver(" + type_name + "::rtt);\n";
+    result += "    std::string result;\n";
+    result += "    result += \"{\\\"rtt\\\":\" + saver(" + type_name + "::rtt);\n";
     for (auto member_pair : members)
     {
     auto const& member_name = member_pair.first->lexem;
-    result += "    temp = saver(self." + member_name.value + ");\n";
-    result += "    if (temp.empty())\n";
-    result += "        throw std::runtime_error(\"" + member_name.value + " empty\");\n";
-    result += "    result += \",\\\"" + member_name.value + "\\\":\" + temp;\n";
+    result += "    result += \",\\\"" + member_name.value + "\\\":\" + saver(self." + member_name.value + ");\n";
     }
     result += "    result += \"}\";\n";
     result += "    return result;\n";
