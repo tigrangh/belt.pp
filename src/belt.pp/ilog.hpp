@@ -18,10 +18,6 @@ public:
     virtual void message(std::string const& value) = 0;
     virtual void warning(std::string const& value) = 0;
     virtual void error(std::string const& value) = 0;
-
-    virtual void message_no_eol(std::string const& value) = 0;
-    virtual void warning_no_eol(std::string const& value) = 0;
-    virtual void error_no_eol(std::string const& value) = 0;
 };
 
 using ilog_ptr = beltpp::t_unique_ptr<ilog>;

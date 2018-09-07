@@ -10,6 +10,7 @@ using std::cout;
 using std::cerr;
 using std::endl;
 using std::string;
+using std::ofstream;
 
 namespace chrono = std::chrono;
 using chrono::system_clock;
@@ -19,12 +20,11 @@ namespace beltpp
 class log_file : public ilog
 {
 public:
-    log_file(string const& _name, string const& _fname)
+    log_file(string const& name, string const& file_name)
         : enabled(true)
-        , fresh_line(true)
-        , str_name(_name)
-        , file_name(_fname)
-    { }
+        , str_name(name)
+        , file_name(file_name)
+    {}
     ~log_file() override {}
 
     std::string name() const noexcept override
@@ -45,99 +45,47 @@ public:
         if (false == enabled)
             return;
 
-        message_no_eol(value);
+        ofstream of;
+        of.open(file_name, std::ios_base::app);
+        if (!of)
+            return;
 
-        fresh_line = true;
+        std::time_t time_t_now = system_clock::to_time_t(system_clock::now());
+        of << beltpp::gm_time_t_to_lc_string(time_t_now) << " - ";
+        of << value << endl;
     }
     void warning(std::string const& value) override
     {
         if (false == enabled)
             return;
 
-        warning_no_eol(value);
+        ofstream of;
+        of.open(file_name, std::ios_base::app);
+        if (!of)
+            return;
 
-        fresh_line = true;
+        std::time_t time_t_now = system_clock::to_time_t(system_clock::now());
+        of << beltpp::gm_time_t_to_lc_string(time_t_now) << " - ";
+        of << "Warning: " << value << endl;
     }
     void error(std::string const& value) override
     {
         if (false == enabled)
             return;
 
-        error_no_eol(value);
-
-        fresh_line = true;
-    }
-
-    void message_no_eol(string const& value) override
-    {
-        if (false == enabled)
+        ofstream of;
+        of.open(file_name, std::ios_base::app);
+        if (!of)
             return;
 
-        my_file.open(file_name, std::ios::app);
-        if(!my_file.is_open())
-            return;
-
-        //print the current system time and value into the given file
         std::time_t time_t_now = system_clock::to_time_t(system_clock::now());
-        my_file << beltpp::gm_time_t_to_lc_string(time_t_now) << "\t";
-
-        my_file << value << "\n";
-        my_file.close();
-        //cout << value << " ";
-        fresh_line = false;
-    }
-    void warning_no_eol(string const& value) override
-    {
-        if (false == enabled)
-            return;
-
-        my_file.open(file_name, std::ios::app);
-        if(!my_file.is_open())
-            return;
-
-        if (fresh_line)
-        {
-            std::time_t time_t_now = system_clock::to_time_t(system_clock::now());
-            my_file << beltpp::gm_time_t_to_lc_string(time_t_now) << "\t";
-            my_file << "Warning: ";
-        }
-        else
-            my_file << "\t\t\t\t ";
-
-        my_file << value << "\n";
-        my_file.close();
-        //cout << value << " ";
-        fresh_line = false;
-    }
-    void error_no_eol(string const& value) override
-    {
-        if (false == enabled)
-            return;
-
-        my_file.open(file_name, std::ios::app);
-        if(!my_file.is_open())
-            return;
-
-        if (fresh_line)
-        {
-            std::time_t time_t_now = system_clock::to_time_t(system_clock::now());
-            my_file << beltpp::gm_time_t_to_lc_string(time_t_now) << "\t";
-            my_file << "Error:   ";
-        }
-        else
-            my_file << "\t\t\t\t ";
-
-        my_file << value << "\n";
-        my_file.close();
-        //cerr << value << " ";
-        fresh_line = false;
+        of << beltpp::gm_time_t_to_lc_string(time_t_now) << " - ";
+        of << "Error:   " << value << endl;
     }
 
     bool enabled;
-    bool fresh_line;
     string str_name;
     string file_name;
-    std::ofstream my_file;
 };
 
 ilog_ptr file_logger(string const& name, string const& fname)
