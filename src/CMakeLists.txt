@@ -42,6 +42,6 @@ add_subdirectory(test_parser)
 
 # following is used for find_package functionality
 install(FILES belt.pp-config.cmake DESTINATION ${BELTPP_INSTALL_DESTINATION_LIBRARY})
-install(EXPORT belt.pp.package DESTINATION ${BELTPP_INSTALL_DESTINATION_LIBRARY})
+install(EXPORT belt.pp.package NAMESPACE belt:: DESTINATION ${BELTPP_INSTALL_DESTINATION_LIBRARY})
 
 
