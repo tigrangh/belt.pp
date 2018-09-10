@@ -20,6 +20,4 @@ else (WIN32)
     add_compile_options(-Werror)
 endif (WIN32)
 
-set(BELT_PP_LOADED TRUE PARENT_SCOPE)
-
 add_subdirectory(src)
