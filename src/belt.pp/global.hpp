@@ -62,8 +62,8 @@ t_unique_ptr<void> void_unique_nullptr()
     return t_unique_nullptr<void>();
 }
 
-template <typename T1, typename T2, typename... Ts>
-inline t_unique_ptr<T1> new_dc_unique_ptr(Ts... args)
+template <typename T1, typename T2>
+inline t_unique_ptr<T1> nullptr_dc_unique_ptr()
 {
     t_unique_ptr<T1> result(nullptr,
                             [](T1* p)
@@ -71,6 +71,13 @@ inline t_unique_ptr<T1> new_dc_unique_ptr(Ts... args)
                                 T2* pmc = dynamic_cast<T2*>(p);
                                 delete pmc;
                             });
+    return result;
+}
+
+template <typename T1, typename T2, typename... Ts>
+inline t_unique_ptr<T1> new_dc_unique_ptr(Ts... args)
+{
+    t_unique_ptr<T1> result = nullptr_dc_unique_ptr<T1,T2>();
 
     result.reset(dynamic_cast<T1*>(new T2(args...)));
     return result;
@@ -78,20 +85,15 @@ inline t_unique_ptr<T1> new_dc_unique_ptr(Ts... args)
 template <typename T1, typename T2>
 inline t_unique_ptr<T1> new_dc_unique_ptr_copy(T1 const* pother)
 {
-    t_unique_ptr<T1> result(nullptr,
-                            [](T1* p)
-                            {
-                                T2* pmc = dynamic_cast<T2*>(p);
-                                delete pmc;
-                            });
+    t_unique_ptr<T1> result = nullptr_dc_unique_ptr<T1,T2>();
 
     T2 const& other = *dynamic_cast<T2 const*>(pother);
     result.reset(dynamic_cast<T1*>(new T2(other)));
     return result;
 }
 
-template <typename T1, typename T2, typename... Ts>
-inline t_unique_ptr<T1> new_sc_unique_ptr(Ts... args)
+template <typename T1, typename T2>
+inline t_unique_ptr<T1> nullptr_sc_unique_ptr()
 {
     t_unique_ptr<T1> result(nullptr,
                             [](T1* p)
@@ -99,6 +101,13 @@ inline t_unique_ptr<T1> new_sc_unique_ptr(Ts... args)
                                 T2* pmc = static_cast<T2*>(p);
                                 delete pmc;
                             });
+    return result;
+}
+
+template <typename T1, typename T2, typename... Ts>
+inline t_unique_ptr<T1> new_sc_unique_ptr(Ts... args)
+{
+    t_unique_ptr<T1> result = nullptr_sc_unique_ptr<T1, T2>();
 
     result.reset(static_cast<T1*>(new T2(args...)));
     return result;
@@ -106,12 +115,7 @@ inline t_unique_ptr<T1> new_sc_unique_ptr(Ts... args)
 template <typename T1, typename T2>
 inline t_unique_ptr<T1> new_sc_unique_ptr_copy(void const* pother)
 {
-    t_unique_ptr<T1> result(nullptr,
-                            [](T1* p)
-                            {
-                                T2* pmc = static_cast<T2*>(p);
-                                delete pmc;
-                            });
+    t_unique_ptr<T1> result = nullptr_sc_unique_ptr<T1, T2>();
 
     T2 const& other = *static_cast<T2 const*>(pother);
     result.reset(static_cast<T1*>(new T2(other)));
