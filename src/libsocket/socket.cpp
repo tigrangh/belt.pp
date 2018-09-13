@@ -83,7 +83,8 @@ public:
     size_t m_attempts;
     uint64_t m_eh_id;
     ip_address m_socket_bundle;
-    beltpp::queue<char> m_stream;
+    beltpp::queue<char> m_receive_stream;
+    beltpp::queue<char> m_send_stream;
     session_special_data m_special_data;
     native::sync_result m_sync_result;
 };
@@ -520,10 +521,10 @@ packets socket::receive(peer_id& peer)
         }
         else// if(current_channel.m_type == detail::channel::type::streaming)
         {
-            current_channel.m_stream.reserve();
+            current_channel.m_receive_stream.reserve();
             char* p_buffer = nullptr;
             size_t size_buffer = 0;
-            current_channel.m_stream.get_free_range(p_buffer, size_buffer);
+            current_channel.m_receive_stream.get_free_range(p_buffer, size_buffer);
 
             auto const& socket_descriptor = current_channel.m_socket_descriptor;
 
@@ -535,8 +536,55 @@ packets socket::receive(peer_id& peer)
                                       size_buffer,
                                       error_code);
 
-            if (native::check_recv_block(res, error_code))
-                continue;
+            bool would_block = native::check_recv_block(res, error_code);
+            if (would_block)
+            {
+                //  since we have some data to send
+                //  most probably this is a signal to do so
+
+                string str_send_buffer(current_channel.m_send_stream.cbegin(),
+                                       current_channel.m_send_stream.cend());
+                size_t res = 0;
+                if (false == str_send_buffer.empty())
+                    res = native::send(current_channel.m_socket_descriptor.handle,
+                                       str_send_buffer.c_str(),
+                                       str_send_buffer.size());
+
+                //  when sending to socket closed by the peer
+                //  we have res = -1 and errno set to EPIPE
+                if (size_t(-1) == res)
+                {
+                    string send_error = native::net_last_error();
+                    throw std::runtime_error("send(): " +
+                                             send_error);
+                }
+
+                for (size_t index = 0; index < size_t(res); ++index)
+                {
+                    assert(false == current_channel.m_send_stream.empty());
+                    current_channel.m_send_stream.pop();
+                }
+
+                if (current_channel.m_send_stream.empty())
+                {
+                    //  send buffer cleared
+                    m_pimpl->m_peh->m_pimpl->remove(socket_descriptor.handle,
+                                                    current_channel.m_eh_id,
+                                                    false,   //  already_closed
+                                                    event_handler::task::send,
+                                                    true);
+
+                    current_channel.m_eh_id =
+                            m_pimpl->m_peh->m_pimpl->add(*this,
+                                                         socket_descriptor.handle,
+                                                         current_id,
+                                                         event_handler::task::receive,
+                                                         true,
+                                                         current_channel.m_eh_id);
+                }
+
+                continue;   //  skip below code related to receiving
+            }
 
             if (native::check_recv_connect(res, error_code))
                 res = 0;
@@ -563,12 +611,12 @@ packets socket::receive(peer_id& peer)
                 //  data read from socket. only need to push, to
                 //  let the container know about it
                 for (size_t index = 0; index < res; ++index)
-                    current_channel.m_stream.push(p_buffer[index]);
+                    current_channel.m_receive_stream.push(p_buffer[index]);
 
                 while (true &&
-                       false == current_channel.m_stream.empty())
+                       false == current_channel.m_receive_stream.empty())
                 {
-                    auto const& stm = current_channel.m_stream;
+                    auto const& stm = current_channel.m_receive_stream;
                     beltpp::iterator_wrapper<char const> it_begin = stm.cbegin();
                     auto pmsgall = m_pimpl->m_fmessage_loader(it_begin,
                                                               stm.cend(),
@@ -579,10 +627,10 @@ packets socket::receive(peer_id& peer)
                     if (pmsgall.rtt == size_t(-2))
                         buf.assign(stm.cbegin(), stm.cend());
 
-                    while (false == current_channel.m_stream.empty() &&
+                    while (false == current_channel.m_receive_stream.empty() &&
                            beltpp::iterator_wrapper<char const>(stm.cbegin()) !=
                            it_begin)
-                        current_channel.m_stream.pop();
+                        current_channel.m_receive_stream.pop();
 
                     if (pmsgall.rtt == size_t(-2))
                         result.emplace_back(beltpp::isocket_protocol_error(buf));
@@ -628,61 +676,41 @@ void socket::send(peer_id const& peer, packet&& pack)
         if (current_channel.m_type != detail::channel::type::streaming)
             throw std::runtime_error("send message on non streaming channel");
         {
-            auto lambda_send = [](native::socket_handle const& sd,
-                                  string const& ms)
-            {
-                size_t sent = 0;
-                size_t length = ms.size();
-
-                size_t zero_count = 0;
-
-                while (sent < length)
-                {
-                    size_t res = native::send(sd.handle,
-                                              &ms[sent],
-                                              ms.size() - sent);
-                    //  when sending to socket closed by the peer
-                    //  we have res = -1 and errno set to EPIPE
-
-                    if (size_t(-1) == res)
-                    {
-                        string send_error = native::net_last_error();
-                        throw std::runtime_error("send(): " +
-                                                 send_error);
-                    }
-                    else
-                    {
-                        if (0 == res)
-                            ++zero_count;
-                        else
-                            zero_count = 0;
-
-                        if (zero_count)
-                            std::this_thread::sleep_for(chrono::milliseconds(zero_count));
-
-                        sent += res;
-                    }
-                }
-            };
-
-            auto const& socket_descriptor = current_channel.m_socket_descriptor;
-
+            string message_stream;
             auto& sp_data = current_channel.m_special_data;
             auto fp = sp_data.session_specal_handler;
-
             if (fp)
             {
-                string ms = fp(sp_data, pack);
-                lambda_send(socket_descriptor, ms);
+                message_stream = fp(sp_data, pack);
                 assert(nullptr == sp_data.session_specal_handler);
             }
             else
             {
-                string message_stream = pack.to_string();
+                message_stream = pack.to_string();
                 if (message_stream.empty())
                     throw std::runtime_error("send empty message");
-                lambda_send(socket_descriptor, message_stream);
             }
+
+            auto const& socket_descriptor = current_channel.m_socket_descriptor;
+            if (current_channel.m_send_stream.empty())
+            {
+                m_pimpl->m_peh->m_pimpl->remove(socket_descriptor.handle,
+                                                current_channel.m_eh_id,
+                                                false,   //  already_closed
+                                                event_handler::task::receive,
+                                                true);
+
+                current_channel.m_eh_id =
+                        m_pimpl->m_peh->m_pimpl->add(*this,
+                                                     socket_descriptor.handle,
+                                                     current_id,
+                                                     event_handler::task::send,
+                                                     true,
+                                                     current_channel.m_eh_id);
+            }
+
+            for (char const& ch : message_stream)
+                current_channel.m_send_stream.push(ch);
         }
     }
 }
@@ -1083,7 +1111,6 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
 
     if (action == event_handler::task::connect)
     {
-
         native::connect(pimpl->m_peh->m_pimpl.get(),
                         eh_id,
                         socket_descriptor.handle,

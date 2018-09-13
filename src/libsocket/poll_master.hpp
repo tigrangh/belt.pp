@@ -60,7 +60,8 @@ public:
         m_event.data.u64 = id;
 
         auto backup = m_event.events;
-        if (action == event_handler::task::connect)    //  win version cares for receive case too
+        if (action == event_handler::task::connect ||
+            action == event_handler::task::send)    //  win version cares for receive case too
             m_event.events |= EPOLLOUT;
 
         m_arr_event.resize(m_arr_event.size() + 1);
