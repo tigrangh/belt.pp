@@ -34,7 +34,10 @@
 #include <memory>
 #include <list>
 #include <utility>
+#include <chrono>
+#include <thread>
 //
+namespace chrono = std::chrono;
 using std::string;
 using std::vector;
 using std::pair;
@@ -631,6 +634,8 @@ void socket::send(peer_id const& peer, packet&& pack)
                 size_t sent = 0;
                 size_t length = ms.size();
 
+                size_t zero_count = 0;
+
                 while (sent < length)
                 {
                     size_t res = native::send(sd.handle,
@@ -646,7 +651,17 @@ void socket::send(peer_id const& peer, packet&& pack)
                                                  send_error);
                     }
                     else
+                    {
+                        if (0 == res)
+                            ++zero_count;
+                        else
+                            zero_count = 0;
+
+                        if (zero_count)
+                            std::this_thread::sleep_for(chrono::milliseconds(zero_count));
+
                         sent += res;
+                    }
                 }
             };
 
