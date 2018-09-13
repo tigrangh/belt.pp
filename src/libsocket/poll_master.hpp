@@ -182,48 +182,65 @@ public:
     void add(int socket_descriptor, uint64_t id, event_handler::task action)
     {
         assert(event_handler::task::remove != action);
+
+        std::vector<int16_t> flags;
         if (event_handler::task::connect == action)    //  win version cares for receive case too
-            EV_SET(&m_event, uintptr_t(socket_descriptor), EVFILT_WRITE, EV_ADD, NOTE_WRITE, 0, nullptr);
+            flags = {EVFILT_WRITE};
+        else if (event_handler::task::send == action)
+            flags = {EVFILT_WRITE, EVFILT_READ};
         else
-            EV_SET(&m_event, uintptr_t(socket_descriptor), EVFILT_READ, EV_ADD, NOTE_WRITE, 0, nullptr);
+            flags = {EVFILT_READ};
 
         static_assert(sizeof(void*) == sizeof(uint64_t), "64 bit pointers, no?");
-        m_event.udata = reinterpret_cast<void*>(id);
 
-        m_arr_event.resize(m_arr_event.size() + 1);
+        m_arr_event.resize(m_arr_event.size() + flags.size());
 
-        int res = kevent(m_fd, &m_event, 1, nullptr, 0, nullptr);
-        if (-1 == res)
+        for (auto flag : flags)
         {
-            m_arr_event.resize(m_arr_event.size() - 1);
-            std::string kevent_error = strerror(errno);
-            throw std::runtime_error("kevent() add: " +
-                                     kevent_error);
+            EV_SET(&m_event, uintptr_t(socket_descriptor), flag, EV_ADD, NOTE_WRITE, 0, nullptr);
+            m_event.udata = reinterpret_cast<void*>(id);
+
+            int res = kevent(m_fd, &m_event, 1, nullptr, 0, nullptr);
+            if (-1 == res)
+            {
+                m_arr_event.resize(m_arr_event.size() - flags.size());
+                std::string kevent_error = strerror(errno);
+                throw std::runtime_error("kevent() add: " +
+                                         kevent_error);
+            }
         }
     }
 
     void remove(int socket_descriptor, uint64_t id, bool already_closed, event_handler::task action)
     {
+        std::vector<int16_t> flags;
         if (event_handler::task::connect == action)
-            EV_SET(&m_event, uintptr_t(socket_descriptor), EVFILT_WRITE, EV_DELETE, 0, 0, nullptr);
+            flags = {EVFILT_WRITE};
+        else if (event_handler::task::send == action)
+            flags = {EVFILT_WRITE, EVFILT_READ};
         else
-            EV_SET(&m_event, uintptr_t(socket_descriptor), EVFILT_READ, EV_DELETE, 0, 0, nullptr);
+            flags = {EVFILT_READ};
 
         static_assert(sizeof(void*) == sizeof(uint64_t), "64 bit pointers, no?");
-        m_event.udata = reinterpret_cast<void*>(id);
 
-        if (false == already_closed)
+        for (auto flag : flags)
         {
-            int res = kevent(m_fd, &m_event, 1, nullptr, 0, nullptr);
-            if (-1 == res)
+            EV_SET(&m_event, uintptr_t(socket_descriptor), flag, EV_DELETE, 0, 0, nullptr);
+            m_event.udata = reinterpret_cast<void*>(id);
+
+            if (false == already_closed)
             {
-                std::string kevent_error = strerror(errno);
-                throw std::runtime_error("kevent() delete: " +
-                                         kevent_error);
+                int res = kevent(m_fd, &m_event, 1, nullptr, 0, nullptr);
+                if (-1 == res)
+                {
+                    std::string kevent_error = strerror(errno);
+                    throw std::runtime_error("kevent() delete: " +
+                                             kevent_error);
+                }
             }
         }
 
-        m_arr_event.resize(m_arr_event.size() - 1);
+        m_arr_event.resize(m_arr_event.size() - flags.size());
     }
 
     std::unordered_set<uint64_t> wait(beltpp::timer const& tm)

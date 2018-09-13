@@ -565,7 +565,8 @@ packets socket::receive(peer_id& peer)
                     current_channel.m_send_stream.pop();
                 }
 
-                if (current_channel.m_send_stream.empty())
+                if (false == str_send_buffer.empty() &&
+                    current_channel.m_send_stream.empty())
                 {
                     //  send buffer cleared
                     m_pimpl->m_peh->m_pimpl->remove(socket_descriptor.handle,
