@@ -145,7 +145,6 @@ inline
         if (pss)
             ssd.ptr_data = beltpp::t_unique_nullptr<beltpp::detail::iscan_status>();
 
-        pexp = nullptr;
         iter_scan_begin = iter_scan_end;
         return_value = ::beltpp::detail::pmsg_all(size_t(-2),
                                         ::beltpp::void_unique_nullptr(),

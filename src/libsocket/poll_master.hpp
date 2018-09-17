@@ -60,7 +60,8 @@ public:
         m_event.data.u64 = id;
 
         auto backup = m_event.events;
-        if (action == event_handler::task::connect)    //  win version cares for receive case too
+        if (action == event_handler::task::connect ||
+            action == event_handler::task::send)    //  win version cares for receive case too
             m_event.events |= EPOLLOUT;
 
         m_arr_event.resize(m_arr_event.size() + 1);
@@ -181,48 +182,65 @@ public:
     void add(int socket_descriptor, uint64_t id, event_handler::task action)
     {
         assert(event_handler::task::remove != action);
+
+        std::vector<int16_t> flags;
         if (event_handler::task::connect == action)    //  win version cares for receive case too
-            EV_SET(&m_event, uintptr_t(socket_descriptor), EVFILT_WRITE, EV_ADD, NOTE_WRITE, 0, nullptr);
+            flags = {EVFILT_WRITE};
+        else if (event_handler::task::send == action)
+            flags = {EVFILT_WRITE, EVFILT_READ};
         else
-            EV_SET(&m_event, uintptr_t(socket_descriptor), EVFILT_READ, EV_ADD, NOTE_WRITE, 0, nullptr);
+            flags = {EVFILT_READ};
 
         static_assert(sizeof(void*) == sizeof(uint64_t), "64 bit pointers, no?");
-        m_event.udata = reinterpret_cast<void*>(id);
 
-        m_arr_event.resize(m_arr_event.size() + 1);
+        m_arr_event.resize(m_arr_event.size() + flags.size());
 
-        int res = kevent(m_fd, &m_event, 1, nullptr, 0, nullptr);
-        if (-1 == res)
+        for (auto flag : flags)
         {
-            m_arr_event.resize(m_arr_event.size() - 1);
-            std::string kevent_error = strerror(errno);
-            throw std::runtime_error("kevent() add: " +
-                                     kevent_error);
+            EV_SET(&m_event, uintptr_t(socket_descriptor), flag, EV_ADD, NOTE_WRITE, 0, nullptr);
+            m_event.udata = reinterpret_cast<void*>(id);
+
+            int res = kevent(m_fd, &m_event, 1, nullptr, 0, nullptr);
+            if (-1 == res)
+            {
+                m_arr_event.resize(m_arr_event.size() - flags.size());
+                std::string kevent_error = strerror(errno);
+                throw std::runtime_error("kevent() add: " +
+                                         kevent_error);
+            }
         }
     }
 
     void remove(int socket_descriptor, uint64_t id, bool already_closed, event_handler::task action)
     {
+        std::vector<int16_t> flags;
         if (event_handler::task::connect == action)
-            EV_SET(&m_event, uintptr_t(socket_descriptor), EVFILT_WRITE, EV_DELETE, 0, 0, nullptr);
+            flags = {EVFILT_WRITE};
+        else if (event_handler::task::send == action)
+            flags = {EVFILT_WRITE, EVFILT_READ};
         else
-            EV_SET(&m_event, uintptr_t(socket_descriptor), EVFILT_READ, EV_DELETE, 0, 0, nullptr);
+            flags = {EVFILT_READ};
 
         static_assert(sizeof(void*) == sizeof(uint64_t), "64 bit pointers, no?");
-        m_event.udata = reinterpret_cast<void*>(id);
 
-        if (false == already_closed)
+        for (auto flag : flags)
         {
-            int res = kevent(m_fd, &m_event, 1, nullptr, 0, nullptr);
-            if (-1 == res)
+            EV_SET(&m_event, uintptr_t(socket_descriptor), flag, EV_DELETE, 0, 0, nullptr);
+            m_event.udata = reinterpret_cast<void*>(id);
+
+            if (false == already_closed)
             {
-                std::string kevent_error = strerror(errno);
-                throw std::runtime_error("kevent() delete: " +
-                                         kevent_error);
+                int res = kevent(m_fd, &m_event, 1, nullptr, 0, nullptr);
+                if (-1 == res)
+                {
+                    std::string kevent_error = strerror(errno);
+                    throw std::runtime_error("kevent() delete: " +
+                                             kevent_error);
+                }
             }
         }
 
-        m_arr_event.resize(m_arr_event.size() - 1);
+        m_arr_event.resize(m_arr_event.size() - flags.size());
     }
 
     std::unordered_set<uint64_t> wait(beltpp::timer const& tm)
@@ -299,16 +317,25 @@ namespace beltpp
             class details
             {
             public:
+                enum {
+                    async_task_running_none = 0x0,
+                    async_task_running_receive = 0x1,
+                    async_task_running_send = 0x2
+                };
                 details(event_handler::task action_, SOCKET socket_)
                     : action(action_)
                     , socket(socket_)
-                    , running(false)
+                    , async_task_running(async_task_running_none)
                     , overlapped()
+                    , overlapped_send()
                     , accept_buffer()
                     , accept_socket()
                     , receive_buffer()
                     , last_error(0)
-                    , bytes_copied(0)
+                    , bytes_copied_recv(0)
+                    , bytes_copied_send(0)
+                    , result_receive_send(true)
+                    , bytes_offset(0)
                 {
                     init();
                 }
@@ -319,10 +346,11 @@ namespace beltpp
                         throw std::runtime_error("poll master details: event_handler:::remove == action");
 
                     ::ZeroMemory(&overlapped, sizeof(WSAOVERLAPPED));
+                    ::ZeroMemory(&overlapped_send, sizeof(WSAOVERLAPPED));
 
                     if (event_handler::task::accept == action)
                     {
-                        if (running)
+                        if (async_task_running)
                             ::closesocket(accept_socket);
                         //
                         //  WARNING, should not use socket type explicitly
@@ -335,21 +363,61 @@ namespace beltpp
                     else if (event_handler::task::connect == action)
                     {
                     }
-                    else/* if (event_handler::task::receive == action)*/
+                    else/* if (event_handler::task::receive == action ||
+                               event_handler::task::send == action)*/
                     {
                         wsa_receive_buffer.len = 1024 * 4;
                         wsa_receive_buffer.buf = receive_buffer;
+
+                        wsa_send_buffer.len = 1024 * 4;
+                        wsa_send_buffer.buf = send_buffer;
                     }
 
                     last_error = 0;
-                    bytes_copied = 0;
+                    bytes_copied_recv = 0;
+                    bytes_copied_send = 0;
                     bytes_offset = 0;
+                    result_receive_send = true;
                 }
 
-                void connect(
-                    const struct sockaddr* addr,
-                    size_t len,
-                    beltpp::ip_address const& address)
+                void init_recv()
+                {
+                    ::ZeroMemory(&overlapped, sizeof(WSAOVERLAPPED));
+
+                    if (event_handler::task::receive != action &&
+                        event_handler::task::send != action)
+                    {
+                        assert(false);
+                        throw std::runtime_error("poll master details: event_handler:::receive != action");
+                    }
+                    
+                    last_error = 0;
+                    bytes_copied_recv = 0;
+                    bytes_offset = 0;
+                    result_receive_send = true;
+                }
+
+                void init_send(size_t len)
+                {
+                    ::ZeroMemory(&overlapped_send, sizeof(WSAOVERLAPPED));
+
+                    if (event_handler::task::send != action)
+                    {
+                        assert(false);
+                        throw std::runtime_error("poll master details: event_handler:::send != action");
+                    }
+
+                    wsa_send_buffer.len = ULONG(len);
+                    wsa_send_buffer.buf = send_buffer;
+
+                    last_error = 0;
+                    bytes_copied_send = 0;
+                    result_receive_send = true;
+                }
+
+                void connect(const struct sockaddr* addr,
+                             size_t len,
+                             beltpp::ip_address const& address)
                 {
                     // Load the AcceptEx function into memory using WSAIoctl.
                     // The WSAIoctl function is an extension of the ioctlsocket()
@@ -371,12 +439,12 @@ namespace beltpp
                     char sendbuf[1];
 
                     bool code = ConnectEx(socket,
-                        addr,
-                        (int)len,
-                        (PVOID)sendbuf,
-                        0,
-                        &dwBytes,
-                        &overlapped);
+                                          addr,
+                                          (int)len,
+                                          (PVOID)sendbuf,
+                                          0,
+                                          &dwBytes,
+                                          &overlapped);
 
                     //  to support sync completion, will need to return code and last error
                     //  to native::connect
@@ -388,27 +456,32 @@ namespace beltpp
                     if (WSAGetLastError() != WSA_IO_PENDING)
                         throw std::runtime_error("connectex(" + address.to_string() + "): " + native::net_last_error());
 
-                    running = true;
+                    async_task_running = async_task_running_receive;
                 }
 
                 event_handler::task action;
                 SOCKET socket;
-                bool running;
+                int async_task_running;
                 WSAOVERLAPPED overlapped;
+                WSAOVERLAPPED overlapped_send;
                 //  actually not using accept_buffer
                 char accept_buffer[2 * (sizeof(sockaddr_storage) + 16)];
                 SOCKET accept_socket;
                 char receive_buffer[1024 * 4];
                 WSABUF wsa_receive_buffer;
+                char send_buffer[1024 * 4];
+                WSABUF wsa_send_buffer;
                 int last_error;
-                DWORD bytes_copied;
+                DWORD bytes_copied_recv;
+                DWORD bytes_copied_send;
+                bool result_receive_send;
                 DWORD bytes_offset; // this is needed for chunk by chunk reading
             };
         public:
             HANDLE m_completion_port;
             //  seems it is not thread safe to have m_events member
             //  most probably it is possible to move inside channels
-            //  will optimize lookups, get thread safety, optimyze buffer copies
+            //  will optimize lookups, get thread safety, optimize buffer copies
             std::unordered_map<uint64_t, std::unique_ptr<details>> m_events;
 
             poll_master()
@@ -423,14 +496,16 @@ namespace beltpp
                 ::CloseHandle(m_completion_port);
             }
 
-            void add(SOCKET socket_descriptor, uint64_t id, event_handler::task action)
+            void add(SOCKET socket_descriptor,
+                     uint64_t id,
+                     event_handler::task action)
             {
                 assert(event_handler::task::remove != action);
 
                 auto res = m_events.insert(std::make_pair(id, std::unique_ptr<details>(new details(action, socket_descriptor))));
                 if (false == res.second &&
                     (res.first->second->action != event_handler::task::remove ||
-                    true == res.first->second->running))
+                     details::async_task_running_none != res.first->second->async_task_running))
                     throw std::runtime_error("poll master add duplicate id: " + std::to_string(id));
                 else if (false == res.second)
                     res.first->second = std::unique_ptr<details>(new details(action, socket_descriptor));
@@ -438,7 +513,10 @@ namespace beltpp
                     throw std::runtime_error("bind io completion port to socket: " + native::win_last_error(GetLastError()));
             }
 
-            void remove(SOCKET /*socket_descriptor*/, uint64_t id, bool /*already_closed*/, event_handler::task)  //  last argument is used for mac os version
+            void remove(SOCKET /*socket_descriptor*/,
+                        uint64_t id,
+                        bool /*already_closed*/,
+                        event_handler::task)  //  last argument is used for mac os version
             {
                 auto it = m_events.find(id);
                 if (it == m_events.end())
@@ -452,7 +530,7 @@ namespace beltpp
                 auto it = m_events.begin();
                 while (it != m_events.end())
                 {
-                    if (false == it->second->running &&
+                    if (false == it->second->async_task_running &&
                         event_handler::task::remove == it->second->action)
                         it = m_events.erase(it);
                     else
@@ -462,70 +540,100 @@ namespace beltpp
                 bool sync_completed = false;
                 uint64_t completed_id = 0;
                 bool completed_code = false;
+                bool result_receive_send = true;
 
                 for (auto& item : m_events)
                 {
-                    if (false == item.second->running)
+                    if (event_handler::task::accept == item.second->action &&
+                        details::async_task_running_none == item.second->async_task_running)
                     {
-                        if (event_handler::task::accept == item.second->action)
+                        bool repeat = false;
+                        bool code = false;
+                        do
                         {
-                            bool repeat = false;
-                            bool code = false;
-                            do
-                            {
-                                repeat = false;
-                                code = ::AcceptEx(item.second->socket,
-                                    item.second->accept_socket,
-                                    item.second->accept_buffer,
-                                    0,
-                                    sizeof(sockaddr_storage) + 16,
-                                    sizeof(sockaddr_storage) + 16,
-                                    &item.second->bytes_copied,
-                                    &item.second->overlapped);
+                            repeat = false;
+                            code = ::AcceptEx(item.second->socket,
+                                              item.second->accept_socket,
+                                              item.second->accept_buffer,
+                                              0,
+                                              sizeof(sockaddr_storage) + 16,
+                                              sizeof(sockaddr_storage) + 16,
+                                              &item.second->bytes_copied_recv,
+                                              &item.second->overlapped);
 
-                                if (code == false && WSAGetLastError() == WSAECONNRESET)
-                                    repeat = true;
-                            } while (repeat);
+                            if (code == false && WSAGetLastError() == WSAECONNRESET)
+                                repeat = true;
+                        } while (repeat);
 
-                            if (code || WSAGetLastError() != WSA_IO_PENDING)
+                        if (code || WSAGetLastError() != WSA_IO_PENDING)
+                        {
+                            sync_completed = true;
+                            completed_id = item.first;
+                            completed_code = code;
+                            result_receive_send = true;
+                            break;
+                        }
+
+                        item.second->async_task_running = details::async_task_running_receive;
+                    }
+                    else if (event_handler::task::connect == item.second->action)
+                    {
+                        item.second->async_task_running = details::async_task_running_receive;
+                    }
+                    else if ((event_handler::task::receive == item.second->action ||
+                              event_handler::task::send == item.second->action))
+                    {
+                        if (event_handler::task::send == item.second->action &&
+                            0 == (details::async_task_running_send & item.second->async_task_running))
+                        {
+                            int send_code = ::WSASend(item.second->socket,
+                                                      &item.second->wsa_send_buffer, 1,
+                                                      &item.second->bytes_copied_send,
+                                                      0,
+                                                      &item.second->overlapped_send,
+                                                      nullptr);
+
+                            if (SOCKET_ERROR == send_code && WSAGetLastError() != WSA_IO_PENDING)
                             {
                                 sync_completed = true;
                                 completed_id = item.first;
-                                completed_code = code;
+                                completed_code = (SOCKET_ERROR != send_code);
+                                result_receive_send = false;
                                 break;
                             }
+
+                            item.second->async_task_running |= details::async_task_running_send;
                         }
-                        else if (event_handler::task::connect == item.second->action)
-                        {
-                        }
-                        else/* if (event_handler::task::receive == item.second->action)*/
+
+                        if (0 == (details::async_task_running_receive & item.second->async_task_running))
                         {
                             DWORD flags = 0;
                             int code = ::WSARecv(item.second->socket,
-                                &item.second->wsa_receive_buffer, 1,
-                                &item.second->bytes_copied,
-                                &flags,
-                                &item.second->overlapped,
-                                nullptr);
+                                                 &item.second->wsa_receive_buffer, 1,
+                                                 &item.second->bytes_copied_recv,
+                                                 &flags,
+                                                 &item.second->overlapped,
+                                                 nullptr);
 
                             if (SOCKET_ERROR == code && WSAGetLastError() != WSA_IO_PENDING)
                             {
                                 sync_completed = true;
                                 completed_id = item.first;
                                 completed_code = (SOCKET_ERROR != code);
+                                result_receive_send = true;
                                 break;
                             }
-                        }
 
-                        item.second->running = true;
-                    }
-                    else if (event_handler::task::receive == item.second->action &&
-                             item.second->bytes_offset > 0)
-                    {
-                        sync_completed = true;
-                        completed_id = item.first;
-                        completed_code = true;
-                        break;
+                            item.second->async_task_running |= details::async_task_running_receive;
+                        }
+                        else if (item.second->bytes_offset > 0)
+                        {
+                            sync_completed = true;
+                            completed_id = item.first;
+                            completed_code = true;
+                            result_receive_send = true;
+                            break;
+                        }
                     }
                 }
 
@@ -553,10 +661,10 @@ namespace beltpp
                 if (false == sync_completed)
                 {
                     code = ::GetQueuedCompletionStatus(m_completion_port,
-                        &bytesCopied,
-                        &id,
-                        &poverlapped,
-                        milliseconds);
+                                                       &bytesCopied,
+                                                       &id,
+                                                       &poverlapped,
+                                                       milliseconds);
 
                     if (poverlapped)
                     {
@@ -568,7 +676,24 @@ namespace beltpp
                             empty = true;
                         else
                         {
-                            it->second->bytes_copied = bytesCopied;
+                            if (poverlapped == &it->second->overlapped)
+                            {
+                                it->second->bytes_copied_recv = bytesCopied;
+                                result_receive_send = true;
+                                it->second->result_receive_send = true;
+                            }
+                            else if (poverlapped == &it->second->overlapped_send)
+                            {
+                                it->second->bytes_copied_send = bytesCopied;
+                                result_receive_send = false;
+                                it->second->result_receive_send = false;
+                            }
+                            else
+                            {
+                                assert(false);
+                                std::terminate();
+                            }
+
                             if (false == code)
                                 it->second->last_error = WSAGetLastError();
                         }
@@ -589,7 +714,10 @@ namespace beltpp
                     if (m_events.end() == it)
                         throw std::runtime_error("GetQueuedCompletionStatus(): got non existing id");
 
-                    it->second->running = false;
+                    if (result_receive_send)
+                        it->second->async_task_running &= ~details::async_task_running_receive;
+                    else
+                        it->second->async_task_running &= ~details::async_task_running_send;
                     set_ids.insert(id);
                 }
 

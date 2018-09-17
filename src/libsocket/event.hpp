@@ -18,7 +18,7 @@ namespace detail
 class SOCKETSHARED_EXPORT event_handler : public ievent_handler
 {
 public:
-    enum class task {remove, accept, connect, receive};
+    enum class task {remove, accept, connect, receive, send};
     friend class ievent_item;
 
     event_handler();
