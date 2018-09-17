@@ -336,12 +336,13 @@ void async_send(SOCKET /*socket_descriptor*/,
             char const* buf,
             size_t size);*/
 
-void send(beltpp::detail::event_handler_impl* /*peh*/,
-          ievent_item& /*ev_it*/,
-          uint64_t /*ev_id*/,
-          uint64_t /*eh_id*/,
-          beltpp::queue<char>& /*send_stream*/,
-          int& error_code);
+size_t send(SOCKET /*socket_descriptor*/,
+            beltpp::detail::event_handler_impl* /*peh*/,
+            ievent_item& /*ev_it*/,
+            uint64_t /*ev_id*/,
+            uint64_t /*eh_id*/,
+            beltpp::queue<char>& /*send_stream*/,
+            int& error_code);
 #else
 
 #ifndef MSG_NOSIGNAL
@@ -353,19 +354,21 @@ void send(beltpp::detail::event_handler_impl* /*peh*/,
 # endif
 #endif
 
-inline
-size_t send(int socket_descriptor, char const* buf, size_t size)
-{
-    ssize_t res = ::send(socket_descriptor, reinterpret_cast<void const*>(buf), size, MSG_NOSIGNAL);
-    if (-1 == res &&
-        (
-            EWOULDBLOCK == errno ||
-            EAGAIN == errno
-        ))
-        res = 0;
+void async_send(int socket_descriptor,
+                beltpp::detail::event_handler_impl* peh,
+                ievent_item& ev_it,
+                uint64_t ev_id,
+                uint64_t eh_id,
+                beltpp::queue<char>& send_stream,
+                std::string const& message);
 
-    return size_t(res);
-}
+size_t send(int socket_descriptor,
+            beltpp::detail::event_handler_impl* peh,
+            ievent_item& ev_it,
+            uint64_t ev_id,
+            uint64_t eh_id,
+            beltpp::queue<char>& send_stream,
+            int& error_code);
 #endif
 
 #ifdef B_OS_WINDOWS

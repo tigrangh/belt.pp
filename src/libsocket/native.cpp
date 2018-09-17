@@ -135,22 +135,6 @@ void async_send(SOCKET socket_descriptor,
 {
     auto& async_data = peh->m_poll_master.m_events.at(eh_id);
 
-    /*if (send_stream.empty())
-    {
-    peh->remove(socket_descriptor,
-    eh_id,
-    false,   //  already_closed
-    event_handler::task::receive,
-    true);
-
-    peh->add(ev_it,
-    socket_descriptor,
-    ev_id,
-    event_handler::task::send,
-    true,
-    eh_id);
-    }*/
-
     bool stream_was_empty = send_stream.empty();
 
     for (char const& ch : message)
@@ -229,6 +213,91 @@ void connect(beltpp::detail::event_handler_impl* peh,
     async_data->connect(addr, len, address);
     B_UNUSED(result);
 }
+#else
+void async_send(int socket_descriptor,
+                beltpp::detail::event_handler_impl* peh,
+                ievent_item& ev_it,
+                uint64_t ev_id,
+                uint64_t eh_id,
+                beltpp::queue<char>& send_stream,
+                std::string const& message)
+{
+    if (send_stream.empty())
+    {
+        peh->remove(socket_descriptor,
+                    eh_id,
+                    false,   //  already_closed
+                    event_handler::task::receive,
+                    true);
+
+        peh->add(ev_it,
+                 socket_descriptor,
+                 ev_id,
+                 event_handler::task::send,
+                 true,
+                 eh_id);
+    }
+
+    for (char const& ch : message)
+        send_stream.push(ch);
+}
+
+size_t send(int socket_descriptor,
+            beltpp::detail::event_handler_impl* peh,
+            ievent_item& ev_it,
+            uint64_t ev_id,
+            uint64_t eh_id,
+            beltpp::queue<char>& send_stream,
+            int& error_code)
+{
+    string str_send_buffer(send_stream.cbegin(),
+                           send_stream.cend());
+    ssize_t res = 0;
+    if (false == str_send_buffer.empty())
+    {
+        res = ::send(socket_descriptor,
+                     reinterpret_cast<void const*>(str_send_buffer.c_str()),
+                     str_send_buffer.size(),
+                     MSG_NOSIGNAL);
+        if (-1 == res &&
+            (
+                EWOULDBLOCK == errno ||
+                EAGAIN == errno
+            ))
+            res = 0;
+        else if (-1 == res)
+            error_code = errno;
+
+        if (-1 != res)
+        {
+            for (size_t index = 0; index < size_t(res); ++index)
+            {
+                assert(false == send_stream.empty());
+                send_stream.pop();
+            }
+
+            if (send_stream.empty())
+            {
+                //  send buffer cleared
+                peh->remove(socket_descriptor,
+                            eh_id,
+                            false,   //  already_closed
+                            event_handler::task::send,
+                            true);
+
+                peh->add(ev_it,
+                         socket_descriptor,
+                         ev_id,
+                         event_handler::task::receive,
+                         true,
+                         eh_id);
+            }
+        }
+    }
+
+    return size_t(res);
+}
 #endif
+
 }
 }
