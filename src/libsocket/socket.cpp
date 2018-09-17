@@ -541,25 +541,31 @@ packets socket::receive(peer_id& peer)
             {
                 //  since we have some data to send
                 //  most probably this is a signal to do so
-
+                native::send(m_pimpl->m_peh->m_pimpl.get(),
+                    *this,
+                    current_id,
+                    current_channel.m_eh_id,
+                    current_channel.m_send_stream,
+                    error_code
+                );
                 string str_send_buffer(current_channel.m_send_stream.cbegin(),
                                        current_channel.m_send_stream.cend());
-                size_t res = 0;
+                size_t send_res = 0;
                 if (false == str_send_buffer.empty())
-                    res = native::send(current_channel.m_socket_descriptor.handle,
-                                       str_send_buffer.c_str(),
-                                       str_send_buffer.size());
+                    send_res = native::send(current_channel.m_socket_descriptor.handle,
+                                            str_send_buffer.c_str(),
+                                            str_send_buffer.size());
 
                 //  when sending to socket closed by the peer
-                //  we have res = -1 and errno set to EPIPE
-                if (size_t(-1) == res)
+                //  we have send_res = -1 and errno set to EPIPE
+                if (size_t(-1) == send_res)
                 {
                     string send_error = native::net_last_error();
                     throw std::runtime_error("send(): " +
                                              send_error);
                 }
 
-                for (size_t index = 0; index < size_t(res); ++index)
+                for (size_t index = 0; index < size_t(send_res); ++index)
                 {
                     assert(false == current_channel.m_send_stream.empty());
                     current_channel.m_send_stream.pop();
@@ -693,7 +699,7 @@ void socket::send(peer_id const& peer, packet&& pack)
             }
 
             auto const& socket_descriptor = current_channel.m_socket_descriptor;
-            if (current_channel.m_send_stream.empty())
+            /*if (current_channel.m_send_stream.empty())
             {
                 m_pimpl->m_peh->m_pimpl->remove(socket_descriptor.handle,
                                                 current_channel.m_eh_id,
@@ -708,10 +714,18 @@ void socket::send(peer_id const& peer, packet&& pack)
                                                      event_handler::task::send,
                                                      true,
                                                      current_channel.m_eh_id);
-            }
+            }*/
 
             for (char const& ch : message_stream)
                 current_channel.m_send_stream.push(ch);
+
+            native::async_send(socket_descriptor.handle(),
+                               m_pimpl->m_peh->m_pimpl.get(),
+                               *this,
+                               current_id,
+                               current_channel.m_eh_id,
+                               current_channel.m_send_stream,
+                               message_stream);
         }
     }
 }

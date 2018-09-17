@@ -4,6 +4,7 @@
 #include "socket.hpp"
 
 #include <belt.pp/scope_helper.hpp>
+#include <belt.pp/queue.hpp>
 
 #ifndef B_OS_WINDOWS
 #include <netdb.h>
@@ -204,9 +205,8 @@ inline bool check_accepted_skip(bool res, int error_code)
 inline bool check_recv_block(size_t res, int error_code)
 {
 #ifdef B_OS_WINDOWS
-    B_UNUSED(res);
     B_UNUSED(error_code);
-    return false;
+    return 0 == res;
     //return res == size_t(SOCKET_ERROR) && error_code == WSAEWOULDBLOCK;
 #else
     return size_t(-1) == res && (error_code == EWOULDBLOCK || error_code == EAGAIN);
@@ -324,16 +324,24 @@ size_t recv(beltpp::detail::event_handler_impl*,
 #endif
 
 #ifdef B_OS_WINDOWS
-inline
-size_t send(SOCKET socket_descriptor, char const* buf, size_t size)
-{
-    int res = ::send(socket_descriptor, buf, (int)size, 0);
-    if (-1 == res &&
-        WSAEWOULDBLOCK == ::WSAGetLastError())
-        res = 0;
+void async_send(SOCKET /*socket_descriptor*/,
+                beltpp::detail::event_handler_impl* /*peh*/,
+                ievent_item& /*ev_it*/,
+                uint64_t /*ev_id*/,
+                uint64_t /*eh_id*/,
+                beltpp::queue<char>& /*send_stream*/,
+                std::string const& /*message*/);
 
-    return size_t(res);
-}
+/*size_t send(SOCKET socket_descriptor,
+            char const* buf,
+            size_t size);*/
+
+void send(beltpp::detail::event_handler_impl* /*peh*/,
+          ievent_item& /*ev_it*/,
+          uint64_t /*ev_id*/,
+          uint64_t /*eh_id*/,
+          beltpp::queue<char>& /*send_stream*/,
+          int& error_code);
 #else
 
 #ifndef MSG_NOSIGNAL

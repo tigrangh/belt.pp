@@ -100,11 +100,11 @@ size_t recv(beltpp::detail::event_handler_impl* peh,
         async_data->bytes_offset += (DWORD)len;
         if (async_data->bytes_copied == async_data->bytes_offset)
         {
-            async_data->running = false;
+            async_data->async_task_running &= ~async_data->async_task_running_receive;
             async_data->init();
         }
         else
-            async_data->running = true;
+            async_data->async_task_running |= async_data->async_task_running_receive;
 
         return len;
     }
@@ -124,6 +124,99 @@ size_t recv(beltpp::detail::event_handler_impl*,
 }
 #endif
 #ifdef B_OS_WINDOWS
+
+void async_send(SOCKET socket_descriptor,
+                beltpp::detail::event_handler_impl* peh,
+                ievent_item& ev_it,
+                uint64_t ev_id,
+                uint64_t eh_id,
+                beltpp::queue<char>& send_stream,
+                std::string const& message)
+{
+    auto& async_data = peh->m_poll_master.m_events.at(eh_id);
+
+    /*if (send_stream.empty())
+    {
+    peh->remove(socket_descriptor,
+    eh_id,
+    false,   //  already_closed
+    event_handler::task::receive,
+    true);
+
+    peh->add(ev_it,
+    socket_descriptor,
+    ev_id,
+    event_handler::task::send,
+    true,
+    eh_id);
+    }*/
+
+    bool stream_was_empty = send_stream.empty();
+
+    for (char const& ch : message)
+        send_stream.push(ch);
+
+    auto message_copy = message;
+    if (message_copy.length() > 4 * 1024)
+        message_copy.resize(4 * 1024);
+
+    if (stream_was_empty)
+    {
+        strcpy(async_data->send_buffer, message_copy.c_str());
+        async_data->action = event_handler::task::send;
+    }
+}
+
+/*size_t send(SOCKET socket_descriptor, char const* buf, size_t size)
+{
+    int res = ::send(socket_descriptor, buf, (int)size, 0);
+    if (-1 == res &&
+        WSAEWOULDBLOCK == ::WSAGetLastError())
+        res = 0;
+
+    return size_t(res);
+}*/
+
+int send(beltpp::detail::event_handler_impl* peh,
+         ievent_item& /*ev_it*/,
+         uint64_t /*ev_id*/,
+         uint64_t eh_id,
+         beltpp::queue<char>& send_stream,
+         int& error_code)
+{
+    auto& async_data = peh->m_poll_master.m_events.at(eh_id);
+
+    if (async_data->result_receive_send)
+        return 0;
+    if (0 != async_data->last_error)
+    {
+        error_code = async_data->last_error;
+        return size_t(SOCKET_ERROR);
+    }
+
+    size_t sent = async_data->bytes_copied;
+
+    for (size_t index = 0; index < sent; ++index)
+    {
+        assert(false == send_stream.empty());
+        send_stream.pop();
+    }
+
+    if (sent &&
+        false == send_stream.empty())
+    {
+        std::string message(send_stream.cbegin(), send_stream.cend());
+        if (message.length() > 4 * 1024)
+        {
+            message.resize(4 * 1024);
+            strcpy(async_data->send_buffer, message.c_str());
+            async_data->action = event_handler::task::send;
+        }
+    }
+
+    return sent;
+}
+
 void connect(beltpp::detail::event_handler_impl* peh,
              uint64_t id,
              SOCKET /*fd*/,
