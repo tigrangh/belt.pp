@@ -327,11 +327,15 @@ namespace beltpp
                     , socket(socket_)
                     , async_task_running(async_task_running_none)
                     , overlapped()
+                    , overlapped_send()
                     , accept_buffer()
                     , accept_socket()
                     , receive_buffer()
                     , last_error(0)
-                    , bytes_copied(0)
+                    , bytes_copied_recv(0)
+                    , bytes_copied_send(0)
+                    , result_receive_send(true)
+                    , bytes_offset(0)
                 {
                     init();
                 }
@@ -342,6 +346,7 @@ namespace beltpp
                         throw std::runtime_error("poll master details: event_handler:::remove == action");
 
                     ::ZeroMemory(&overlapped, sizeof(WSAOVERLAPPED));
+                    ::ZeroMemory(&overlapped_send, sizeof(WSAOVERLAPPED));
 
                     if (event_handler::task::accept == action)
                     {
@@ -359,7 +364,7 @@ namespace beltpp
                     {
                     }
                     else/* if (event_handler::task::receive == action ||
-                               event_handler::task::receive == action)*/
+                               event_handler::task::send == action)*/
                     {
                         wsa_receive_buffer.len = 1024 * 4;
                         wsa_receive_buffer.buf = receive_buffer;
@@ -369,8 +374,45 @@ namespace beltpp
                     }
 
                     last_error = 0;
-                    bytes_copied = 0;
+                    bytes_copied_recv = 0;
+                    bytes_copied_send = 0;
                     bytes_offset = 0;
+                    result_receive_send = true;
+                }
+
+                void init_recv()
+                {
+                    ::ZeroMemory(&overlapped, sizeof(WSAOVERLAPPED));
+
+                    if (event_handler::task::receive != action &&
+                        event_handler::task::send != action)
+                    {
+                        assert(false);
+                        throw std::runtime_error("poll master details: event_handler:::receive != action");
+                    }
+                    
+                    last_error = 0;
+                    bytes_copied_recv = 0;
+                    bytes_offset = 0;
+                    result_receive_send = true;
+                }
+
+                void init_send(size_t len)
+                {
+                    ::ZeroMemory(&overlapped_send, sizeof(WSAOVERLAPPED));
+
+                    if (event_handler::task::send != action)
+                    {
+                        assert(false);
+                        throw std::runtime_error("poll master details: event_handler:::send != action");
+                    }
+
+                    wsa_send_buffer.len = ULONG(len);
+                    wsa_send_buffer.buf = send_buffer;
+
+                    last_error = 0;
+                    bytes_copied_send = 0;
+                    result_receive_send = true;
                 }
 
                 void connect(const struct sockaddr* addr,
@@ -430,7 +472,8 @@ namespace beltpp
                 char send_buffer[1024 * 4];
                 WSABUF wsa_send_buffer;
                 int last_error;
-                DWORD bytes_copied;
+                DWORD bytes_copied_recv;
+                DWORD bytes_copied_send;
                 bool result_receive_send;
                 DWORD bytes_offset; // this is needed for chunk by chunk reading
             };
@@ -510,13 +553,13 @@ namespace beltpp
                         {
                             repeat = false;
                             code = ::AcceptEx(item.second->socket,
-                                item.second->accept_socket,
-                                item.second->accept_buffer,
-                                0,
-                                sizeof(sockaddr_storage) + 16,
-                                sizeof(sockaddr_storage) + 16,
-                                &item.second->bytes_copied,
-                                &item.second->overlapped);
+                                              item.second->accept_socket,
+                                              item.second->accept_buffer,
+                                              0,
+                                              sizeof(sockaddr_storage) + 16,
+                                              sizeof(sockaddr_storage) + 16,
+                                              &item.second->bytes_copied_recv,
+                                              &item.second->overlapped);
 
                             if (code == false && WSAGetLastError() == WSAECONNRESET)
                                 repeat = true;
@@ -545,7 +588,7 @@ namespace beltpp
                         {
                             int send_code = ::WSASend(item.second->socket,
                                                       &item.second->wsa_send_buffer, 1,
-                                                      &item.second->bytes_copied,
+                                                      &item.second->bytes_copied_send,
                                                       0,
                                                       &item.second->overlapped_send,
                                                       nullptr);
@@ -567,7 +610,7 @@ namespace beltpp
                             DWORD flags = 0;
                             int code = ::WSARecv(item.second->socket,
                                                  &item.second->wsa_receive_buffer, 1,
-                                                 &item.second->bytes_copied,
+                                                 &item.second->bytes_copied_recv,
                                                  &flags,
                                                  &item.second->overlapped,
                                                  nullptr);
@@ -633,14 +676,15 @@ namespace beltpp
                             empty = true;
                         else
                         {
-                            it->second->bytes_copied = bytesCopied;
                             if (poverlapped == &it->second->overlapped)
                             {
+                                it->second->bytes_copied_recv = bytesCopied;
                                 result_receive_send = true;
                                 it->second->result_receive_send = true;
                             }
                             else if (poverlapped == &it->second->overlapped_send)
                             {
+                                it->second->bytes_copied_send = bytesCopied;
                                 result_receive_send = false;
                                 it->second->result_receive_send = false;
                             }

@@ -1,6 +1,8 @@
 #include "native.hpp"
 #include "event_impl.hpp"
 
+#include <cstring>
+
 namespace beltpp
 {
 namespace native
@@ -85,29 +87,39 @@ size_t recv(beltpp::detail::event_handler_impl* peh,
             int& error_code)
 {
     auto& async_data = peh->m_poll_master.m_events.at(id);
+    if (false == async_data->result_receive_send)
+    {
+        error_code = WSAEWOULDBLOCK;
+        return size_t(SOCKET_ERROR);
+    }
+
     if (0 != async_data->last_error)
     {
         error_code = async_data->last_error;
-        return size_t(SOCKET_ERROR);
+        len = size_t(SOCKET_ERROR);
+        async_data->async_task_running &= ~async_data->async_task_running_receive;
+        async_data->init();
     }
     else
     {
-        if (len > async_data->bytes_copied - async_data->bytes_offset)
-            len = async_data->bytes_copied - async_data->bytes_offset;
+        if (len > async_data->bytes_copied_recv - async_data->bytes_offset)
+            len = async_data->bytes_copied_recv - async_data->bytes_offset;
 
         memcpy(buf, async_data->receive_buffer + async_data->bytes_offset, len);
 
         async_data->bytes_offset += (DWORD)len;
-        if (async_data->bytes_copied == async_data->bytes_offset)
+        if (async_data->bytes_copied_recv == async_data->bytes_offset)
         {
             async_data->async_task_running &= ~async_data->async_task_running_receive;
-            async_data->init();
+            async_data->init_recv();
         }
         else
+        {
             async_data->async_task_running |= async_data->async_task_running_receive;
-
-        return len;
+        }
     }
+
+    return len;
 }
 #else
 size_t recv(beltpp::detail::event_handler_impl*,
@@ -125,10 +137,10 @@ size_t recv(beltpp::detail::event_handler_impl*,
 #endif
 #ifdef B_OS_WINDOWS
 
-void async_send(SOCKET socket_descriptor,
+void async_send(SOCKET /*socket_descriptor*/,
                 beltpp::detail::event_handler_impl* peh,
-                ievent_item& ev_it,
-                uint64_t ev_id,
+                ievent_item& /*ev_it*/,
+                uint64_t /*ev_id*/,
                 uint64_t eh_id,
                 beltpp::queue<char>& send_stream,
                 std::string const& message)
@@ -142,12 +154,15 @@ void async_send(SOCKET socket_descriptor,
 
     auto message_copy = message;
     if (message_copy.length() > 4 * 1024)
-        message_copy.resize(4 * 1024);
+        message_copy.resize(4 * 1024 - 1);
 
     if (stream_was_empty)
     {
-        strcpy(async_data->send_buffer, message_copy.c_str());
+        strcpy_s(async_data->send_buffer, message_copy.c_str());
         async_data->action = event_handler::task::send;
+
+        async_data->async_task_running &= ~async_data->async_task_running_send;
+        async_data->init_send(message_copy.length());
     }
 }
 
@@ -161,41 +176,60 @@ void async_send(SOCKET socket_descriptor,
     return size_t(res);
 }*/
 
-int send(beltpp::detail::event_handler_impl* peh,
-         ievent_item& /*ev_it*/,
-         uint64_t /*ev_id*/,
-         uint64_t eh_id,
-         beltpp::queue<char>& send_stream,
-         int& error_code)
+size_t send(SOCKET /*socket_descriptor*/,
+            beltpp::detail::event_handler_impl* peh,
+            ievent_item& /*ev_it*/,
+            uint64_t /*ev_id*/,
+            uint64_t eh_id,
+            beltpp::queue<char>& send_stream,
+            int& error_code)
 {
     auto& async_data = peh->m_poll_master.m_events.at(eh_id);
 
     if (async_data->result_receive_send)
-        return 0;
-    if (0 != async_data->last_error)
     {
-        error_code = async_data->last_error;
+        error_code = WSAEWOULDBLOCK;
         return size_t(SOCKET_ERROR);
     }
 
-    size_t sent = async_data->bytes_copied;
+    size_t sent = 0;
 
-    for (size_t index = 0; index < sent; ++index)
+    if (0 != async_data->last_error)
     {
-        assert(false == send_stream.empty());
-        send_stream.pop();
+        error_code = async_data->last_error;
+        sent = size_t(SOCKET_ERROR);
     }
-
-    if (sent &&
-        false == send_stream.empty())
+    else
     {
-        std::string message(send_stream.cbegin(), send_stream.cend());
-        if (message.length() > 4 * 1024)
+        sent = size_t(async_data->bytes_copied_send);
+
+        if (size_t(SOCKET_ERROR) == sent)
+            return sent;
+
+        for (size_t index = 0; index < sent; ++index)
         {
-            message.resize(4 * 1024);
-            strcpy(async_data->send_buffer, message.c_str());
-            async_data->action = event_handler::task::send;
+            assert(false == send_stream.empty());
+            send_stream.pop();
         }
+
+        if (sent &&
+            false == send_stream.empty())
+        {
+            std::string message(send_stream.cbegin(), send_stream.cend());
+            if (message.length() > 4 * 1024)
+                message.resize(4 * 1024 - 1);
+
+            strcpy_s(async_data->send_buffer, message.c_str());
+            async_data->action = event_handler::task::send;
+
+            async_data->init_send(message.length());
+        }
+        else
+        {
+            async_data->action = event_handler::task::receive;
+        }
+
+        async_data->async_task_running &= ~async_data->async_task_running_send;
     }
 
     return sent;
