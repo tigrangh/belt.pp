@@ -238,10 +238,7 @@ inline bool check_send_dropped(size_t res, int error_code)
 #ifdef B_OS_WINDOWS
     return (size_t(-1) == res && error_code == WSAECONNRESET);
 #else
-    B_UNUSED(res);
-    B_UNUSED(error_code);
-    //  let's add proper implementation after testing
-    return false;
+    return (size_t(-1) == res && error_code == EPIPE);
 #endif
 }
 
