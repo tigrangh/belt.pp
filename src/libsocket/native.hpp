@@ -233,6 +233,18 @@ inline bool check_recv_fail(size_t res)
 #endif
 }
 
+inline bool check_send_dropped(size_t res, int error_code)
+{
+#ifdef B_OS_WINDOWS
+    return (size_t(-1) == res && error_code == WSAECONNRESET);
+#else
+    B_UNUSED(res);
+    B_UNUSED(error_code);
+    //  let's add proper implementation after testing
+    return false;
+#endif
+}
+
 #ifdef B_OS_WINDOWS
 inline char* sockopttype(int* param)
 {

@@ -549,8 +549,18 @@ packets socket::receive(peer_id& peer)
                                                current_channel.m_send_stream,
                                                error_code);
 
-                //  when sending to socket closed by the peer
-                //  we have send_res = -1 and errno set to EPIPE
+                if (native::check_send_dropped(send_res, error_code))
+                {
+                    peer = detail::construct_peer_id(current_id,
+                                                     current_channel.m_socket_bundle);
+
+                    detail::delete_channel(m_pimpl.get(), current_id);
+
+                    result.emplace_back(beltpp::isocket_drop());
+
+                    break;
+                }
+                
                 if (size_t(-1) == send_res)
                 {
                     string send_error = native::net_error(error_code);
