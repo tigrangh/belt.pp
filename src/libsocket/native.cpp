@@ -198,39 +198,47 @@ size_t send(SOCKET /*socket_descriptor*/,
     {
         error_code = async_data->last_error;
         sent = size_t(SOCKET_ERROR);
+
+        while (false == send_stream.empty())
+            send_stream.pop();
+    }
+    else if (size_t(async_data->bytes_copied_send) == size_t(SOCKET_ERROR))
+    {
+        assert(false);
+        error_code = 0;
+
+        while (false == send_stream.empty())
+            send_stream.pop();
     }
     else
     {
         sent = size_t(async_data->bytes_copied_send);
-
-        if (size_t(SOCKET_ERROR) == sent)
-            return sent;
 
         for (size_t index = 0; index < sent; ++index)
         {
             assert(false == send_stream.empty());
             send_stream.pop();
         }
-
-        if (sent &&
-            false == send_stream.empty())
-        {
-            std::string message(send_stream.cbegin(), send_stream.cend());
-            if (message.length() > 4 * 1024)
-                message.resize(4 * 1024 - 1);
-
-            strcpy_s(async_data->send_buffer, message.c_str());
-            async_data->action = event_handler::task::send;
-
-            async_data->init_send(message.length());
-        }
-        else
-        {
-            async_data->action = event_handler::task::receive;
-        }
-
-        async_data->async_task_running &= ~async_data->async_task_running_send;
     }
+
+    if (sent && sent != size_t(SOCKET_ERROR) &&
+        false == send_stream.empty())
+    {
+        std::string message(send_stream.cbegin(), send_stream.cend());
+        if (message.length() > 4 * 1024)
+            message.resize(4 * 1024 - 1);
+
+        strcpy_s(async_data->send_buffer, message.c_str());
+        async_data->action = event_handler::task::send;
+
+        async_data->init_send(message.length());
+    }
+    else
+    {
+        async_data->action = event_handler::task::receive;
+    }
+
+    async_data->async_task_running &= ~async_data->async_task_running_send;
 
     return sent;
 }
