@@ -309,23 +309,28 @@ size_t send(int socket_descriptor,
                 assert(false == send_stream.empty());
                 send_stream.pop();
             }
+        }
+        else
+        {
+            while (false == send_stream.empty())
+                send_stream.pop();
+        }
 
-            if (send_stream.empty())
-            {
-                //  send buffer cleared
-                peh->remove(socket_descriptor,
-                            eh_id,
-                            false,   //  already_closed
-                            event_handler::task::send,
-                            true);
+        if (send_stream.empty())
+        {
+            //  send buffer cleared
+            peh->remove(socket_descriptor,
+                        eh_id,
+                        false,   //  already_closed
+                        event_handler::task::send,
+                        true);
 
-                peh->add(ev_it,
-                         socket_descriptor,
-                         ev_id,
-                         event_handler::task::receive,
-                         true,
-                         eh_id);
-            }
+            peh->add(ev_it,
+                     socket_descriptor,
+                     ev_id,
+                     event_handler::task::receive,
+                     true,
+                     eh_id);
         }
     }
 

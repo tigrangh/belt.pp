@@ -541,7 +541,7 @@ packets socket::receive(peer_id& peer)
             {
                 //  since we have some data to send
                 //  most probably this is a signal to do so
-                size_t send_res = native::send(current_channel.m_socket_descriptor.handle,
+                size_t send_res = native::send(socket_descriptor.handle,
                                                m_pimpl->m_peh->m_pimpl.get(),
                                                *this,
                                                current_id,
@@ -627,6 +627,16 @@ packets socket::receive(peer_id& peer)
                                 pmsgall.fsaver);
 
                         result.emplace_back(std::move(pack));
+                    }
+                    else if (false == current_channel.m_special_data.autoreply.empty())
+                    {
+                        native::async_send(socket_descriptor.handle,
+                                           m_pimpl->m_peh->m_pimpl.get(),
+                                           *this,
+                                           current_id,
+                                           current_channel.m_eh_id,
+                                           current_channel.m_send_stream,
+                                           current_channel.m_special_data.autoreply);
                     }
                     else
                         break;
