@@ -1,7 +1,6 @@
 #pragma once
 
 #include "global.hpp"
-#include "iterator_wrapper.hpp"
 #include "meta.hpp"
 
 #include <string>
@@ -52,8 +51,8 @@ public:
 };
 
 using fptr_message_loader = detail::pmsg_all (*)(
-        beltpp::iterator_wrapper<char const>&,
-        beltpp::iterator_wrapper<char const> const&,
+        std::string::const_iterator&,
+        std::string::const_iterator const&,
         session_special_data&,
         void*);
 

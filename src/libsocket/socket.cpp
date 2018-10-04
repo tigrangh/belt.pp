@@ -602,20 +602,21 @@ packets socket::receive(peer_id& peer)
                        false == current_channel.m_receive_stream.empty())
                 {
                     auto const& stm = current_channel.m_receive_stream;
-                    beltpp::iterator_wrapper<char const> it_begin = stm.cbegin();
+                    string buf(stm.cbegin(), stm.cend());
+
+                    auto it_begin = buf.cbegin();
                     auto pmsgall = m_pimpl->m_fmessage_loader(it_begin,
-                                                              stm.cend(),
+                                                              buf.cend(),
                                                               current_channel.m_special_data,
                                                               m_pimpl->m_putl.get());
 
-                    string buf;
-                    if (pmsgall.rtt == size_t(-2))
-                        buf.assign(stm.cbegin(), stm.cend());
-
+                    auto it_begin_orig = buf.cbegin();
                     while (false == current_channel.m_receive_stream.empty() &&
-                           beltpp::iterator_wrapper<char const>(stm.cbegin()) !=
-                           it_begin)
+                           it_begin_orig != it_begin)
+                    {
+                        ++it_begin_orig;
                         current_channel.m_receive_stream.pop();
+                    }
 
                     if (pmsgall.rtt == size_t(-2))
                         result.emplace_back(beltpp::isocket_protocol_error(buf));
@@ -623,8 +624,8 @@ packets socket::receive(peer_id& peer)
                     {
                         packet pack;
                         pack.set(pmsgall.rtt,
-                                std::move(pmsgall.pmsg),
-                                pmsgall.fsaver);
+                                 std::move(pmsgall.pmsg),
+                                 pmsgall.fsaver);
 
                         result.emplace_back(std::move(pack));
                     }

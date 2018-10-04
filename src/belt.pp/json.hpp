@@ -3,8 +3,6 @@
 #include "global.hpp"
 #include "parser.hpp"
 
-#include "iterator_wrapper.hpp"
-
 #include <memory>
 #include <sstream>
 #include <cstdint>

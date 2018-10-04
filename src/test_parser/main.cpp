@@ -16,10 +16,8 @@ using std::make_pair;
 
 bool json_parse(string const& buf, ::beltpp::e_three_state_result status)
 {
-
-    beltpp::iterator_wrapper<char const> iter_scan_begin(buf.begin());
-    beltpp::iterator_wrapper<char const> iter_scan_end(buf.end());
-
+    auto iter_scan_begin(buf.cbegin());
+    auto iter_scan_end(buf.cend());
 
     ::beltpp::json::ptr_expression_tree pexp;
     ::beltpp::json::expression_tree* proot = nullptr;

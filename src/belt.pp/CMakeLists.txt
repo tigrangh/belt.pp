@@ -22,7 +22,6 @@ set(SRC_FILES
     ilog.hpp
     iprocessor.hpp
     isocket.hpp
-    iterator_wrapper.hpp
     itransaction.hpp
     json.hpp
     log.hpp
