@@ -254,5 +254,12 @@ inline void assign(Tself& self, Tother const& other)
 {
     self = static_cast<Tself>(other);
 }
+template <typename Tself, typename Tother,
+          typename = typename std::enable_if<!std::is_reference<Tother>::value>::type>
+inline void assign(Tself& self, Tother&& other)
+{
+    Tself temp(std::move(other));
+    self = std::move(temp);
+}
 }
 

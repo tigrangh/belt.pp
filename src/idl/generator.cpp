@@ -2,7 +2,6 @@
 
 #include <cassert>
 #include <vector>
-#include <unordered_map>
 #include <unordered_set>
 #include <exception>
 #include <utility>
@@ -10,6 +9,7 @@
 using std::string;
 using std::vector;
 using std::unordered_map;
+using std::unordered_multimap;
 using std::unordered_set;
 using std::pair;
 using std::runtime_error;
@@ -37,16 +37,22 @@ state_holder::state_holder()
 
 namespace
 {
-enum g_type_info {type_empty = 0x0,
-                  type_simple = 0x1,
-                  type_object = 0x2,
-                  type_extension = 0x4,
-                  type_simple_object = type_simple | type_object,
-                  type_simple_extension = type_simple | type_extension,
-                  type_object_extension = type_object | type_extension,
-                  type_simple_object_extension = type_simple | type_object_extension};
+enum g_type_info
+{
+    type_empty = 0x0,
+    type_simple = 0x1,
+    type_object = 0x2,
+    type_extension = 0x4,
+    type_simple_object = type_simple | type_object,
+    type_simple_extension = type_simple | type_extension,
+    type_object_extension = type_object | type_extension,
+    type_simple_object_extension = type_simple | type_object_extension
+};
 
-string convert_type(string const& type_name, state_holder& state, g_type_info& type_detail)
+string convert_type(string const& type_name,
+                    state_holder& state,
+                    g_type_info& type_detail,
+                    unordered_set<string>& type_names)
 {
     type_detail = type_empty;
     if ("Object" == type_name)
@@ -59,25 +65,33 @@ string convert_type(string const& type_name, state_holder& state, g_type_info& t
     auto it_type_name = state.map_types.find(type_name);
     if (it_type_name != state.map_types.end())
         return it_type_name->second;
+
+    if (type_detail == type_simple)
+        type_names.insert(type_name);
+
     return type_name;
 }
 
-string construct_type_name (expression_tree const* member_type,
-                            state_holder& state,
-                            g_type_info& type_detail)
+string construct_type_name(expression_tree const* member_type,
+                           state_holder& state,
+                           g_type_info& type_detail,
+                           unordered_set<string>& type_names)
 {
     if (member_type->lexem.rtt == identifier::rtt)
-        return convert_type(member_type->lexem.value, state, type_detail);
+        return convert_type(member_type->lexem.value,
+                            state,
+                            type_detail,
+                            type_names);
     else if (member_type->lexem.rtt == keyword_array::rtt &&
              member_type->children.size() == 1)
     {
         string type_name;
         if (member_type->children.front()->lexem.rtt == identifier::rtt)
             type_name = convert_type(member_type->children.front()->lexem.value,
-                                     state, type_detail);
+                                     state, type_detail, type_names);
         else
             type_name = construct_type_name(member_type->children.front(),
-                                            state, type_detail);
+                                            state, type_detail, type_names);
 
         return "std::vector<" + type_name + ">";
     }
@@ -86,7 +100,7 @@ string construct_type_name (expression_tree const* member_type,
              member_type->children.front()->lexem.rtt == identifier::rtt)
     {
         string type_name = convert_type(member_type->children.front()->lexem.value,
-                                        state, type_detail);
+                                        state, type_detail, type_names);
 
         return "std::unordered_set<" + type_name + ">";
     }
@@ -98,10 +112,10 @@ string construct_type_name (expression_tree const* member_type,
         g_type_info type_detail_key, type_detail_value;
         string key_type_name =
                 construct_type_name(member_type->children.front(),
-                                    state, type_detail_key);
+                                    state, type_detail_key, type_names);
         string value_type_name =
                 construct_type_name(member_type->children.back(),
-                                    state, type_detail_value);
+                                    state, type_detail_value, type_names);
 
         type_detail = static_cast<g_type_info>(type_detail_key | type_detail_value);
 
@@ -115,6 +129,7 @@ string construct_type_name (expression_tree const* member_type,
         throw runtime_error("can't get type definition, wtf!");
 }
 }
+
 string analyze(state_holder& state,
                expression_tree const* pexpression)
 {
@@ -122,7 +137,9 @@ string analyze(state_holder& state,
     string result;
     assert(pexpression);
 
-    unordered_map<size_t, string> class_names, type_names;
+    unordered_map<size_t, string> class_names;
+    unordered_map<string, string> name_to_code;
+    unordered_multimap<string, string> dependencies;
 
     if (pexpression->lexem.rtt != keyword_module::rtt ||
         pexpression->children.size() != 2 ||
@@ -137,11 +154,8 @@ string analyze(state_holder& state,
 
         for (auto item : pexpression->children.back()->children)
         {
-            if (item->lexem.rtt == keyword_type::rtt ||
-                item->lexem.rtt == keyword_class::rtt)
+            if (item->lexem.rtt == keyword_class::rtt)
             {
-                bool serializable = (item->lexem.rtt == keyword_class::rtt);
-
                 if (item->children.size() != 2 ||
                     item->children.front()->lexem.rtt != identifier::rtt ||
                     item->children.back()->lexem.rtt != scope_brace::rtt)
@@ -149,22 +163,20 @@ string analyze(state_holder& state,
 
                 string type_name = item->children.front()->lexem.value;
 
-                result += analyze_struct(state,
-                                         item->children.back(),
-                                         rtt,
-                                         type_name,
-                                         serializable);
+                string code = analyze_struct(state,
+                                             item->children.back(),
+                                             rtt,
+                                             type_name,
+                                             dependencies);
 
-                if (serializable)
-                    class_names.insert(std::make_pair(rtt, type_name));
-                else
-                    type_names.insert(std::make_pair(rtt, type_name));
+                class_names.insert(std::make_pair(rtt, type_name));
+                name_to_code.insert(std::make_pair(type_name, code));
                 ++rtt;
             }
         }
     }
 
-    if (class_names.empty() && type_names.empty())
+    if (class_names.empty())
         throw runtime_error("wtf, nothing to do");
 
     size_t max_rtt = 0;
@@ -173,10 +185,50 @@ string analyze(state_holder& state,
         if (max_rtt < class_item.first)
             max_rtt = class_item.first;
     }
-    for (auto const& type_item : type_names)
+
+    //  clean up dependencies from unknown names
+    //  leave class_names only
+    auto it_dependencies = dependencies.begin();
+    while (it_dependencies != dependencies.end())
     {
-        if (max_rtt < type_item.first)
-            max_rtt = type_item.first;
+        if (name_to_code.find(it_dependencies->second) == name_to_code.end())
+            it_dependencies = dependencies.erase(it_dependencies);
+        else
+            ++it_dependencies;
+    }
+
+    //  now order classes codes, so that each will
+    //  meet it's dependency requirements
+    while (false == name_to_code.empty())
+    {
+        bool no_progress = true;
+
+        auto it_code = name_to_code.begin();
+        while (it_code != name_to_code.end())
+        {
+            string const type_name = it_code->first;
+            if (dependencies.find(type_name) == dependencies.end())
+            {
+                result += it_code->second;
+                it_code = name_to_code.erase(it_code);
+                no_progress = false;
+
+                auto it_dependencies = dependencies.begin();
+                while (it_dependencies != dependencies.end())
+                {
+                    if (it_dependencies->second == type_name)
+                        it_dependencies = dependencies.erase(it_dependencies);
+                    else
+                        ++it_dependencies;
+                }
+            }
+            else
+                ++it_code;
+        }
+
+        if (no_progress)
+            throw std::runtime_error("most probably there is a cyclic dependency"
+                                     " in the model definition");
     }
 
     result += R"foo(
@@ -277,21 +329,11 @@ string analyze_struct(state_holder& state,
                       expression_tree const* pexpression,
                       size_t rtt,
                       string const& type_name,
-                      bool serializable)
+                      unordered_multimap<string, string>& dependencies)
 {
     if (state.namespace_name.empty())
         throw runtime_error("please specify package name");
-    string result;
     assert(pexpression);
-
-    result += "class " + type_name + ";\n";
-    result += "namespace detail\n";
-    result += "{\n";
-    result += "std::string saver(" + type_name + " const& self);\n";
-    result += "}\n";
-
-    result += "class " + type_name + "\n";
-    result += "{\npublic:\n";
 
     vector<pair<expression_tree const*, expression_tree const*>> members;
 
@@ -313,12 +355,53 @@ string analyze_struct(state_holder& state,
         members.push_back(std::make_pair(member_name, member_type));
     }
 
+    string result;
+
+    result += "class " + type_name + ";\n";
+    result += "namespace detail\n";
+    result += "{\n";
+    result += "std::string saver(" + type_name + " const& self);\n";
+    result += "}\n";
+
+    result += "}   // end of namespace " + state.namespace_name + "\n";
+
+    if (false == members.empty())
+    {
+        result += "namespace beltpp\n";
+        result += "{\n";
+        result += "template <typename T>\n";
+        result += "void assign(" + state.namespace_name + "::" + type_name + "& self, T const& other);\n";
+
+        result += "template <typename T,\n";
+        result += "          typename = typename std::enable_if<!std::is_same<T, " +
+                    state.namespace_name + "::" + type_name + ">::value, void>::type>\n";
+        result += "void assign(T& self, " + state.namespace_name + "::" + type_name + " const& other);\n";
+
+        result += "template <typename T,\n";
+        result += "          typename = typename std::enable_if<!std::is_reference<T>::value>::type>\n";
+        result += "void assign(" + state.namespace_name + "::" + type_name + "& self, T&& other);\n";
+
+        result += "template <typename T,\n";
+        result += "          typename = typename std::enable_if<!std::is_reference<T>::value && !std::is_same<T, " + state.namespace_name + "::" + type_name + ">::value>::type>\n";
+        result += "void assign(T& self, " + state.namespace_name + "::" + type_name + "&& other);\n";
+
+        result += "}   // end of namespace beltpp\n";
+    }
+
+    result += "namespace " + state.namespace_name + "\n";
+    result += "{\n";
+
+    result += "class " + type_name + "\n";
+    result += "{\npublic:\n";
+
     result += "    enum {rtt = " + std::to_string(rtt) + "};\n";
 
     unordered_set<string> set_object_name;
     unordered_set<string> set_extension_name;
 
     unordered_map<string, string> map_member_name_type;
+
+    unordered_set<string> member_type_names;
 
     for (auto member_pair : members)
     {
@@ -328,7 +411,11 @@ string analyze_struct(state_holder& state,
             throw runtime_error("use \"variable type\" syntax please");
 
         g_type_info type_detail;
-        string member_type_name = construct_type_name(member_type, state, type_detail);
+        string member_type_name = construct_type_name(member_type,
+                                                      state,
+                                                      type_detail,
+                                                      member_type_names);
+
         result += "    " + member_type_name + " " + member_name.value + ";\n";
 
         if (type_detail & type_object)
@@ -339,12 +426,10 @@ string analyze_struct(state_holder& state,
         map_member_name_type.insert(std::make_pair(member_name.value, member_type_name));
     }
 
-    auto member_type_by_name = [&map_member_name_type](string const& name)
-    {
-        return map_member_name_type[name];
-    };
+    for (string const& dependency_type_name : member_type_names)
+        dependencies.insert(std::make_pair(type_name, dependency_type_name));
 
-    {
+    {   //  default constructor
     bool first = true;
     for (auto member_pair : members)
     {
@@ -362,23 +447,36 @@ string analyze_struct(state_holder& state,
         result += "    {}\n";
     }
 
-    {
+    {   //  copy/move constructors
+    string copy_constructor, move_constructor;
+
     bool first = true;
     for (auto member_pair : members)
     {
         auto const& member_name = member_pair.first->lexem;
 
         string copy_expr = member_name.value + "(other." + member_name.value + ")\n";
+        string move_expr = member_name.value + "(std::move(other." + member_name.value + "))\n";
 
         if (set_contains(member_name.value, set_object_name) ||
             set_contains(member_name.value, set_extension_name))
+        {
             copy_expr = member_name.value + "()\n";
+            move_expr = member_name.value + "()\n";
+        }
 
         if (first)
-            result += "    " + type_name + "(" + type_name + " const& other)\n"
+        {
+            copy_constructor = "    " + type_name + "(" + type_name + " const& other)\n"
                     "      : " + copy_expr;
+            move_constructor = "    " + type_name + "(" + type_name + "&& other)\n"
+                    "      : " + move_expr;
+        }
         else
-            result += "      , " + copy_expr;
+        {
+            copy_constructor += "      , " + copy_expr;
+            move_constructor += "      , " + move_expr;
+        }
 
         first = false;
     }
@@ -386,83 +484,56 @@ string analyze_struct(state_holder& state,
     {
         if (set_object_name.empty() &&
             set_extension_name.empty())
-            result += "    {}\n";
+        {
+            copy_constructor += "    {}\n";
+            move_constructor += "    {}\n";
+        }
         else
         {
-            result += "    {\n";
+            copy_constructor += "    {\n";
+            move_constructor += "    {\n";
             for (auto const& item : set_object_name)
-                result += "        detail::assign_packet(" + item + ", other." + item + ");\n";
+            {
+                copy_constructor += "        detail::assign_packet(" + item + ", other." + item + ");\n";
+                move_constructor += "        detail::assign_packet(" + item + ", std::move(other." + item + "));\n";
+            }
             for (auto const& item : set_extension_name)
-                result += "        detail::assign_extension(" + item + ", other." + item + ");\n";
-            result += "    }\n";
+            {
+                copy_constructor += "        detail::assign_extension(" + item + ", other." + item + ");\n";
+                move_constructor += "        detail::assign_extension(" + item + ", std::move(other." + item + "));\n";
+            }
+            copy_constructor += "    }\n";
+            move_constructor += "    }\n";
         }
     }
+
+    result += copy_constructor + move_constructor;
     }
 
     if (false == members.empty())
     {
         result += "    template <typename T>\n";
-        result += "    explicit " + type_name + "(T const& other)\n";
+        result += "    explicit " + type_name + "(T&& other)\n";
         result += "    {\n";
-        for (auto member_pair : members)
-        {
-            auto const& member_name = member_pair.first->lexem;
-            auto const& mn = member_name.value;
-            auto const mt = member_type_by_name(mn);
-            if (set_contains(member_name.value, set_object_name))
-                result += "        detail::assign_packet(" + member_name.value + ", other." + member_name.value + ");\n";
-            else if (set_contains(member_name.value, set_extension_name))
-                result += "        detail::assign_extension(" + member_name.value + ", other." + member_name.value + ");\n";
-            else
-                result += "        ::beltpp::assign(" + mn + ", other." + mn + ");\n";
-        }
+        result += "        ::beltpp::assign(*this, std::forward<T>(other));\n";
         result += "    }\n";
 
         result += "    " + type_name + "& operator = (" + type_name + " const& other)\n";
         result += "    {\n";
-        for (auto member_pair : members)
-        {
-            auto const& member_name = member_pair.first->lexem;
-            if (set_contains(member_name.value, set_object_name))
-                result += "        detail::assign_packet(" + member_name.value + ", other." + member_name.value + ");\n";
-            else if (set_contains(member_name.value, set_extension_name))
-                result += "        detail::assign_extension(" + member_name.value + ", other." + member_name.value + ");\n";
-            else
-                result += "        ::beltpp::assign(" + member_name.value + ", other." + member_name.value + ");\n";
-        }
+        result += "        ::beltpp::assign(*this, other);\n";
         result += "        return *this;\n";
         result += "    }\n";
 
         result += "    " + type_name + "& operator = (" + type_name + "&& other)\n";
         result += "    {\n";
-        for (auto member_pair : members)
-        {
-            auto const& member_name = member_pair.first->lexem;
-            if (set_contains(member_name.value, set_object_name))
-                result += "        detail::assign_packet(" + member_name.value + ", std::move(other." + member_name.value + "));\n";
-            else if (set_contains(member_name.value, set_extension_name))
-                result += "        detail::assign_extension(" + member_name.value + ", std::move(other." + member_name.value + "));\n";
-            else
-                result += "        ::beltpp::assign(" + member_name.value + ", std::move(other." + member_name.value + "));\n";
-        }
+        result += "        ::beltpp::assign(*this, std::move(other));\n";
         result += "        return *this;\n";
         result += "    }\n";
 
         result += "    template <typename T>\n";
-        result += "    " + type_name + "& operator = (T const& other)\n";
+        result += "    " + type_name + "& operator = (T&& other)\n";
         result += "    {\n";
-        for (auto member_pair : members)
-        {
-            auto const& member_name = member_pair.first->lexem;
-            auto const& mn = member_name.value;
-            auto const mt = member_type_by_name(mn);
-            if (set_contains(member_name.value, set_object_name))
-                result += "        detail::assign_packet(" + member_name.value + ", other." + member_name.value + ");\n";
-            else if (set_contains(member_name.value, set_extension_name))
-                result += "        detail::assign_extension(" + member_name.value + ", other." + member_name.value + ");\n";
-            else
-                result += "        ::beltpp::assign(" + mn + ", other." + mn + ");\n";
-        }
+        result += "        ::beltpp::assign(*this, std::forward<T>(other));\n";
         result += "        return *this;\n";
         result += "    }\n";
     }
@@ -520,19 +591,10 @@ string analyze_struct(state_holder& state,
 
     result += "    static std::string pvoid_saver(void* p)\n";
     result += "    {\n";
-    if (serializable)
-    {
     result += "        " + type_name + "* pmc = static_cast<" + type_name + "*>(p);\n";
     result += "        return detail::saver(*pmc);\n";
-    }
-    else
-    {
-    result += "        return std::string();\n";
-    }
     result += "    }\n";
 
-    if (serializable)
-    {
     result += "    std::string to_string() const\n";
     result += "    {\n";
     result += "        return detail::saver(*this);\n";
@@ -542,7 +604,6 @@ string analyze_struct(state_holder& state,
     result += "        if (false == detail::loader(*this, encoded, putl))\n";
     result += "            throw std::runtime_error(\"cannot parse " + type_name + " data\");\n";
     result += "    }\n";
-    }
 
     result += "};  // end of class\n";
 
@@ -567,7 +628,8 @@ string analyze_struct(state_holder& state,
         }
         result += "}\n";
 
-        result += "template <typename T, typename = typename std::enable_if<!std::is_same<T, " +
+        result += "template <typename T,\n";
+        result += "          typename = typename std::enable_if<!std::is_same<T, " +
                     state.namespace_name + "::" + type_name + ">::value, void>::type>\n";
         result += "void assign(T& self, " + state.namespace_name + "::" + type_name + " const& other)\n";
         result += "{\n";
@@ -583,7 +645,24 @@ string analyze_struct(state_holder& state,
         }
         result += "}\n";
 
-        result += "template <typename T>\n";
+        result += "template <typename T,\n";
+        result += "          typename = typename std::enable_if<!std::is_reference<T>::value>::type>\n";
+        result += "void assign(" + state.namespace_name + "::" + type_name + "& self, T&& other)\n";
+        result += "{\n";
+        for (auto member_pair : members)
+        {
+        auto const& member_name = member_pair.first->lexem;
+        if (set_contains(member_name.value, set_object_name))
+            result += "    " + state.namespace_name + "::detail::assign_packet(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
+        else if (set_contains(member_name.value, set_extension_name))
+            result += "    " + state.namespace_name + "::detail::assign_extension(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
+        else
+        result += "    ::beltpp::assign(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
+        }
+        result += "}\n";
+
+        result += "template <typename T,\n";
+        result += "          typename = typename std::enable_if<!std::is_reference<T>::value && !std::is_same<T, " + state.namespace_name + "::" + type_name + ">::value>::type>\n";
         result += "void assign(T& self, " + state.namespace_name + "::" + type_name + "&& other)\n";
         result += "{\n";
         for (auto member_pair : members)
@@ -602,8 +681,7 @@ string analyze_struct(state_holder& state,
     string const message_placeholder = members.empty() ? string() : " message";
     string const utl_placeholder = members.empty() ? string() : " utl";
     string const self_placeholder = members.empty() ? string() : " self";
-    if (serializable)
-    {
+
     result += "namespace " + state.namespace_name + "\n";
     result += "{\n";
     result += "namespace detail\n";
@@ -678,7 +756,7 @@ string analyze_struct(state_holder& state,
     result += "\n";
 
     result += "}   //  end of namespace " + state.namespace_name + "\n";
-    }   //  if serializable
+
     result += "namespace std\n";
     result += "{\n";
     result += "//  provide a simple hash, required by std::unordered_map\n";

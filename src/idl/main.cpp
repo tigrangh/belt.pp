@@ -71,13 +71,20 @@ int main(int argc, char* argv[])
 
         if (definition.empty())
         {
-            definition = "module beltpp {"
-                    "class test{Array Array Int hello}"
-                         "type message_join {}"
-                         "type message_drop {}"
-                         "type message_error {}"
-                         "type message_timer_out {}"
-                         "}";
+            definition =
+                    R"text(
+                    module beltpp
+                    {
+                        class test
+                        {
+                            Array Array Int hello
+                        }
+                        class message_join {}
+                        class message_drop {}
+                        class message_error {}
+                        class message_timer_out {}
+                    }
+                    )text";
         }
 
         auto it_begin = definition.begin();
