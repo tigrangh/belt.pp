@@ -258,8 +258,7 @@ template <typename Tself, typename Tother,
           typename = typename std::enable_if<!std::is_reference<Tother>::value>::type>
 inline void assign(Tself& self, Tother&& other)
 {
-    Tself temp(std::move(other));
-    self = std::move(temp);
+    self = std::move(static_cast<Tself>(std::move(other)));
 }
 }
 
