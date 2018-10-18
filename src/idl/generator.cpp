@@ -213,7 +213,7 @@ string analyze(state_holder& state,
                 it_code = name_to_code.erase(it_code);
                 no_progress = false;
 
-                auto it_dependencies = dependencies.begin();
+                it_dependencies = dependencies.begin();
                 while (it_dependencies != dependencies.end())
                 {
                     if (it_dependencies->second == type_name)
@@ -629,8 +629,8 @@ string analyze_struct(state_holder& state,
         result += "}\n";
 
         result += "template <typename T,\n";
-        result += "          typename = typename std::enable_if<!std::is_same<T, " +
-                    state.namespace_name + "::" + type_name + ">::value, void>::type>\n";
+        result += "          typename/* = typename std::enable_if<!std::is_same<T, " +
+                    state.namespace_name + "::" + type_name + ">::value, void>::type*/>\n";
         result += "void assign(T& self, " + state.namespace_name + "::" + type_name + " const& other)\n";
         result += "{\n";
         for (auto member_pair : members)
@@ -646,7 +646,7 @@ string analyze_struct(state_holder& state,
         result += "}\n";
 
         result += "template <typename T,\n";
-        result += "          typename = typename std::enable_if<!std::is_reference<T>::value>::type>\n";
+        result += "          typename/* = typename std::enable_if<!std::is_reference<T>::value>::type*/>\n";
         result += "void assign(" + state.namespace_name + "::" + type_name + "& self, T&& other)\n";
         result += "{\n";
         for (auto member_pair : members)
@@ -662,7 +662,7 @@ string analyze_struct(state_holder& state,
         result += "}\n";
 
         result += "template <typename T,\n";
-        result += "          typename = typename std::enable_if<!std::is_reference<T>::value && !std::is_same<T, " + state.namespace_name + "::" + type_name + ">::value>::type>\n";
+        result += "          typename/* = typename std::enable_if<!std::is_reference<T>::value && !std::is_same<T, " + state.namespace_name + "::" + type_name + ">::value>::type*/>\n";
         result += "void assign(T& self, " + state.namespace_name + "::" + type_name + "&& other)\n";
         result += "{\n";
         for (auto member_pair : members)
