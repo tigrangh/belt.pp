@@ -30,6 +30,9 @@
 ## belt.pp is analogue to ...?
 protobuf, I guess.
 
+## why?
+why not?
+
 ## how does the IDL look like?
 ```cpp
 module TheProtocol
