@@ -11,10 +11,10 @@
 + IDL is used to define model specification which is turned to a set of cpp classes by the code generator
 
 ## details on supported/unsupported features/technologies
-+ *dependencies?* just the system windows/linux/macos
++ *dependencies?* just the system - windows/linux/macos
 + *UDP?* not yet
 + *asynchronous interface?* yes, please!
-+ *multithreading necessary?* no
++ *multithreading necessary?* nope
 + *SSL/TLS?* no. use a proxy server
 + ipv6 vs ipv4? code is generic, but a bug exists on windows leaving ipv4 option only
 + multiple connections served by single socket object!
