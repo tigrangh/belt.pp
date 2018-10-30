@@ -1188,6 +1188,8 @@ void delete_channel(detail::socket_internals* pimpl, uint64_t current_id)
                 }
 
                 current_channel.m_closed = true;
+                current_channel.m_receive_stream = beltpp::queue<char>();
+                current_channel.m_send_stream = beltpp::queue<char>();
 
                 event_handler::task action = event_handler::task::accept;
                 if (current_channel.m_type == detail::channel::type::streaming)
