@@ -1032,7 +1032,7 @@ sockets socket(addrinfo* servinfo,
             int res = ::setsockopt(socket_descriptor.handle,
                                    SOL_SOCKET,
                                    SO_KEEPALIVE,
-                                   &yes,
+                                   native::sockopttype(&yes),
                                    sizeof(int));
 
 #ifdef B_OS_WINDOWS
