@@ -32,9 +32,16 @@ public:
     using peer_id = isocket::peer_id;
     using peer_ids = std::list<peer_id>;
     using packets = isocket::packets;
+    enum option
+    {
+        option_none = 0x0,
+        option_reuse_port = 0x1,
+        option_keep_alive = 0x2
+    };
 
     socket(event_handler& eh,
            detail::fptr_message_loader _fmessage_loader,
+           option e_option,
            beltpp::void_unique_ptr&& putl);
     socket(socket&& other);
     ~socket() override;
@@ -63,19 +70,23 @@ private:
 };
 
 template <typename T_socket_family>
-socket getsocket(event_handler& eh, beltpp::void_unique_ptr&& putl)
+socket getsocket(event_handler& eh,
+                 socket::option e_option,
+                 beltpp::void_unique_ptr&& putl)
 {
     return
     socket(eh,
            T_socket_family::fmessage_loader,
+           e_option,
            std::move(putl));
 }
 
 template <typename T_socket_family>
-socket getsocket(event_handler& eh)
+socket getsocket(event_handler& eh,
+                 socket::option e_option = socket::option_none)
 {
     beltpp::void_unique_ptr putl = beltpp::new_void_unique_ptr<beltpp::message_loader_utility>();
-    return getsocket<T_socket_family>(eh, std::move(putl));
+    return getsocket<T_socket_family>(eh, e_option, std::move(putl));
 }
 
 }

@@ -60,7 +60,6 @@ class channel
 {
 public:
     enum class type {listening, streaming};
-    //enum class status {idle, need_scan, need_read};
 
     channel(size_t attempts = 0,
             native::socket_handle&& socket_descriptor = native::socket_handle(),
@@ -95,9 +94,11 @@ class socket_internals
 public:
     socket_internals(beltpp::event_handler& eh,
                      detail::fptr_message_loader fmessage_loader,
+                     beltpp::socket::option e_option,
                      beltpp::void_unique_ptr&& putl)
         : m_peh(&eh)
         , m_fmessage_loader(fmessage_loader)
+        , m_option(e_option)
         , m_putl(std::move(putl))
     {
         if (0 == counter)
@@ -118,6 +119,7 @@ public:
 
     beltpp::event_handler* m_peh;
     detail::fptr_message_loader m_fmessage_loader;
+    beltpp::socket::option m_option;
     beltpp::void_unique_ptr m_putl;
     std::list<channels> m_lst_channels;
     std::mutex m_mutex;
@@ -141,6 +143,7 @@ void getaddressinfo(ptr_addrinfo& servinfo,
 sockets socket(addrinfo* servinfo,
                bool bind,
                bool reuse,
+               bool alive,
                bool non_blocking);
 beltpp::socket::peer_id add_channel(beltpp::socket& self,
                                     detail::socket_internals* pimpl,
@@ -166,10 +169,12 @@ ip_address get_socket_bundle(native::socket_handle const& socket_descriptor);
  */
 socket::socket(event_handler& eh,
                detail::fptr_message_loader _fmessage_loader,
+               option e_option,
                beltpp::void_unique_ptr&& putl)
     : isocket(eh)
     , m_pimpl(new detail::socket_internals(eh,
                                            _fmessage_loader,
+                                           e_option,
                                            std::move(putl)))
 {
 }
@@ -208,7 +213,8 @@ peer_ids socket::listen(ip_address const& address, int backlog/* = 100*/)
 
     sockets arr_sockets = detail::socket(ptr_servinfo.get(),
                                          true,    //  bind
-                                         true,    //  reuse
+                                         (m_pimpl->m_option & option_reuse_port),
+                                         (m_pimpl->m_option & option_keep_alive),
                                          true);   //  non blocking
 
     for (auto& socket_info : arr_sockets)
@@ -277,7 +283,8 @@ peer_ids socket::open(ip_address address, size_t attempts/* = 0*/)
 
     sockets arr_sockets = detail::socket(ptr_localinfo.get(),
                                          bind,    //  bind, always true
-                                         true,    //  reuse
+                                         (m_pimpl->m_option & option_reuse_port),
+                                         (m_pimpl->m_option & option_keep_alive),
                                          true);   //  non blocking
 
     for (auto& socket_info : arr_sockets)
@@ -923,6 +930,7 @@ void getaddressinfo(ptr_addrinfo& ptr_servinfo,
 sockets socket(addrinfo* servinfo,
                bool bind,
                bool reuse,
+               bool alive,
                bool non_blocking)
 {
     sockets result;
@@ -1008,13 +1016,34 @@ sockets socket(addrinfo* servinfo,
 #ifdef B_OS_WINDOWS
             int yes = 1;
             int res = ::setsockopt(socket_descriptor.handle,
-                SOL_SOCKET,
-                SO_EXCLUSIVEADDRUSE,
-                native::sockopttype(&yes),
-                sizeof(int));
+                                   SOL_SOCKET,
+                                   SO_EXCLUSIVEADDRUSE,
+                                   native::sockopttype(&yes),
+                                   sizeof(int));
 
             if (res != NO_ERROR)
                 throw std::runtime_error("setsockopt(): " + native::net_last_error());
+#endif
+        }
+
+        if (alive)
+        {
+            int yes = 1;
+            int res = ::setsockopt(socket_descriptor.handle,
+                                   SOL_SOCKET,
+                                   SO_KEEPALIVE,
+                                   &yes,
+                                   sizeof(int));
+
+#ifdef B_OS_WINDOWS
+            if (res != NO_ERROR)
+                throw std::runtime_error("setsockopt(): " + native::net_last_error());
+#else
+            if (-1 == res)
+            {
+                string setsockopt_error = native::net_last_error();
+                throw std::runtime_error("setsockopt(): " + setsockopt_error);
+            }
 #endif
         }
 
