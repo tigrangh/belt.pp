@@ -1081,7 +1081,7 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
 
     auto& lst_channels = pimpl->m_lst_channels;
     if (lst_channels.empty())
-        lst_channels.emplace_back(channels(16));
+        lst_channels.emplace_back(channels(4));
     auto it_channels = lst_channels.end();
     --it_channels;
     if (it_channels->full())

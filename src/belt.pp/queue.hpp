@@ -210,7 +210,7 @@ public:
         {
             size_t newsize = m_i_size;
             if (0 == newsize)
-                newsize = 16;
+                newsize = 64;
             newsize *= 2;
 
             beltpp::queue<T> newqueue(newsize, end_index(), m_i_size);
