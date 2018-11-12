@@ -720,6 +720,15 @@ ip_address socket::info(peer_id const& peer) const
 
     return current_channel.m_socket_bundle;
 }
+ip_address socket::info_fetch(peer_id const& peer) const
+{
+    uint64_t current_id = detail::parse_peer_id(peer);
+    detail::channel& current_channel =
+            detail::get_channel(m_pimpl.get(),
+                                current_id);
+
+    return detail::get_socket_bundle(current_channel.m_socket_descriptor);
+}
 
 string socket::dump() const
 {
