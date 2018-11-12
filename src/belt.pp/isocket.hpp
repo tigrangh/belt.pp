@@ -28,6 +28,10 @@ public:
     {
         return (address == other.address && port == other.port);
     }
+    bool operator != (ip_destination const& other) const noexcept
+    {
+        return false == (operator == (other));
+    }
 };
 
 class ip_address
@@ -59,6 +63,17 @@ public:
         , local(dest.address, dest.port)
         , remote()
     {}
+
+    bool operator == (ip_address const& other) const noexcept
+    {
+        return (local == other.local &&
+                remote == other.remote &&
+                ip_type == other.ip_type);
+    }
+    bool operator != (ip_address const& other) const noexcept
+    {
+        return false == (operator == (other));
+    }
 
     std::string to_string() const
     {
@@ -211,11 +226,6 @@ private:
     }
 
 public:
-
-    bool operator == (ip_address const& other) const noexcept
-    {
-        return (ip_type == other.ip_type && local == other.local && remote == other.remote);
-    }
 
     e_type ip_type;
     ip_destination local;
