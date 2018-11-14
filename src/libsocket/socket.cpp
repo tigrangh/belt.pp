@@ -720,15 +720,6 @@ ip_address socket::info(peer_id const& peer) const
 
     return current_channel.m_socket_bundle;
 }
-ip_address socket::info_fetch(peer_id const& peer) const
-{
-    uint64_t current_id = detail::parse_peer_id(peer);
-    detail::channel& current_channel =
-            detail::get_channel(m_pimpl.get(),
-                                current_id);
-
-    return detail::get_socket_bundle(current_channel.m_socket_descriptor);
-}
 
 string socket::dump() const
 {
@@ -1147,8 +1138,17 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
 
         socket_bundle = detail::get_socket_bundle(socket_descriptor);
 
-        if (socket_bundle.remote.empty())
-            socket_bundle.remote = paddress->remote;
+        //  for example we are trying to connect to "remote.host.com"
+        //  it is possible that get_socket_bundle will be able to get
+        //  the ip address of that host, at this point, or it won't
+        //  that's because the connect works asynchronously
+
+        //  when it does not succeed, socket_bundle.remote remains empty
+
+        //  to get a consistent behavior, we keep the "remote.host.com" in
+        //  channel's m_socket_bundle member in any case
+
+        socket_bundle.remote = paddress->remote;
 
         assert(false == socket_bundle.remote.empty());
     }

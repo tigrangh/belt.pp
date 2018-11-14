@@ -62,7 +62,6 @@ public:
     void timer_action() override;
 
     ip_address info(peer_id const& peer) const;
-    ip_address info_fetch(peer_id const& peer) const;
 
     std::string dump() const;
 
