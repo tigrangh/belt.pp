@@ -159,7 +159,7 @@ string analyze(state_holder& state,
                 if (item->children.size() != 2 ||
                     item->children.front()->lexem.rtt != identifier::rtt ||
                     item->children.back()->lexem.rtt != scope_brace::rtt)
-                    throw runtime_error("type syntax is wrong");
+                    throw runtime_error("class syntax is wrong");
 
                 string type_name = item->children.front()->lexem.value;
 
@@ -172,6 +172,21 @@ string analyze(state_holder& state,
                 class_names.insert(std::make_pair(rtt, type_name));
                 name_to_code.insert(std::make_pair(type_name, code));
                 ++rtt;
+            }
+            else if (item->lexem.rtt == keyword_enum::rtt)
+            {
+                if (item->children.size() != 2 ||
+                    item->children.front()->lexem.rtt != identifier::rtt ||
+                    item->children.back()->lexem.rtt != scope_brace::rtt)
+                    throw runtime_error("enum syntax is wrong");
+
+                string enum_name = item->children.front()->lexem.value;
+
+                string code = analyze_enum(state,
+                                           item->children.back(),
+                                           enum_name);
+
+                result += code;
             }
         }
     }
@@ -363,7 +378,7 @@ string analyze_struct(state_holder& state,
     result += "std::string saver(" + type_name + " const& self);\n";
     result += "}\n";
 
-    result += "}   // end of namespace " + state.namespace_name + "\n";
+    result += "}   //  end of namespace " + state.namespace_name + "\n";
 
     if (false == members.empty())
     {
@@ -385,7 +400,7 @@ string analyze_struct(state_holder& state,
         result += "          typename = typename std::enable_if<!std::is_reference<T>::value && !std::is_same<T, " + state.namespace_name + "::" + type_name + ">::value>::type>\n";
         result += "void assign(T& self, " + state.namespace_name + "::" + type_name + "&& other);\n";
 
-        result += "}   // end of namespace beltpp\n";
+        result += "}   //  end of namespace beltpp\n";
     }
 
     result += "namespace " + state.namespace_name + "\n";
@@ -605,9 +620,9 @@ string analyze_struct(state_holder& state,
     result += "            throw std::runtime_error(\"cannot parse " + type_name + " data\");\n";
     result += "    }\n";
 
-    result += "};  // end of class\n";
+    result += "};  //  end of class\n";
 
-    result += "}   // end of namespace " + state.namespace_name + "\n";
+    result += "}   //  end of namespace " + state.namespace_name + "\n";
 
     if (false == members.empty())
     {
@@ -676,7 +691,7 @@ string analyze_struct(state_holder& state,
         result += "    ::beltpp::assign(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
         }
         result += "}\n";
-        result += "}   // end of namespace beltpp\n";
+        result += "}   //  end of namespace beltpp\n";
     }
     string const message_placeholder = members.empty() ? string() : " message";
     string const utl_placeholder = members.empty() ? string() : " utl";
@@ -769,10 +784,90 @@ string analyze_struct(state_holder& state,
     result += "        return hasher(" + state.namespace_name + "::detail::saver(value));\n";
     result += "    }\n";
     result += "};\n";
-    result += "}   //end of namespace std\n";
+    result += "}   //  end of namespace std\n";
     result += "\n";
     result += "namespace " + state.namespace_name + "\n";
     result += "{\n";
 
+    return result;
+}
+
+string analyze_enum(state_holder& state,
+                    expression_tree const* pexpression,
+                    string const& enum_name)
+{
+    if (state.namespace_name.empty())
+        throw runtime_error("please specify package name");
+
+    string result;
+
+    if (pexpression->children.empty())
+        throw runtime_error("inside enum syntax error, wtf - " + enum_name);
+
+    result = "enum class " + enum_name + "\n";
+
+    bool first = true;
+    for (auto const& item : pexpression->children)
+    {
+        if (first)
+            result += "{";
+        else
+            result += ",";
+        result += "\n    " + item->lexem.value;
+
+        first = false;
+    }
+
+    result += "\n};\n";
+
+    result += "}   //  end of namespace " + state.namespace_name + "\n";
+
+    result += "namespace beltpp\n";
+    result += "{\n";
+    result += "    //  assign massign\n";
+    result += "}   //  end of namespace beltpp\n";
+
+    result += "namespace " + state.namespace_name + "\n";
+    result += "{\n";
+    result += "namespace detail\n";
+    result += "{\n";
+    result += "inline\n";
+    result += "bool analyze_json(" + enum_name + "& value,\n";
+    result += "                  beltpp::json::expression_tree* pexp,\n";
+    result += "                  ::beltpp::message_loader_utility const& utl)\n";
+    result += "{\n";
+    result += "    std::string string_value;\n";
+    result += "    if (false == analyze_json(string_value, pexp, utl))\n";
+    result += "        return false;\n";
+
+    for (auto const& item : pexpression->children)
+    {
+        result += "    if (\"" + item->lexem.value + "\" == string_value)\n";
+        result += "    {\n";
+        result += "        value = " + enum_name + "::" + item->lexem.value + ";\n";
+        result += "        return true;\n";
+        result += "    }\n";
+    }
+    result += "    return false;\n";
+    result += "}\n";
+
+    result += "inline\n";
+    result += "std::string saver(" + enum_name + " const& value)\n";
+    result += "{\n";
+    result += "    switch (value)\n";
+    result += "    {\n";
+    for (auto const& item : pexpression->children)
+    {
+        result += "    case " + enum_name + "::" + item->lexem.value + ":\n";
+        result += "        return saver(\"" + item->lexem.value + "\");\n";
+    }
+    result += "    }\n";
+    result += "}\n";
+    result += "}   //  end of namespace detail\n";
+    result += "}   //  end of namespace " + state.namespace_name + "\n";
+
+    result += "\n";
+    result += "namespace " + state.namespace_name + "\n";
+    result += "{\n";
     return result;
 }
