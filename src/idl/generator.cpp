@@ -862,6 +862,9 @@ string analyze_enum(state_holder& state,
         result += "        return saver(\"" + item->lexem.value + "\");\n";
     }
     result += "    }\n";
+    result += "    //  msvc thinks this is an execution path that needs to be covered\n";
+    result += "    assert(false);\n";
+    result += "    throw std::runtime_error(\"case that must never happen\");\n";
     result += "}\n";
     result += "}   //  end of namespace detail\n";
     result += "}   //  end of namespace " + state.namespace_name + "\n";
