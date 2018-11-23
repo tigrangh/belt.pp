@@ -859,7 +859,7 @@ string analyze_enum(state_holder& state,
     for (auto const& item : pexpression->children)
     {
         result += "    case " + enum_name + "::" + item->lexem.value + ":\n";
-        result += "        return saver(\"" + item->lexem.value + "\");\n";
+        result += "        return saver(std::string(\"" + item->lexem.value + "\"));\n";
     }
     result += "    }\n";
     result += "    //  msvc thinks this is an execution path that needs to be covered\n";
