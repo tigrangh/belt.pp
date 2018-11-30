@@ -832,6 +832,29 @@ string analyze_enum(state_holder& state,
     result += "namespace detail\n";
     result += "{\n";
     result += "inline\n";
+    result += "void from_string(std::string const& string_value,\n";
+    result += "                 " + enum_name + "& value)\n";
+    result += "{\n";
+    for (auto const& item : pexpression->children)
+    {
+        result += "    if (\"" + item->lexem.value + "\" == string_value)\n";
+        result += "    {\n";
+        result += "        value = " + enum_name + "::" + item->lexem.value + ";\n";
+        result += "        return;\n";
+        result += "    }\n";
+    }
+    result += "    throw std::runtime_error(string_value + \": is not recognized by enum " + enum_name + " {";
+    first = true;
+    for (auto const& item : pexpression->children)
+    {
+        if (false == first)
+            result += ", ";
+        result += item->lexem.value;
+        first = false;
+    }
+    result += "}\");\n";
+    result += "}\n";
+    result += "inline\n";
     result += "bool analyze_json(" + enum_name + "& value,\n";
     result += "                  beltpp::json::expression_tree* pexp,\n";
     result += "                  ::beltpp::message_loader_utility const& utl)\n";
