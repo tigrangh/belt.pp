@@ -105,7 +105,9 @@ size_t recv(beltpp::detail::event_handler_impl* peh,
         if (len > async_data->bytes_copied_recv - async_data->bytes_offset)
             len = async_data->bytes_copied_recv - async_data->bytes_offset;
 
-        memcpy(buf, async_data->receive_buffer + async_data->bytes_offset, len);
+        memmove(static_cast<void*>(buf),
+                static_cast<void const*>(async_data->receive_buffer + async_data->bytes_offset),
+                len);
 
         async_data->bytes_offset += (DWORD)len;
         if (async_data->bytes_copied_recv == async_data->bytes_offset)
@@ -158,7 +160,9 @@ void async_send(SOCKET /*socket_descriptor*/,
 
     if (stream_was_empty)
     {
-        strcpy_s(async_data->send_buffer, message_copy.c_str());
+        memmove(static_cast<void*>(async_data->send_buffer),
+                static_cast<void const*>(message_copy.c_str()),
+                message_copy.size());
         async_data->action = event_handler::task::send;
 
         async_data->async_task_running &= ~async_data->async_task_running_send;
@@ -227,8 +231,11 @@ size_t send(SOCKET /*socket_descriptor*/,
         std::string message(send_stream.cbegin(), send_stream.cend());
         if (message.length() > 4 * 1024)
             message.resize(4 * 1024 - 1);
+        
+        memmove(static_cast<void*>(async_data->send_buffer),
+                static_cast<void const*>(message.c_str()),
+                message.size());
 
-        strcpy_s(async_data->send_buffer, message.c_str());
         async_data->action = event_handler::task::send;
 
         async_data->init_send(message.length());
