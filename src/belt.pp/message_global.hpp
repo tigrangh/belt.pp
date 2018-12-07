@@ -40,7 +40,7 @@ class session_special_data
 {
 public:
     session_special_data()
-        : parser_unrecognized_limit(1024)
+        : parser_unrecognized_limit(1024 * 1024)
         , ptr_data(beltpp::t_unique_nullptr<iscan_status>())
         , session_specal_handler(nullptr)
         , autoreply() {}
