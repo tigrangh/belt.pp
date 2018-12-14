@@ -32,6 +32,7 @@ set(SRC_FILES
     processor.hpp
     queue.hpp
     scope_helper.hpp
+    session_manager.hpp
     socket.hpp
     timer.hpp
     utility.hpp)
