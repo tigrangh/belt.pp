@@ -171,7 +171,7 @@ else  //  client mode
 ```console
 user@pc:~$ mkdir projects
 user@pc:~$ cd projects
-user@pc:~/projects$ git clone https://github.com/PubliqNetwork/belt.pp
+user@pc:~/projects$ git clone https://github.com/publiqnet/belt.pp
 user@pc:~/projects$ mkdir belt.pp.build
 user@pc:~/projects$ cd belt.pp.build
 user@pc:~/projects/belt.pp.build$ cmake -DCMAKE_INSTALL_PREFIX=./install ../belt.pp
