@@ -24,7 +24,6 @@
 + *32 bit build?* never tried to fix build errors/warnings
 + *header only?* no.
 + c++11
-+ currently being developed for a p2p networking code, for this reason SO_REUSEPORT and/or SO_REUSEADDRESS socket options are set by default.
 + *unicode support?* JSON encode/decode follows the rules to handle the string cases, the rest of the code assumes that std::string is utf8 encoded.
 
 ## belt.pp is analogue to ...?
@@ -169,13 +168,14 @@ else  //  client mode
 ```
 
 ## how to build belt.pp?
-```
-cd to_somewhere
-git clone https://github.com/PubliqNetwork/belt.pp
-mkdir belt.pp.build
-cd belt.pp.build
-cmake -DCMAKE_INSTALL_PREFIX=./install ../belt.pp
-cmake --build . --target install
+```console
+user@pc:~$ mkdir projects
+user@pc:~$ cd projects
+user@pc:~/projects$ git clone https://github.com/PubliqNetwork/belt.pp
+user@pc:~/projects$ mkdir belt.pp.build
+user@pc:~/projects$ cd belt.pp.build
+user@pc:~/projects/belt.pp.build$ cmake -DCMAKE_INSTALL_PREFIX=./install ../belt.pp
+user@pc:~/projects/belt.pp.build$ cmake --build . --target install
 ```
 
 ## how to link to belt.pp?
