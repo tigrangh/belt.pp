@@ -318,6 +318,70 @@ bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
                   typename T_expression_tree::ctoken const& default_operator);
 }   //  end detail
 
+
+
+inline
+std::string::const_iterator
+check_begin(std::string::const_iterator const& iter_scan_begin,
+            std::string::const_iterator const& iter_scan_end,
+            std::string const& value) noexcept
+{
+    auto it_scan = iter_scan_begin;
+    auto it_value = value.begin();
+
+    while (true)
+    {
+        if (it_scan == iter_scan_end ||
+            it_value == value.end())
+            break;
+
+        if (*it_value == *it_scan)
+        {
+            ++it_value;
+            ++it_scan;
+        }
+        else
+        {
+            it_scan = iter_scan_begin;
+            break;
+        }
+    }
+
+    return it_scan;
+}
+
+inline
+std::pair<std::string::const_iterator, std::string::const_iterator>
+check_end(std::string::const_iterator const& iter_scan_begin,
+          std::string::const_iterator const& iter_scan_end,
+          std::string const& value) noexcept
+{
+    auto it_scan_begin = iter_scan_begin;
+    auto it_scan = it_scan_begin;
+    auto it_value = value.begin();
+
+    while (true)
+    {
+        if (it_scan == iter_scan_end ||
+            it_value == value.end())
+            break;
+
+        if (*it_value == *it_scan)
+        {
+            ++it_value;
+            ++it_scan;
+        }
+        else
+        {
+            it_value = value.begin();
+            ++it_scan_begin;
+            it_scan = it_scan_begin;
+        }
+    }
+
+    return std::make_pair(it_scan_begin, it_scan);
+}
+
 template <typename T_iterator,
           typename T_expression_tree>
 e_three_state_result parse(std::unique_ptr<T_expression_tree>& ptr_expression,
