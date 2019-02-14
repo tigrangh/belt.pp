@@ -16,9 +16,9 @@ event_handler::event_handler()
 {
 }
 
-event_handler::~event_handler()
-{
-}
+event_handler::event_handler(event_handler&&) = default;
+
+event_handler::~event_handler() = default;
 
 event_handler::wait_result event_handler::wait(std::unordered_set<ievent_item const*>& set_items)
 {

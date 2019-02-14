@@ -22,6 +22,7 @@ public:
     friend class ievent_item;
 
     event_handler();
+    event_handler(event_handler&&);
     ~event_handler() override;
 
     wait_result wait(std::unordered_set<ievent_item const*>& set_items) override;
