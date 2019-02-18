@@ -22,8 +22,10 @@ std::string analyze_struct(state_holder& state,
                            expression_tree const* pexpression,
                            size_t rtt,
                            std::string const& type_name,
-                           std::unordered_multimap<std::string, std::string>& dependencies);
+                           std::unordered_multimap<std::string, std::string>& dependencies,
+                           std::string& json_schema);
 
 std::string analyze_enum(state_holder& state,
                          expression_tree const* pexpression,
-                         std::string const& type_name);
+                         std::string const& type_name,
+                         std::string& json_schema);

@@ -140,6 +140,7 @@ string analyze(state_holder& state,
     unordered_map<size_t, string> class_names;
     unordered_map<string, string> name_to_code;
     unordered_multimap<string, string> dependencies;
+    std::string json_schema;
 
     if (pexpression->lexem.rtt != keyword_module::rtt ||
         pexpression->children.size() != 2 ||
@@ -167,7 +168,8 @@ string analyze(state_holder& state,
                                              item->children.back(),
                                              rtt,
                                              type_name,
-                                             dependencies);
+                                             dependencies,
+                                             json_schema);
 
                 class_names.insert(std::make_pair(rtt, type_name));
                 name_to_code.insert(std::make_pair(type_name, code));
@@ -184,7 +186,8 @@ string analyze(state_holder& state,
 
                 string code = analyze_enum(state,
                                            item->children.back(),
-                                           enum_name);
+                                           enum_name,
+                                           json_schema);
 
                 result += code;
             }
@@ -240,7 +243,6 @@ string analyze(state_holder& state,
             else
                 ++it_code;
         }
-
         if (no_progress)
             throw std::runtime_error("most probably there is a cyclic dependency"
                                      " in the model definition");
@@ -277,7 +279,8 @@ public:
         return analyze_json(*pmsgcode, pexp, utl);
     }
     static std::vector<storage_item> const s_arr_fptr;
-};
+    static const std::string json_schema;
+};             
 template <typename T>
 std::vector<typename storage<T>::storage_item> const storage<T>::s_arr_fptr =
 {
@@ -300,9 +303,16 @@ std::vector<typename storage<T>::storage_item> const storage<T>::s_arr_fptr =
         if (index != max_rtt)
             result += ",\n";
     }
-    result += R"foo(
-};
+    result += "\n};";
 
+    result += "template <typename T>\n";
+    result += "std::string const storage<T>::json_schema = R\"foo(\n";
+    result += "{\n";
+    result += json_schema;
+    result += "}\n";
+    result += ")foo\";";
+
+    result += R"foo(                     
 bool analyze_json_object(beltpp::json::expression_tree* pexp,
                          beltpp::detail::pmsg_all& return_value,
                          ::beltpp::message_loader_utility const& utl)
@@ -344,7 +354,8 @@ string analyze_struct(state_holder& state,
                       expression_tree const* pexpression,
                       size_t rtt,
                       string const& type_name,
-                      unordered_multimap<string, string>& dependencies)
+                      unordered_multimap<string, string>& dependencies,
+                      string& json_schema)
 {
     if (state.namespace_name.empty())
         throw runtime_error("please specify package name");
@@ -371,7 +382,6 @@ string analyze_struct(state_holder& state,
     }
 
     string result;
-
     result += "class " + type_name + ";\n";
     result += "namespace detail\n";
     result += "{\n";
@@ -418,6 +428,12 @@ string analyze_struct(state_holder& state,
 
     unordered_set<string> member_type_names;
 
+    json_schema += "    \"" + type_name + "\": {\n";
+    json_schema += "        \"type\": \"object\",\n";
+    json_schema += "        \"rtt\": " + std::to_string(rtt) + ",\n";
+    json_schema += "        \"properties\": {\n";
+
+
     for (auto member_pair : members)
     {
         auto const& member_name = member_pair.first->lexem;
@@ -433,6 +449,18 @@ string analyze_struct(state_holder& state,
 
         result += "    " + member_type_name + " " + member_name.value + ";\n";
 
+        if (member_pair.second->lexem.rtt == keyword_array::rtt)
+        {
+            json_schema += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + "\",\n";
+            json_schema += "                \"items\" : { \n";
+            json_schema += "                     \"type\" : \"" + member_type->children.front()->lexem.value + "\"\n";
+            json_schema += "                 }\n";
+            json_schema += "             },\n";
+        }
+        else
+        {
+            json_schema += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + "\"},\n";
+        }
         if (type_detail & type_object)
             set_object_name.insert(member_name.value);
         else if (type_detail & type_extension)
@@ -440,6 +468,9 @@ string analyze_struct(state_holder& state,
 
         map_member_name_type.insert(std::make_pair(member_name.value, member_type_name));
     }
+
+    json_schema += "        }\n";
+    json_schema += "    }\n\n";
 
     for (string const& dependency_type_name : member_type_names)
         dependencies.insert(std::make_pair(type_name, dependency_type_name));
@@ -794,7 +825,8 @@ string analyze_struct(state_holder& state,
 
 string analyze_enum(state_holder& state,
                     expression_tree const* pexpression,
-                    string const& enum_name)
+                    string const& enum_name,
+                    string& json_schema)
 {
     if (state.namespace_name.empty())
         throw runtime_error("please specify package name");
@@ -806,9 +838,14 @@ string analyze_enum(state_holder& state,
 
     result = "enum class " + enum_name + "\n";
 
+    json_schema += "    \"" + enum_name + "\": {\n";
+    json_schema += "        \"type\": \"enum\",\n";
+    json_schema += "        \"properties\": {\n";
+
     bool first = true;
     for (auto const& item : pexpression->children)
     {
+        json_schema += "            \"" + item->lexem.value + "\",\n";
         if (first)
             result += "{";
         else
@@ -817,6 +854,7 @@ string analyze_enum(state_holder& state,
 
         first = false;
     }
+    json_schema += "    }\n\n";
 
     result += "\n};\n";
 
