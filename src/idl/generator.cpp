@@ -303,7 +303,7 @@ std::vector<typename storage<T>::storage_item> const storage<T>::s_arr_fptr =
         if (index != max_rtt)
             result += ",\n";
     }
-    result += "\n};";
+    result += "\n};\n";
 
     result += "template <typename T>\n";
     result += "std::string const storage<T>::json_schema = R\"foo(\n";
@@ -449,24 +449,17 @@ string analyze_struct(state_holder& state,
 
         result += "    " + member_type_name + " " + member_name.value + ";\n";
 
-        if (member_pair.second->lexem.rtt == keyword_array::rtt)
-        {
-            json_schema += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + "\",\n";
-            json_schema += "                \"items\" : { \n";
-            json_schema += "                     \"type\" : \"" + member_type->children.front()->lexem.value + "\"\n";
-            json_schema += "                 }\n";
-            json_schema += "             },\n";
-        }
-        else
-        {
-            json_schema += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + "\"},\n";
-        }
         if (type_detail & type_object)
             set_object_name.insert(member_name.value);
         else if (type_detail & type_extension)
             set_extension_name.insert(member_name.value);
 
         map_member_name_type.insert(std::make_pair(member_name.value, member_type_name));
+
+        if (member_pair.second->lexem.rtt == keyword_array::rtt)
+            json_schema += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value  + " " + member_type->children.front()->lexem.value  + "\"},\n";
+        else
+            json_schema += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + "\"},\n";
     }
 
     json_schema += "        }\n";
