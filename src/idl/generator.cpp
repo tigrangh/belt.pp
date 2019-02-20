@@ -463,7 +463,7 @@ string analyze_struct(state_holder& state,
     }
 
     json_schema += "        }\n";
-    json_schema += "    }\n\n";
+    json_schema += "    },\n\n";
 
     for (string const& dependency_type_name : member_type_names)
         dependencies.insert(std::make_pair(type_name, dependency_type_name));
@@ -833,7 +833,7 @@ string analyze_enum(state_holder& state,
 
     json_schema += "    \"" + enum_name + "\": {\n";
     json_schema += "        \"type\": \"enum\",\n";
-    json_schema += "        \"properties\": {\n";
+    json_schema += "        \"values\": {\n";
 
     bool first = true;
     for (auto const& item : pexpression->children)
@@ -847,7 +847,8 @@ string analyze_enum(state_holder& state,
 
         first = false;
     }
-    json_schema += "    }\n\n";
+    json_schema += "        }\n";
+    json_schema += "    },\n\n";
 
     result += "\n};\n";
 
