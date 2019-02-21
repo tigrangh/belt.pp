@@ -152,10 +152,10 @@ string analyze(state_holder& state,
     {
         string module_name = pexpression->children.front()->lexem.value;
         state.namespace_name = module_name;
-        size_t not_last = pexpression->children.back()->children.size();
+        size_t remain_count = pexpression->children.back()->children.size();
         for (auto item : pexpression->children.back()->children)
         {
-            not_last--;
+            remain_count--;
             if (item->lexem.rtt == keyword_class::rtt)
             {
                 if (item->children.size() != 2 ||
@@ -164,26 +164,18 @@ string analyze(state_holder& state,
                     throw runtime_error("class syntax is wrong");
 
                 string type_name = item->children.front()->lexem.value;
-
-                json_schema += "    \"" + type_name + "\": {\n";
-                json_schema += "        \"type\": \"object\",\n";
-                json_schema += "        \"rtt\": " + std::to_string(rtt) + ",\n";
-                json_schema += "        \"properties\": {\n";
                 std::string class_members;
-
                 string code = analyze_struct(state,
                                              item->children.back(),
                                              rtt,
                                              type_name,
                                              dependencies,
                                              class_members);
-
                 json_schema += class_members;
-                json_schema += "        }\n";
-                if (not_last)
-                    json_schema += "    },\n\n";
+                if (remain_count > 0)
+                    json_schema += ",\n\n";
                 else
-                    json_schema += "    }\n\n";
+                    json_schema += "\n";
 
                 class_names.insert(std::make_pair(rtt, type_name));
                 name_to_code.insert(std::make_pair(type_name, code));
@@ -197,20 +189,17 @@ string analyze(state_holder& state,
                     throw runtime_error("enum syntax is wrong");
 
                 string enum_name = item->children.front()->lexem.value;
-
-                json_schema += "    \"" + enum_name + "\": {\n";
-                json_schema += "        \"type\": \"enum\",\n";
-                json_schema += "        \"values\": [\n";
                 std::string enum_members;
-
                 string code = analyze_enum(state,
                                            item->children.back(),
                                            enum_name,
                                            enum_members);
-
                 json_schema += enum_members;
-                json_schema += "        ]\n";
-                json_schema += "    },\n\n";
+                if (remain_count > 0)
+                    json_schema += ",\n\n";
+                else
+                    json_schema += "\n";
+
                 result += code;
             }
         }
@@ -329,9 +318,9 @@ std::vector<typename storage<T>::storage_item> const storage<T>::s_arr_fptr =
 
     result += "template <typename T>\n";
     result += "std::string const storage<T>::json_schema = R\"foo(\n";
-    result += "{\n";
+    result += "{\n\n";
     result += json_schema;
-    result += "}\n";
+    result += "\n}\n";
     result += ")foo\";";
     result += R"foo(
 bool analyze_json_object(beltpp::json::expression_tree* pexp,
@@ -449,6 +438,11 @@ string analyze_struct(state_holder& state,
 
     unordered_set<string> member_type_names;
 
+    class_members += "    \"" + type_name + "\": {\n";
+    class_members += "        \"type\": \"object\",\n";
+    class_members += "        \"rtt\": " + std::to_string(rtt) + ",\n";
+    class_members += "        \"properties\": {\n";
+
     for (auto member_pair : members)
     {
         auto const& member_name = member_pair.first->lexem;
@@ -472,10 +466,13 @@ string analyze_struct(state_holder& state,
         map_member_name_type.insert(std::make_pair(member_name.value, member_type_name));
 
         if (member_pair.second->lexem.rtt == keyword_array::rtt)
-            class_members = "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value  + " " + member_type->children.front()->lexem.value  + "\"},\n";
+            class_members += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value  + " " + member_type->children.front()->lexem.value  + "\"},\n";
         else
-            class_members = "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + "\"},\n";
+            class_members += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + "\"},\n";
     }
+
+    class_members += "        }\n";
+    class_members += "    }";
 
     for (string const& dependency_type_name : member_type_names)
         dependencies.insert(std::make_pair(type_name, dependency_type_name));
@@ -844,13 +841,18 @@ string analyze_enum(state_holder& state,
     result = "enum class " + enum_name + "\n";
 
     bool first = true;
-    size_t not_last = pexpression->children.size();
+
+    size_t remain_count = pexpression->children.size();
+    enum_members += "    \"" + enum_name + "\": {\n";
+    enum_members += "        \"type\": \"enum\",\n";
+    enum_members += "        \"values\": [\n";
+
     for (auto const& item : pexpression->children)
     {
 
         enum_members += "            \"" + item->lexem.value + "\"";
-        not_last--;
-        if (not_last)
+        remain_count--;
+        if (remain_count > 0)
             enum_members += ",\n";
         else
             enum_members += "\n";
@@ -863,6 +865,9 @@ string analyze_enum(state_holder& state,
 
         first = false;
     }
+
+    enum_members += "        ]\n";
+    enum_members += "    }";
 
     result += "\n};\n";
     result += "}   //  end of namespace " + state.namespace_name + "\n";
