@@ -152,9 +152,10 @@ string analyze(state_holder& state,
     {
         string module_name = pexpression->children.front()->lexem.value;
         state.namespace_name = module_name;
-
+        size_t not_last = pexpression->children.back()->children.size();
         for (auto item : pexpression->children.back()->children)
         {
+            not_last--;
             if (item->lexem.rtt == keyword_class::rtt)
             {
                 if (item->children.size() != 2 ||
@@ -164,12 +165,25 @@ string analyze(state_holder& state,
 
                 string type_name = item->children.front()->lexem.value;
 
+                json_schema += "    \"" + type_name + "\": {\n";
+                json_schema += "        \"type\": \"object\",\n";
+                json_schema += "        \"rtt\": " + std::to_string(rtt) + ",\n";
+                json_schema += "        \"properties\": {\n";
+                std::string class_members;
+
                 string code = analyze_struct(state,
                                              item->children.back(),
                                              rtt,
                                              type_name,
                                              dependencies,
-                                             json_schema);
+                                             class_members);
+
+                json_schema += class_members;
+                json_schema += "        }\n";
+                if (not_last)
+                    json_schema += "    },\n\n";
+                else
+                    json_schema += "    }\n\n";
 
                 class_names.insert(std::make_pair(rtt, type_name));
                 name_to_code.insert(std::make_pair(type_name, code));
@@ -184,11 +198,19 @@ string analyze(state_holder& state,
 
                 string enum_name = item->children.front()->lexem.value;
 
+                json_schema += "    \"" + enum_name + "\": {\n";
+                json_schema += "        \"type\": \"enum\",\n";
+                json_schema += "        \"values\": [\n";
+                std::string enum_members;
+
                 string code = analyze_enum(state,
                                            item->children.back(),
                                            enum_name,
-                                           json_schema);
+                                           enum_members);
 
+                json_schema += enum_members;
+                json_schema += "        ]\n";
+                json_schema += "    },\n\n";
                 result += code;
             }
         }
@@ -279,8 +301,8 @@ public:
         return analyze_json(*pmsgcode, pexp, utl);
     }
     static std::vector<storage_item> const s_arr_fptr;
-    static const std::string json_schema;
-};             
+    static std::string const json_schema;
+};
 template <typename T>
 std::vector<typename storage<T>::storage_item> const storage<T>::s_arr_fptr =
 {
@@ -311,8 +333,7 @@ std::vector<typename storage<T>::storage_item> const storage<T>::s_arr_fptr =
     result += json_schema;
     result += "}\n";
     result += ")foo\";";
-
-    result += R"foo(                     
+    result += R"foo(
 bool analyze_json_object(beltpp::json::expression_tree* pexp,
                          beltpp::detail::pmsg_all& return_value,
                          ::beltpp::message_loader_utility const& utl)
@@ -355,7 +376,7 @@ string analyze_struct(state_holder& state,
                       size_t rtt,
                       string const& type_name,
                       unordered_multimap<string, string>& dependencies,
-                      string& json_schema)
+                      string& class_members)
 {
     if (state.namespace_name.empty())
         throw runtime_error("please specify package name");
@@ -428,12 +449,6 @@ string analyze_struct(state_holder& state,
 
     unordered_set<string> member_type_names;
 
-    json_schema += "    \"" + type_name + "\": {\n";
-    json_schema += "        \"type\": \"object\",\n";
-    json_schema += "        \"rtt\": " + std::to_string(rtt) + ",\n";
-    json_schema += "        \"properties\": {\n";
-
-
     for (auto member_pair : members)
     {
         auto const& member_name = member_pair.first->lexem;
@@ -457,13 +472,10 @@ string analyze_struct(state_holder& state,
         map_member_name_type.insert(std::make_pair(member_name.value, member_type_name));
 
         if (member_pair.second->lexem.rtt == keyword_array::rtt)
-            json_schema += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value  + " " + member_type->children.front()->lexem.value  + "\"},\n";
+            class_members = "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value  + " " + member_type->children.front()->lexem.value  + "\"},\n";
         else
-            json_schema += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + "\"},\n";
+            class_members = "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + "\"},\n";
     }
-
-    json_schema += "        }\n";
-    json_schema += "    },\n\n";
 
     for (string const& dependency_type_name : member_type_names)
         dependencies.insert(std::make_pair(type_name, dependency_type_name));
@@ -819,7 +831,7 @@ string analyze_struct(state_holder& state,
 string analyze_enum(state_holder& state,
                     expression_tree const* pexpression,
                     string const& enum_name,
-                    string& json_schema)
+                    string& enum_members)
 {
     if (state.namespace_name.empty())
         throw runtime_error("please specify package name");
@@ -831,14 +843,18 @@ string analyze_enum(state_holder& state,
 
     result = "enum class " + enum_name + "\n";
 
-    json_schema += "    \"" + enum_name + "\": {\n";
-    json_schema += "        \"type\": \"enum\",\n";
-    json_schema += "        \"values\": {\n";
-
     bool first = true;
+    size_t not_last = pexpression->children.size();
     for (auto const& item : pexpression->children)
     {
-        json_schema += "            \"" + item->lexem.value + "\",\n";
+
+        enum_members += "            \"" + item->lexem.value + "\"";
+        not_last--;
+        if (not_last)
+            enum_members += ",\n";
+        else
+            enum_members += "\n";
+
         if (first)
             result += "{";
         else
@@ -847,11 +863,8 @@ string analyze_enum(state_holder& state,
 
         first = false;
     }
-    json_schema += "        }\n";
-    json_schema += "    },\n\n";
 
     result += "\n};\n";
-
     result += "}   //  end of namespace " + state.namespace_name + "\n";
 
     result += "namespace beltpp\n";
