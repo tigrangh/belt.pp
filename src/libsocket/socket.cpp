@@ -65,6 +65,7 @@ public:
             native::socket_handle&& socket_descriptor = native::socket_handle(),
             type e_type = type::listening,
             ip_address socket_bundle = ip_address(),
+            ip_address socket_bundle_from_network = ip_address(),
             uint64_t eh_id = 0,
             native::sync_result const& sync_result = native::sync_result())
         : m_closed(false)
@@ -73,6 +74,7 @@ public:
         , m_attempts(attempts)
         , m_eh_id(eh_id)
         , m_socket_bundle(socket_bundle)
+        , m_socket_bundle_from_network(socket_bundle_from_network)
         , m_sync_result(sync_result)
     {}
 
@@ -82,6 +84,7 @@ public:
     size_t m_attempts;
     uint64_t m_eh_id;
     ip_address m_socket_bundle;
+    ip_address m_socket_bundle_from_network;
     beltpp::queue<char> m_receive_stream;
     beltpp::queue<char> m_send_stream;
     session_special_data m_special_data;
@@ -444,6 +447,8 @@ packets socket::receive(peer_id& peer)
                                                      current_channel.m_eh_id);
 
                 current_channel.m_attempts = 0;
+                current_channel.m_socket_bundle_from_network =
+                        detail::get_socket_bundle(socket_descriptor);
 
                 result.emplace_back(beltpp::isocket_join());
 
@@ -719,6 +724,16 @@ ip_address socket::info(peer_id const& peer) const
                                 current_id);
 
     return current_channel.m_socket_bundle;
+}
+
+ip_address socket::info_connection(peer_id const& peer) const
+{
+    uint64_t current_id = detail::parse_peer_id(peer);
+    detail::channel& current_channel =
+            detail::get_channel(m_pimpl.get(),
+                                current_id);
+
+    return current_channel.m_socket_bundle_from_network;
 }
 
 string socket::dump() const
@@ -1120,6 +1135,7 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
     });
 
     ip_address socket_bundle;
+    ip_address socket_bundle_from_network;
 
     native::sync_result connect_result;
 
@@ -1137,6 +1153,7 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
             pimpl->m_peh->m_pimpl->set_sync_result(eh_id);
 
         socket_bundle = detail::get_socket_bundle(socket_descriptor);
+        socket_bundle_from_network = socket_bundle;
 
         //  for example we are trying to connect to "remote.host.com"
         //  it is possible that get_socket_bundle will be able to get
@@ -1148,17 +1165,24 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
         //  to get a consistent behavior, we keep the "remote.host.com" in
         //  channel's m_socket_bundle member in any case
 
+        //  and as an alternative, there is m_socket_bundle_from_network,
+        //  which will store the ip address upon successful connection
+
         socket_bundle.remote = paddress->remote;
 
         assert(false == socket_bundle.remote.empty());
     }
     else
+    {
         socket_bundle = detail::get_socket_bundle(socket_descriptor);
+        socket_bundle_from_network = socket_bundle;
+    }
 
     it_channels->push(detail::channel(attempts,
                                       std::move(socket_descriptor),
                                       e_type,
                                       socket_bundle,
+                                      socket_bundle_from_network,
                                       eh_id,
                                       connect_result));
 
