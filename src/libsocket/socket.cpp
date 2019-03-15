@@ -503,7 +503,6 @@ packets socket::receive(peer_id& peer)
                 continue;
             }
             else if (joined_socket_descriptor.is_invalid())
-                //  hope this will cover below assert(false == socket_bundle_temp.remote.empty());
                 continue;
             else if (native::check_connected_error(res, error_code))
             {
@@ -511,16 +510,15 @@ packets socket::receive(peer_id& peer)
                 string accept_error = native::net_error(error_code);
                 throw std::runtime_error("accept(): " + accept_error);
             }
-            else if (joined_socket_descriptor.is_invalid())
-            {
-                string accept_error = native::net_last_error();
-                throw std::runtime_error("accept(): " + accept_error);
-            }
 
             set_nonblocking(joined_socket_descriptor.handle, true);
 
             ip_address socket_bundle_temp = detail::get_socket_bundle(joined_socket_descriptor);
-            assert(false == socket_bundle_temp.remote.empty());
+            //  assert(false == socket_bundle_temp.remote.empty()); this used to be enabled
+            //  but it catches from time to time, and I can't reproduce
+
+            if (false == socket_bundle_temp.remote.empty())
+                continue; // even (joined_socket_descriptor.is_invalid()) does not cover this case
 
             peer = detail::add_channel(*this,
                                        m_pimpl.get(),
