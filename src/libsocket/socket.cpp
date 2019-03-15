@@ -517,7 +517,7 @@ packets socket::receive(peer_id& peer)
             //  assert(false == socket_bundle_temp.remote.empty()); this used to be enabled
             //  but it catches from time to time, and I can't reproduce
 
-            if (false == socket_bundle_temp.remote.empty())
+            if (socket_bundle_temp.remote.empty())
                 continue; // even (joined_socket_descriptor.is_invalid()) does not cover this case
 
             peer = detail::add_channel(*this,
