@@ -11,6 +11,7 @@ std::string const resources::file_template = R"file_template(#pragma once
 #include <belt.pp/json.hpp>
 #include <belt.pp/packet.hpp>
 #include <belt.pp/utility.hpp>
+#include <belt.pp/meta.hpp>
 #include <string>
 #include <cstdint>
 #include <unordered_map>
@@ -27,6 +28,8 @@ namespace {namespace_name}
 {
 namespace detail
 {
+DECLARE_INTEGER_INSPECTION(rtt);
+
 inline
 bool analyze_json_object(beltpp::json::expression_tree* pexp,
                          size_t& rtt);

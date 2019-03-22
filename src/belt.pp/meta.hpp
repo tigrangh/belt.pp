@@ -72,23 +72,53 @@ public:
 };
 }   //  end namespace typelist
 
-#define DECLARE_MF_INSPECTION(mf_name, _T, mf_signature)                \
-template <typename T>                                                   \
-class has_ ## mf_name                                                   \
-{                                                                       \
-template <size_t N>                                                     \
-using charray = char[N];                                                \
-protected:                                                              \
-    template <typename  _T>                                             \
-    using TTmember = mf_signature;                                      \
-                                                                        \
-    template <typename TT, TTmember<TT> fptr = &TT::mf_name>            \
-    static charray<1>& test(TT*);                                       \
-    template <typename = T>                                             \
-    static charray<2>& test(...);                                       \
-public:                                                                 \
-    enum {value = sizeof(test(static_cast<T*>(nullptr))) == 1 ? 1 : 0}; \
-};                                                                      \
+#define DECLARE_INTEGER_INSPECTION(int_name)                                \
+template <typename T>                                                       \
+class has_integer_ ## int_name                                              \
+{                                                                           \
+template <size_t N>                                                         \
+using charray = char[N];                                                    \
+protected:                                                                  \
+    template <typename TT, size_t check_stn = TT::int_name>                 \
+    static charray<1>& test(TT*);                                           \
+    template <typename = T>                                                 \
+    static charray<2>& test(...);                                           \
+public:                                                                     \
+    enum {value = sizeof(test(static_cast<T*>(nullptr))) == 1 ? 1 : 0};     \
+};                                                                          \
+
+#define DECLARE_TD_INSPECTION(typedef_name)                                 \
+template <typename T>                                                       \
+class has_type_definition_ ## typedef_name                                  \
+{                                                                           \
+template <size_t N>                                                         \
+using charray = char[N];                                                    \
+protected:                                                                  \
+    template <typename TT, typename check_td = typename TT::typedef_name>   \
+    static charray<1>& test(TT*);                                           \
+    template <typename = T>                                                 \
+    static charray<2>& test(...);                                           \
+public:                                                                     \
+    enum {value = sizeof(test(static_cast<T*>(nullptr))) == 1 ? 1 : 0};     \
+};                                                                          \
+
+#define DECLARE_MF_INSPECTION(mf_name, _T, mf_signature)                    \
+template <typename T>                                                       \
+class has_ ## mf_name                                                       \
+{                                                                           \
+template <size_t N>                                                         \
+using charray = char[N];                                                    \
+protected:                                                                  \
+    template <typename  _T>                                                 \
+    using TTmember = mf_signature;                                          \
+                                                                            \
+    template <typename TT, TTmember<TT> fptr = &TT::mf_name>                \
+    static charray<1>& test(TT*);                                           \
+    template <typename = T>                                                 \
+    static charray<2>& test(...);                                           \
+public:                                                                     \
+    enum {value = sizeof(test(static_cast<T*>(nullptr))) == 1 ? 1 : 0};     \
+};                                                                          \
 
 using test_type_list = typelist::type_list<int, char, class test_type>;
 static_assert((typelist::type_list_index<int, test_type_list>::value ==

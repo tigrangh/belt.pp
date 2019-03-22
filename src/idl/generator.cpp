@@ -408,8 +408,7 @@ string analyze_struct(state_holder& state,
         result += "void assign(" + state.namespace_name + "::" + type_name + "& self, T const& other);\n";
 
         result += "template <typename T,\n";
-        result += "          typename = typename std::enable_if<!std::is_same<T, " +
-                    state.namespace_name + "::" + type_name + ">::value, void>::type>\n";
+        result += "          typename = typename std::enable_if<0 == " + state.namespace_name + "::detail::has_integer_rtt<T>::value>::type>\n";
         result += "void assign(T& self, " + state.namespace_name + "::" + type_name + " const& other);\n";
 
         result += "template <typename T,\n";
@@ -417,7 +416,7 @@ string analyze_struct(state_holder& state,
         result += "void assign(" + state.namespace_name + "::" + type_name + "& self, T&& other);\n";
 
         result += "template <typename T,\n";
-        result += "          typename = typename std::enable_if<!std::is_reference<T>::value && !std::is_same<T, " + state.namespace_name + "::" + type_name + ">::value>::type>\n";
+        result += "          typename = typename std::enable_if<!std::is_reference<T>::value && 0 == " + state.namespace_name + "::detail::has_integer_rtt<T>::value>::type>\n";
         result += "void assign(T& self, " + state.namespace_name + "::" + type_name + "&& other);\n";
 
         result += "}   //  end of namespace beltpp\n";
@@ -677,8 +676,7 @@ string analyze_struct(state_holder& state,
         result += "}\n";
 
         result += "template <typename T,\n";
-        result += "          typename/* = typename std::enable_if<!std::is_same<T, " +
-                    state.namespace_name + "::" + type_name + ">::value, void>::type*/>\n";
+        result += "          typename/* = typename std::enable_if<0 == " + state.namespace_name + "::detail::has_integer_rtt<T>::value>::type*/>\n";
         result += "void assign(T& self, " + state.namespace_name + "::" + type_name + " const& other)\n";
         result += "{\n";
         for (auto member_pair : members)
@@ -710,7 +708,7 @@ string analyze_struct(state_holder& state,
         result += "}\n";
 
         result += "template <typename T,\n";
-        result += "          typename/* = typename std::enable_if<!std::is_reference<T>::value && !std::is_same<T, " + state.namespace_name + "::" + type_name + ">::value>::type*/>\n";
+        result += "          typename/* = typename std::enable_if<!std::is_reference<T>::value && 0 == " + state.namespace_name + "::detail::has_integer_rtt<T>::value>::type*/>\n";
         result += "void assign(T& self, " + state.namespace_name + "::" + type_name + "&& other)\n";
         result += "{\n";
         for (auto member_pair : members)
