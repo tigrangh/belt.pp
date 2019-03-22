@@ -171,6 +171,12 @@ string analyze(state_holder& state,
                                              type_name,
                                              dependencies,
                                              class_members);
+
+                if (0 == remain_count % 10)
+                {
+                    json_schema += ")foo\" R\"foo(\n";
+                }
+
                 json_schema += class_members;
                 if (remain_count > 0)
                     json_schema += ",\n\n";
