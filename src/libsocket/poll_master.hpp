@@ -176,6 +176,19 @@ public:
         {
             uint64_t id = m_arr_event[i].data.u64;
             set_ids.insert(id);
+
+            if (uint64_t(-1) == id)
+            {
+                //  there is a chance that we woke up on demand
+                char ch;
+                ssize_t res = ::read(m_fd_pipe_read, static_cast<void*>(&ch), 1);
+
+                if (-1 == res)
+                {
+                    std::string read_error = strerror(errno);
+                    throw std::runtime_error("read(): " + read_error);
+                }
+            }
         }
 
         return set_ids;
