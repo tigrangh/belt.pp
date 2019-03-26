@@ -204,14 +204,17 @@ public:
         return m_vec_queue[m_i_start];
     }
 
-    inline void reserve()
+    inline void reserve(size_t min_size = 64)
     {
         if (m_i_size == m_vec_queue.size())
         {
             size_t newsize = m_i_size;
             if (0 == newsize)
-                newsize = 64;
-            newsize *= 2;
+                newsize = min_size;
+            do
+            {
+                newsize *= 2;
+            } while (newsize < min_size);
 
             beltpp::queue<T> newqueue(newsize, end_index(), m_i_size);
             assert(newqueue.end_index() == end_index());

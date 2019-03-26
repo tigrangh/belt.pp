@@ -240,7 +240,8 @@ beltpp::e_three_state_result protocol(beltpp::detail::session_special_data& ssd,
                                       string::const_iterator& iter_fallback,
                                       size_t enough_length,
                                       size_t header_max_size,
-                                      size_t content_max_size)
+                                      size_t content_max_size,
+                                      string& posted)
 {
     string const value_post = "POST ", value_get = "GET ", value_options = "OPTIONS ";
 
@@ -396,7 +397,16 @@ beltpp::e_three_state_result protocol(beltpp::detail::session_special_data& ssd,
                 //  that's ok, wait for more data
             }
             else
+            {
+                for (size_t index = 0; index < content_length; ++index)
+                {
+                    assert(iter_scan_begin != iter_scan_end);
+                    ++iter_scan_begin;
+                }
+
+                posted.assign(iter_fallback, iter_scan_begin);
                 return beltpp::e_three_state_result::success;
+            }
         }
     }
 

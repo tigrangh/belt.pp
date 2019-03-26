@@ -6,6 +6,7 @@
 #include <MSWSock.h>
 #else// B_OS_WINDOWS
 #include <unistd.h>
+#include <fcntl.h>
 #endif
 
 #include "native.hpp"
@@ -47,6 +48,45 @@ public:
         }
 
         m_event.events = EPOLLIN | EPOLLPRI | EPOLLERR | EPOLLHUP;
+
+
+        int pipefds[2] = {};
+        if (-1 == ::pipe(pipefds))
+        {
+            std::string pipe_error = strerror(errno);
+            throw std::runtime_error("pipe(): " +
+                                     pipe_error);
+        }
+        m_fd_pipe_read = pipefds[0];
+        m_fd_pipe_write = pipefds[1];
+
+        // make read-end non-blocking
+        int flags = ::fcntl(m_fd_pipe_read, F_GETFL, 0);
+        flags |= O_NONBLOCK;
+
+        if (-1 == ::fcntl(m_fd_pipe_write, F_SETFL, flags | O_NONBLOCK))
+        {
+            std::string fcntl_error = strerror(errno);
+            throw std::runtime_error("fcntl(): " +
+                                     fcntl_error);
+        }
+
+        // add the read-end to the epoll
+        m_event.data.fd = m_fd_pipe_read;
+        //  if this id corresponds to one from actual connections
+        //  then poler will try to recv or accept and see - wouldblock
+        m_event.data.u64 = uint64_t(-1);
+        int res = ::epoll_ctl(m_fd, EPOLL_CTL_ADD, m_fd_pipe_read, &m_event);
+
+        m_arr_event.resize(m_arr_event.size() + 1);
+
+        if (-1 == res)
+        {
+            m_arr_event.resize(m_arr_event.size() - 1);
+            std::string epoll_error = strerror(errno);
+            throw std::runtime_error("epoll_ctl(): " +
+                                     epoll_error);
+        }
     }
 
     ~poll_master()
@@ -141,10 +181,22 @@ public:
         return set_ids;
     }
 
-    void terminate() {}
+    void wake()
+    {
+        char ch = 0;
+        ssize_t res = ::write(m_fd_pipe_write, &ch, 1);
+
+        if (-1 == res)
+        {
+            std::string write_error = strerror(errno);
+            throw std::runtime_error("write(): " + write_error);
+        }
+    }
     void reset(uint64_t) {}
 
     int m_fd;
+    int m_fd_pipe_read;
+    int m_fd_pipe_write;
     epoll_event m_event;
     std::vector<epoll_event> m_arr_event;
 };
@@ -293,7 +345,7 @@ public:
         return set_ids;
     }
 
-    void terminate() {}
+    void wake() {}
     void reset(uint64_t) {}
 
     int m_fd;
@@ -724,7 +776,7 @@ namespace beltpp
                 return set_ids;
             }
 
-            void terminate()
+            void wake()
             {
                 ::PostQueuedCompletionStatus(m_completion_port,
                                              0, // bytesCopied
