@@ -93,9 +93,9 @@ std::unordered_set<uint64_t> event_handler::waited(ievent_item& ev_it) const
     return m_pimpl->m_event_item_ids.at(&ev_it);
 }
 
-void event_handler::terminate()
+void event_handler::wake()
 {
-    m_pimpl->m_poll_master.terminate();
+    m_pimpl->m_poll_master.wake();
 }
 
 void event_handler::set_timer(std::chrono::steady_clock::duration const& period)

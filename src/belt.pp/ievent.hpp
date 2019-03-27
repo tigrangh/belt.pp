@@ -32,7 +32,7 @@ public:
     virtual wait_result wait(std::unordered_set<ievent_item const*>& set_items) = 0;
     virtual std::unordered_set<uint64_t> waited(ievent_item& ev_it) const = 0;
 
-    virtual void terminate() = 0;
+    virtual void wake() = 0;
     virtual void set_timer(std::chrono::steady_clock::duration const& period) = 0;
 
     virtual void add(ievent_item& ev_it) = 0;

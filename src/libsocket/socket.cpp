@@ -681,6 +681,9 @@ void socket::send(peer_id const& peer, packet&& pack)
 
         if (current_channel.m_type != detail::channel::type::streaming)
             throw std::runtime_error("send message on non streaming channel");
+        if (current_channel.m_closed)
+            throw std::runtime_error("send message on closed channel");
+
         {
             string message_stream;
             auto& sp_data = current_channel.m_special_data;

@@ -28,7 +28,7 @@ public:
     wait_result wait(std::unordered_set<ievent_item const*>& set_items) override;
     std::unordered_set<uint64_t> waited(ievent_item& ev_it) const override;
 
-    void terminate() override;
+    void wake() override;
     void set_timer(std::chrono::steady_clock::duration const& period) override;
 
     void add(ievent_item& ev_it) override;
