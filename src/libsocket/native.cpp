@@ -155,8 +155,8 @@ void async_send(SOCKET /*socket_descriptor*/,
         send_stream.push(ch);
 
     auto message_copy = message;
-    if (message_copy.length() > 4 * 1024)
-        message_copy.resize(4 * 1024 - 1);
+    if (message_copy.length() > 1 * 1024 * 1024)
+        message_copy.resize(1 * 1024 * 1024 - 1);
 
     if (stream_was_empty)
     {
@@ -229,8 +229,8 @@ size_t send(SOCKET /*socket_descriptor*/,
         false == send_stream.empty())
     {
         std::string message(send_stream.cbegin(), send_stream.cend());
-        if (message.length() > 4 * 1024)
-            message.resize(4 * 1024 - 1);
+        if (message.length() > 1 * 1024 * 1024)
+            message.resize(1 * 1024 * 1024 - 1);
         
         memmove(static_cast<void*>(async_data->send_buffer),
                 static_cast<void const*>(message.c_str()),
