@@ -12,6 +12,7 @@
 #include "native.hpp"
 
 #include <belt.pp/timer.hpp>
+#include <belt.pp/scope_helper.hpp>
 
 #include <unordered_set>
 #include <unordered_map>
@@ -49,6 +50,8 @@ public:
 
         m_event.events = EPOLLIN | EPOLLPRI | EPOLLERR | EPOLLHUP;
 
+        beltpp::on_failure guard_epoll([this] { ::close(m_fd); });
+
 
         int pipefds[2] = {};
         if (-1 == ::pipe(pipefds))
@@ -59,6 +62,8 @@ public:
         }
         m_fd_pipe_read = pipefds[0];
         m_fd_pipe_write = pipefds[1];
+
+        beltpp::on_failure guard_pipes([this] { ::close(m_fd_pipe_read); ::close(m_fd_pipe_write); });
 
         // make read-end non-blocking
         int flags = ::fcntl(m_fd_pipe_read, F_GETFL, 0);
@@ -87,11 +92,16 @@ public:
             throw std::runtime_error("epoll_ctl(): " +
                                      epoll_error);
         }
+
+        guard_pipes.dismiss();
+        guard_epoll.dismiss();
     }
 
     ~poll_master()
     {
         ::close(m_fd);
+        ::close(m_fd_pipe_read);
+        ::close(m_fd_pipe_write);
     }
 
     void add(int socket_descriptor, uint64_t id, event_handler::task action)
@@ -136,7 +146,7 @@ public:
         m_arr_event.resize(m_arr_event.size() - 1);
     }
 
-    std::unordered_set<uint64_t> wait(beltpp::timer const& tm)
+    std::unordered_set<uint64_t> wait(beltpp::timer const& tm, bool& on_demand)
     {
         std::unordered_set<uint64_t> set_ids;
 
@@ -188,6 +198,9 @@ public:
                     std::string read_error = strerror(errno);
                     throw std::runtime_error("read(): " + read_error);
                 }
+
+                if (res > 0)
+                    on_demand = true;
             }
         }
 
@@ -308,7 +321,7 @@ public:
         m_arr_event.resize(m_arr_event.size() - flags.size());
     }
 
-    std::unordered_set<uint64_t> wait(beltpp::timer const& tm)
+    std::unordered_set<uint64_t> wait(beltpp::timer const& tm, bool& on_demand)
     {
         std::unordered_set<uint64_t> set_ids;
 
@@ -590,7 +603,7 @@ namespace beltpp
                 it->second->action = event_handler::task::remove;
             }
 
-            std::unordered_set<uint64_t> wait(beltpp::timer const& tm)
+            std::unordered_set<uint64_t> wait(beltpp::timer const& tm, bool& on_demand)
             {
                 auto it = m_events.begin();
                 while (it != m_events.end())

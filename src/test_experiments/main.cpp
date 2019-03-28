@@ -220,7 +220,7 @@ int main(int argc, char** argv)
                     beltpp::socket::peer_id channel_id;
                     
                     beltpp::isocket::packets pcs;
-                    if (beltpp::ievent_handler::wait_result::event == eh.wait(set_items))
+                    if (beltpp::ievent_handler::wait_result::event & eh.wait(set_items))
                         pcs = sk.receive(channel_id);
 
                     if (channel_id.empty())

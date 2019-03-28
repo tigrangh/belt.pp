@@ -46,8 +46,10 @@ event_handler::wait_result event_handler::wait(std::unordered_set<ievent_item co
             m_pimpl->sync_eh_ids.erase(it);
         }
     }
+
+    bool on_demand = false;
     if (set_ids.empty())
-        set_ids = m_pimpl->m_poll_master.wait(m_pimpl->m_timer_helper);
+        set_ids = m_pimpl->m_poll_master.wait(m_pimpl->m_timer_helper, on_demand);
 
     std::lock_guard<std::mutex> lock(m_pimpl->m_mutex);
     auto it = set_ids.begin();
@@ -77,15 +79,47 @@ event_handler::wait_result event_handler::wait(std::unordered_set<ievent_item co
             ++it;
     }
 
-    if (set_ids.empty() && m_pimpl->m_timer_helper.expired())
-    {
+    bool on_timer = m_pimpl->m_timer_helper.expired();
+    bool on_event = (false == set_ids.empty());
+
+    if (on_timer)
         m_pimpl->m_timer_helper.update();
-        return event_handler::timer_out;
-    }
-    else if (set_ids.empty())
+
+    if (false == on_demand &&
+        false == on_timer &&
+        false == on_event)
         return event_handler::nothing;
-    else
+
+    if (on_demand &&
+        false == on_timer &&
+        false == on_event)
+        return event_handler::on_demand;
+    if (false == on_demand &&
+        on_timer &&
+        false == on_event)
+        return event_handler::timer_out;
+    if (false == on_demand &&
+        false == on_timer &&
+        on_event)
         return event_handler::event;
+
+    if (on_demand &&
+        on_timer &&
+        false == on_event)
+        return event_handler::on_demand_and_timer_out;
+    if (on_demand &&
+        false == on_timer &&
+        on_event)
+        return event_handler::on_demand_and_event;
+    if (false == on_demand &&
+        on_timer &&
+        on_event)
+        return event_handler::timer_out_and_event;
+
+    /*if (on_demand &&
+        on_timer &&
+        on_event)*/
+    return event_handler::on_demand_and_timer_out_and_event;
 }
 
 std::unordered_set<uint64_t> event_handler::waited(ievent_item& ev_it) const
