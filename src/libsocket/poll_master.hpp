@@ -777,7 +777,14 @@ namespace beltpp
                         }
                     }
                     else
+                    {
                         empty = true;
+                        if (DWORD(-1) == bytesCopied &&
+                            DWORD(-1) == id)
+                            //  happens when on demand wake is called
+                            on_demand = true;
+                        //  otherwise may happen on timer or just suddenly
+                    }
                 }
                 else
                 {
@@ -805,8 +812,8 @@ namespace beltpp
             void wake()
             {
                 ::PostQueuedCompletionStatus(m_completion_port,
-                                             0, // bytesCopied
-                                             0, // completionKey
+                                             DWORD(-1), // bytesCopied
+                                             DWORD(-1), // completionKey
                                              0); // overlapped
             }
             void reset(uint64_t /*reset_id*/)
