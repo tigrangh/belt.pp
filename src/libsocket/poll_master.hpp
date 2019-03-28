@@ -52,7 +52,6 @@ public:
 
         beltpp::on_failure guard_epoll([this] { ::close(m_fd); });
 
-
         int pipefds[2] = {};
         if (-1 == ::pipe(pipefds))
         {
@@ -76,10 +75,9 @@ public:
                                      fcntl_error);
         }
 
-        // add the read-end to the epoll
-        m_event.data.fd = m_fd_pipe_read;
+        //  add the read-end to the epoll
         //  if this id corresponds to one from actual connections
-        //  then poler will try to recv or accept and see - wouldblock
+        //  then poller will try to recv or accept and see - wouldblock
         m_event.data.u64 = uint64_t(-1);
         int res = ::epoll_ctl(m_fd, EPOLL_CTL_ADD, m_fd_pipe_read, &m_event);
 
@@ -250,11 +248,56 @@ public:
             throw std::runtime_error("kqueue(): " +
                                      kqueue_error);
         }
+
+        beltpp::on_failure guard_epoll([this] { ::close(m_fd); });
+
+        int pipefds[2] = {};
+        if (-1 == ::pipe(pipefds))
+        {
+            std::string pipe_error = strerror(errno);
+            throw std::runtime_error("pipe(): " +
+                                     pipe_error);
+        }
+        m_fd_pipe_read = pipefds[0];
+        m_fd_pipe_write = pipefds[1];
+
+        beltpp::on_failure guard_pipes([this] { ::close(m_fd_pipe_read); ::close(m_fd_pipe_write); });
+
+        // make read-end non-blocking
+        int flags = ::fcntl(m_fd_pipe_read, F_GETFL, 0);
+        flags |= O_NONBLOCK;
+
+        if (-1 == ::fcntl(m_fd_pipe_write, F_SETFL, flags | O_NONBLOCK))
+        {
+            std::string fcntl_error = strerror(errno);
+            throw std::runtime_error("fcntl(): " +
+                                     fcntl_error);
+        }
+
+        //  add the read-end to the kevent
+        //  if this id corresponds to one from actual connections
+        //  then poller will try to recv or accept and see - wouldblock
+        EV_SET(&m_event, uintptr_t(m_fd_pipe_read), EVFILT_READ, EV_ADD, NOTE_WRITE, 0, nullptr);
+        m_event.udata = reinterpret_cast<void*>(-1);
+        int res = kevent(m_fd, &m_event, 1, nullptr, 0, nullptr);
+        if (-1 == res)
+        {
+            std::string kevent_error = strerror(errno);
+            throw std::runtime_error("kevent() add: " +
+                                     kevent_error);
+        }
+
+        m_arr_event.resize(m_arr_event.size() + 1);
+
+        guard_pipes.dismiss();
+        guard_epoll.dismiss();
     }
 
     ~poll_master()
     {
-        close(m_fd);
+        ::close(m_fd);
+        ::close(m_fd_pipe_read);
+        ::close(m_fd_pipe_write);
     }
 
     void add(int socket_descriptor, uint64_t id, event_handler::task action)
@@ -366,15 +409,43 @@ public:
         {
             uint64_t id = reinterpret_cast<uint64_t>(m_arr_event[i].udata);
             set_ids.insert(id);
+
+            if (uint64_t(-1) == id)
+            {
+                //  there is a chance that we woke up on demand
+                char ch;
+                ssize_t res = ::read(m_fd_pipe_read, static_cast<void*>(&ch), 1);
+
+                if (-1 == res)
+                {
+                    std::string read_error = strerror(errno);
+                    throw std::runtime_error("read(): " + read_error);
+                }
+
+                if (res > 0)
+                    on_demand = true;
+            }
         }
 
         return set_ids;
     }
 
-    void wake() {}
+    void wake()
+    {
+        char ch = 0;
+        ssize_t res = ::write(m_fd_pipe_write, &ch, 1);
+
+        if (-1 == res)
+        {
+            std::string write_error = strerror(errno);
+            throw std::runtime_error("write(): " + write_error);
+        }
+    }
     void reset(uint64_t) {}
 
     int m_fd;
+    int m_fd_pipe_read;
+    int m_fd_pipe_write;
     struct kevent m_event;
     std::vector<struct kevent> m_arr_event;
 };
