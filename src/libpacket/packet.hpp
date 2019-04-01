@@ -29,13 +29,20 @@ public:
     virtual ~packet();
 
     template <typename T_message>
-    packet(T_message&& msg) : packet()
+    explicit packet(T_message&& msg) : packet()
     {
         set(std::forward<T_message>(msg));
     }
 
     packet& operator = (packet const&) = delete;
     packet& operator = (packet&&) noexcept;
+
+    template <typename T_message>
+    packet& operator = (T_message&& msg) noexcept
+    {
+        set(std::forward<T_message>(msg));
+        return *this;
+    }
 
     bool empty() const noexcept;
     size_t type() const;

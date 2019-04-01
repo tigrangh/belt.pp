@@ -232,7 +232,7 @@ int main(int argc, char** argv)
                         {
                             std::cout << i << std::endl;
                             if (i >= arr_channel_id.size())
-                                sk.send(arr_channel_id[index], beltpp::isocket_drop());
+                                sk.send(arr_channel_id[index], beltpp::packet(beltpp::isocket_drop()));
 
                             arr_channel_id[index] = channel_id;
                         }
