@@ -430,6 +430,8 @@ packets socket::receive(peer_id& peer)
             else
                 connect_result = e_three_state_result::success;
 
+            auto socket_bundle = current_channel.m_socket_bundle;
+
             if (connect_result == e_three_state_result::success)
             {
                 m_pimpl->m_peh->m_pimpl->remove(socket_descriptor.handle,
@@ -453,7 +455,7 @@ packets socket::receive(peer_id& peer)
                 result.emplace_back(beltpp::isocket_join());
 
                 peer = detail::construct_peer_id(current_id,
-                                                 current_channel.m_socket_bundle);
+                                                 socket_bundle);
 
                 break;
             }
@@ -461,15 +463,15 @@ packets socket::receive(peer_id& peer)
             {
                 auto attempts = current_channel.m_attempts;
                 auto local_peer = detail::construct_peer_id(current_id,
-                                                            current_channel.m_socket_bundle);
+                                                            socket_bundle);
 
                 detail::delete_channel(m_pimpl.get(), current_id);
 
                 if (attempts)
-                    open(current_channel.m_socket_bundle, attempts);
+                    open(socket_bundle, attempts);
                 else
                 {
-                    result.emplace_back(beltpp::isocket_open_refused(connect_error, current_channel.m_socket_bundle));
+                    result.emplace_back(beltpp::isocket_open_refused(connect_error, socket_bundle));
                     peer = local_peer;
                     break;
                 }
@@ -478,9 +480,9 @@ packets socket::receive(peer_id& peer)
             {
                 detail::delete_channel(m_pimpl.get(), current_id);
 
-                result.emplace_back(beltpp::isocket_open_error(connect_error, current_channel.m_socket_bundle));
+                result.emplace_back(beltpp::isocket_open_error(connect_error, socket_bundle));
                 peer = detail::construct_peer_id(current_id,
-                                                 current_channel.m_socket_bundle);
+                                                 socket_bundle);
                 break;
             }
         }
