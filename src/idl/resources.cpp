@@ -1,7 +1,6 @@
 #include "resources.hpp"
 
-std::string const resources::file_template = R"file_template(#pragma once
-
+std::string const resources::file_declarations = R"file_template(
 /*
  * the following code is automatically generated
  * idl input/definition/file.idl output/cpp/file.hpp
@@ -28,8 +27,84 @@ namespace {namespace_name}
 {
 namespace detail
 {
-DECLARE_INTEGER_INSPECTION(rtt);
+inline void assign_packet(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
+inline void assign_packet(::beltpp::packet& self, ::beltpp::packet&& other) noexcept;
+inline void assign_extension(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
+inline void assign_extension(::beltpp::packet& self, ::beltpp::packet&& other) noexcept;
+inline void extension_helper(::beltpp::message_loader_utility& utl);
 
+inline bool loader(::beltpp::packet& package,
+                   std::string const& encoded,
+                   void* putl);
+}
+
+class scan_status : public beltpp::detail::iscan_status
+{
+public:
+    ~scan_status() override
+    {}
+    ::beltpp::json::ptr_expression_tree pexp;
+};
+
+inline
+::beltpp::detail::pmsg_all message_list_load(
+        std::string::const_iterator& iter_scan_begin,
+        std::string::const_iterator const& iter_scan_end,
+        beltpp::detail::session_special_data& ssd,
+        void* putl);
+
+class ctime
+{
+public:
+    inline ctime() : tm() {}
+    time_t tm;
+    inline bool operator == (ctime const& other) const { return tm == other.tm; }
+    inline bool operator != (ctime const& other) const { return tm != other.tm; }
+    inline bool operator < (ctime const& other) const { return tm < other.tm; }
+    inline bool operator > (ctime const& other) const { return tm > other.tm; }
+    inline bool operator <= (ctime const& other) const { return tm <= other.tm; }
+    inline bool operator >= (ctime const& other) const { return tm >= other.tm; }
+};
+}   // end namespace {namespace_name}
+
+namespace {namespace_name}
+{
+
+{expand_message_classes_declarations}
+
+}   //  end namespace {namespace_name}
+
+)file_template";
+
+std::string const resources::file_template_definitions = R"file_template(
+/*
+ * the following code is automatically generated
+ * idl input/definition/file.idl output/cpp/file.hpp
+ */
+
+
+namespace {namespace_name}
+{
+namespace detail
+{
+DECLARE_INTEGER_INSPECTION(rtt);
+}
+}   //  end namespace {namespace_name}
+
+{expand_message_classes_template_definitions}
+
+)file_template";
+
+std::string const resources::file_definitions = R"file_template(
+/*
+ * the following code is automatically generated
+ * idl input/definition/file.idl output/cpp/file.hpp
+ */
+
+namespace {namespace_name}
+{
+namespace detail
+{
 inline
 bool analyze_json_object(beltpp::json::expression_tree* pexp,
                          size_t& rtt);
@@ -80,22 +155,12 @@ bool message_list_load_helper(::beltpp::json::expression_tree* pexp,
     return true;
 }
 
-inline
 void extension_helper(::beltpp::message_loader_utility& utl)
 {
     utl.m_arr_fp_message_list_load_helper.push_front(&template_message_list_load_helper<&detail::message_list_load_helper>);
 }
 }
 
-class scan_status : public beltpp::detail::iscan_status
-{
-public:
-    ~scan_status() override
-    {}
-    ::beltpp::json::ptr_expression_tree pexp;
-};
-
-inline
 ::beltpp::detail::pmsg_all message_list_load(
         std::string::const_iterator& iter_scan_begin,
         std::string::const_iterator const& iter_scan_end,
@@ -166,19 +231,6 @@ inline
 
     return return_value;
 }
-
-class ctime
-{
-public:
-    inline ctime() : tm() {}
-    time_t tm;
-    inline bool operator == (ctime const& other) const { return tm == other.tm; }
-    inline bool operator != (ctime const& other) const { return tm != other.tm; }
-    inline bool operator < (ctime const& other) const { return tm < other.tm; }
-    inline bool operator > (ctime const& other) const { return tm > other.tm; }
-    inline bool operator <= (ctime const& other) const { return tm <= other.tm; }
-    inline bool operator >= (ctime const& other) const { return tm >= other.tm; }
-};
 
 namespace detail
 {
@@ -608,8 +660,6 @@ bool less(::beltpp::packet const& first,
     std::less<std::string> c;
     return c(saver(first), saver(second));
 }
-inline void assign_packet(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
-inline void assign_packet(::beltpp::packet& self, ::beltpp::packet&& other) noexcept;
 template <typename T>
 inline void assign_packet(std::vector<T>& self,
                           std::vector<T> const& other);
@@ -628,11 +678,9 @@ inline void assign_packet(std::unordered_map<T_key, T_value>& self,
 template <typename T_key, typename T_value>
 inline void assign_packet(std::unordered_map<T_key, T_value>& self,
                           std::unordered_map<T_key, T_value>&& other);
-inline void assign_extension(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
 )file_template"
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 R"file_template(
-inline void assign_extension(::beltpp::packet& self, ::beltpp::packet&& other) noexcept;
 template <typename T>
 inline void assign_extension(std::vector<T>& self,
                              std::vector<T> const& other);
@@ -657,7 +705,7 @@ inline void assign_extension(std::unordered_map<T_key, T_value>& self,
 namespace {namespace_name}
 {
 
-{expand_message_classes}
+{expand_message_classes_definitions}
 
 namespace detail
 {
@@ -982,6 +1030,13 @@ bool loader(T& value,
     return analyze_json(value, pexp.get(), utl);
 }
 
+bool loader(::beltpp::packet& package,
+            std::string const& encoded,
+            void* putl)
+{
+    return loader<::beltpp::packet>(package, encoded, putl);
+}
+
 template <typename T>
 std::string stringsaver(T const& value)
 {
@@ -1167,7 +1222,6 @@ bool analyze_colon(::beltpp::json::expression_tree* pexp,
     return code;
 }
 
-inline
 void assign_packet(::beltpp::packet& self, ::beltpp::packet const& other) noexcept
 {
     if (other.empty())
@@ -1188,7 +1242,6 @@ void assign_packet(::beltpp::packet& self, ::beltpp::packet const& other) noexce
              item.fp_new_void_unique_ptr_copy(other.data()),
              item.fp_saver);
 }
-inline
 void assign_packet(::beltpp::packet& self, ::beltpp::packet&& other) noexcept
 {
     self = std::move(other);
@@ -1275,13 +1328,12 @@ void assign_packet(std::unordered_map<T_key, T_value>& self,
         self.insert(std::make_pair(std::move(self_key), std::move(self_value)));
     }
 }
-inline
+
 void assign_extension(::beltpp::packet&, ::beltpp::packet const&) noexcept
 {
     assert(false);
     std::terminate();
 }
-inline
 void assign_extension(::beltpp::packet& self, ::beltpp::packet&& other) noexcept
 {
     self = std::move(other);

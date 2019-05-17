@@ -120,24 +120,88 @@ int main(int argc, char* argv[])
 
         state_holder state;
         //cout << beltpp::dump(ptr_expression.get()) << endl;
-        string file_contents = resources::file_template;
-        string generated = analyze(state, ptr_expression.get());
-        file_contents = replace_all(file_contents, "{namespace_name}", state.namespace_name);
-        file_contents = replace(file_contents, "{expand_message_classes}", generated);
+        string file_contents_declarations = resources::file_declarations;
+        string file_contents_template_definitions = resources::file_template_definitions;
+        string file_contents_definitions = resources::file_definitions;
+        generated_code generated = analyze(state, ptr_expression.get());
+        file_contents_declarations = replace_all(file_contents_declarations,
+                                                 "{namespace_name}",
+                                                 state.namespace_name);
+        file_contents_template_definitions = replace_all(file_contents_template_definitions,
+                                                         "{namespace_name}",
+                                                         state.namespace_name);
+        file_contents_definitions = replace_all(file_contents_definitions,
+                                                "{namespace_name}",
+                                                state.namespace_name);
+
+        file_contents_declarations = replace(file_contents_declarations,
+                                             "{expand_message_classes_declarations}",
+                                             generated.declarations);
+        file_contents_template_definitions = replace(file_contents_template_definitions,
+                                                     "{expand_message_classes_template_definitions}",
+                                                     generated.template_definitions);
+        file_contents_definitions = replace(file_contents_definitions,
+                                            "{expand_message_classes_definitions}",
+                                            generated.definitions);
 
         bool generation_success = false;
+        bool splitting = false, exporting = false;
+
+        if (argc >= 5)
+            exporting = true;
+        if (argc >= 4)
+            splitting = true;
+
+        if (false == splitting)
+            exporting = false;
+        (void)exporting;
+
+        if (splitting)
+        {
+            file_contents_declarations = replace_all(file_contents_declarations, "inline ", "");
+            file_contents_declarations = replace_all(file_contents_declarations, "inline\n", "");
+        }
+        else
+            file_contents_definitions = replace_all(file_contents_definitions, "template class storage<void>;\n", "");
+
         if (argc >= 3)
         {
-            ofstream file_generate(argv[2]);
-            if (file_generate)
+            string file_name = argv[2];
+            if (false == splitting)
             {
-                file_generate << file_contents;
-                file_generate.close();
-                generation_success = true;
+                ofstream file_generate(file_name + ".hpp");
+                if (file_generate)
+                {
+                    file_generate << file_contents_declarations
+                                  << file_contents_template_definitions
+                                  << file_contents_definitions;
+                    file_generate.close();
+                    generation_success = true;
+                }
+            }
+            else
+            {
+                ofstream file_declarations(file_name + ".hpp");
+                ofstream file_template_definitions(file_name + ".tmpl.cpp");
+                ofstream file_definitions(file_name + ".cpp");
+                if (file_declarations &&
+                    file_template_definitions &&
+                    file_definitions)
+                {
+                    file_declarations << file_contents_declarations;
+                    file_template_definitions << file_contents_template_definitions;
+                    file_definitions << file_contents_definitions;
+
+                    file_declarations.close();
+                    file_template_definitions.close();
+                    file_definitions.close();
+
+                    generation_success = true;
+                }
             }
         }
         if (false == generation_success)
-            cout << file_contents;
+            cout << file_contents_declarations << file_contents_definitions;
 
         //cout << "depth is " << ptr_expression->depth() << std::endl;
     }
