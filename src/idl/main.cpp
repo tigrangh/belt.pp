@@ -154,7 +154,10 @@ int main(int argc, char* argv[])
 
         if (false == splitting)
             exporting = false;
-        (void)exporting;
+
+        string keyword;
+        if (exporting)
+            keyword = string(argv[4]) + " ";
 
         if (splitting)
         {
@@ -163,8 +166,9 @@ int main(int argc, char* argv[])
             file_contents_template_definitions = replace_all(file_contents_template_definitions, "inline ", "");
             file_contents_template_definitions = replace_all(file_contents_template_definitions, "inline\n", "");
         }
-        else
-            file_contents_definitions = replace_all(file_contents_definitions, "template class storage<void>;\n", "");
+
+        file_contents_declarations = replace_all(file_contents_declarations, "{export} ", keyword);
+        file_contents_template_definitions = replace_all(file_contents_template_definitions, "{export} ", keyword);
 
         if (argc >= 3)
         {

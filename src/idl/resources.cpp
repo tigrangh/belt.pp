@@ -27,15 +27,13 @@ namespace {namespace_name}
 {
 namespace detail
 {
-inline void assign_packet(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
-inline void assign_packet(::beltpp::packet& self, ::beltpp::packet&& other) noexcept;
-inline void assign_extension(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
-inline void assign_extension(::beltpp::packet& self, ::beltpp::packet&& other) noexcept;
-inline void extension_helper(::beltpp::message_loader_utility& utl);
+inline {export} void assign_packet(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
+inline {export} void assign_packet(::beltpp::packet& self, ::beltpp::packet&& other) noexcept;
+inline {export} void assign_extension(::beltpp::packet& self, ::beltpp::packet const& other) noexcept;
+inline {export} void assign_extension(::beltpp::packet& self, ::beltpp::packet&& other) noexcept;
+inline {export} void extension_helper(::beltpp::message_loader_utility& utl);
 
-inline bool loader(::beltpp::packet& package,
-                   std::string const& encoded,
-                   void* putl);
+inline {export} bool loader(::beltpp::packet& package, std::string const& encoded, void* putl);
 }
 
 class scan_status : public beltpp::detail::iscan_status
@@ -46,7 +44,7 @@ public:
     ::beltpp::json::ptr_expression_tree pexp;
 };
 
-inline
+{export} inline
 ::beltpp::detail::pmsg_all message_list_load(
         std::string::const_iterator& iter_scan_begin,
         std::string::const_iterator const& iter_scan_end,
@@ -1231,13 +1229,15 @@ void assign_packet(::beltpp::packet& self, ::beltpp::packet const& other) noexce
         return;
     }
 
-    if ({namespace_name}::detail::storage<>::s_arr_fptr.size() <= other.type())
+    auto arr_fptr = {namespace_name}::detail::storage_serializers();
+
+    if (arr_fptr.size() <= other.type())
     {
         assert(false);
         std::terminate();
     }
 
-    auto const& item = {namespace_name}::detail::storage<>::s_arr_fptr[other.type()];
+    auto const& item = arr_fptr[other.type()];
 
     self.set(other.type(),
              item.fp_new_void_unique_ptr_copy(other.data()),

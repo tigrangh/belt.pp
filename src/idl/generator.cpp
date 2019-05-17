@@ -272,36 +272,26 @@ generated_code analyze(state_holder& state,
     result.declarations += R"foo(
 namespace detail
 {
-template <typename = void>
-class storage
+class serialization_item
 {
 public:
-    storage()
-    {
-        (void)(s_arr_fptr);
-        (void)(json_schema);
-    }
     using fptr_saver = ::beltpp::detail::fptr_saver;
     using fptr_analyze_json = bool (*)(void*, beltpp::json::expression_tree*, ::beltpp::message_loader_utility const&);
     using fptr_new_void_unique_ptr = ::beltpp::void_unique_ptr (*)();
     using fptr_new_void_unique_ptr_copy = ::beltpp::void_unique_ptr (*)(void const*);
 
-    class storage_item
-    {
-    public:
-        fptr_saver fp_saver;
-        fptr_analyze_json fp_analyze_json;
-        fptr_new_void_unique_ptr fp_new_void_unique_ptr;
-        fptr_new_void_unique_ptr_copy fp_new_void_unique_ptr_copy;
-    };
-
-    static std::vector<storage_item> const s_arr_fptr;
-    static std::string const json_schema;
+    fptr_saver fp_saver;
+    fptr_analyze_json fp_analyze_json;
+    fptr_new_void_unique_ptr fp_new_void_unique_ptr;
+    fptr_new_void_unique_ptr_copy fp_new_void_unique_ptr_copy;
 };
+
+inline std::vector<serialization_item> storage_serializers();
+inline std::string storage_json_schema();
 }  // end of namespace detail
 )foo";
 
-result.definitions += R"foo(
+    result.definitions += R"foo(
 namespace detail
 {
 template <typename T_message_type>
@@ -314,9 +304,10 @@ bool analyze_json_template(void* pvalue,
   return analyze_json(*pmsgcode, pexp, utl);
 }
 
-template <typename T>
-std::vector<typename storage<T>::storage_item> const storage<T>::s_arr_fptr =
+std::vector<serialization_item> storage_serializers()
 {
+    return
+    {
 )foo";
     for (size_t index = 0; index < max_rtt + 1; ++index)
     {
@@ -329,34 +320,38 @@ std::vector<typename storage<T>::storage_item> const storage<T>::s_arr_fptr =
             result.definitions += "    {\n";
             result.definitions += "        &" + class_name + "::pvoid_saver,\n";
             result.definitions += "        &analyze_json_template<" + class_name + ">,\n";
-            result.definitions += "        storage<>::fptr_new_void_unique_ptr(&::beltpp::new_void_unique_ptr<" + class_name + ">),\n";
-            result.definitions += "        storage<>::fptr_new_void_unique_ptr_copy(&::beltpp::new_void_unique_ptr_copy<" + class_name + ">)\n";
+            result.definitions += "        serialization_item::fptr_new_void_unique_ptr(&::beltpp::new_void_unique_ptr<" + class_name + ">),\n";
+            result.definitions += "        serialization_item::fptr_new_void_unique_ptr_copy(&::beltpp::new_void_unique_ptr_copy<" + class_name + ">)\n";
             result.definitions += "    }";
         }
         if (index != max_rtt)
             result.definitions += ",\n";
     }
-    result.definitions += "\n};\n";
+    result.definitions += R"foo(
+    };
+}
 
-    result.definitions += "template <typename T>\n";
-    result.definitions += "std::string const storage<T>::json_schema = R\"foo(\n";
+std::string storage_json_schema()
+{
+    return )foo";
+    result.definitions += "R\"foo(\n";
     result.definitions += "{\n\n";
     result.definitions += json_schema;
     result.definitions += "\n}\n";
     result.definitions += ")foo\";\n";
 
-    result.definitions += "template class storage<void>;\n";
-
     result.definitions += R"foo(
+}
 bool analyze_json_object(beltpp::json::expression_tree* pexp,
                          beltpp::detail::pmsg_all& return_value,
                          ::beltpp::message_loader_utility const& utl)
 {
     bool code = false;
 
-    if (storage<>::s_arr_fptr.size() > return_value.rtt)
+    auto arr_fptr = storage_serializers();
+    if (arr_fptr.size() > return_value.rtt)
     {
-        auto const& item = storage<>::s_arr_fptr[return_value.rtt];
+        auto const& item = arr_fptr[return_value.rtt];
 
         if (item.fp_analyze_json && item.fp_new_void_unique_ptr &&
             item.fp_new_void_unique_ptr_copy && item.fp_saver)
@@ -419,7 +414,7 @@ generated_code analyze_struct(state_holder& state,
 
     generated_code result;
 
-    result.declarations += "class " + type_name + "\n";
+    result.declarations += "class {export} " + type_name + "\n";
     result.declarations += "{\npublic:\n";
 
     result.declarations += "    enum {rtt = " + std::to_string(rtt) + "};\n";
@@ -563,7 +558,7 @@ generated_code analyze_struct(state_holder& state,
     if (false == members.empty())
     {
         result.declarations += "    template <typename T>\n";
-        result.declarations += "    explicit " + type_name + "(T&& other);\n";
+        result.declarations += "    BELT_LOCAL explicit " + type_name + "(T&& other);\n";
 
         result.declarations += "    inline " + type_name + "& operator = (" + type_name + " const& other);\n";
 
@@ -582,7 +577,7 @@ generated_code analyze_struct(state_holder& state,
         result.definitions += "}\n";
 
         result.declarations += "    template <typename T>\n";
-        result.declarations += "    " + type_name + "& operator = (T&& other);\n";
+        result.declarations += "    BELT_LOCAL " + type_name + "& operator = (T&& other);\n";
     }
 
     string const placeholder_other = members.empty() ? string() : " other";
@@ -898,7 +893,7 @@ generated_code analyze_enum(state_holder& state,
 
     result.declarations += "\n};\n";
 
-    result.declarations += "inline void from_string(std::string const& string_value, " + enum_name + "& value);\n";
+    result.declarations += "inline {export} void from_string(std::string const& string_value, " + enum_name + "& value);\n";
 
     result.definitions += "void from_string(std::string const& string_value,\n";
     result.definitions += "                 " + enum_name + "& value)\n";
@@ -962,7 +957,7 @@ generated_code analyze_enum(state_holder& state,
     result.definitions += "}\n";
     result.definitions += "}   //  end of namespace detail\n";
 
-    result.declarations += "inline std::string to_string(const " + enum_name + "& value);\n";
+    result.declarations += "inline {export} std::string to_string(const " + enum_name + "& value);\n";
 
     result.definitions += "std::string to_string(const " + enum_name + "& value)\n";
     result.definitions += "{\n";
