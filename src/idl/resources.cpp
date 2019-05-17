@@ -88,6 +88,25 @@ namespace {namespace_name}
 namespace detail
 {
 DECLARE_INTEGER_INSPECTION(rtt);
+
+template <typename T>
+inline void assign_packet(std::vector<T>& self,
+                          std::vector<T> const& other);
+template <typename T>
+inline void assign_packet(std::vector<T>& self,
+                          std::vector<T>&& other);
+template <typename T>
+inline void assign_packet(std::unordered_set<T>& self,
+                          std::unordered_set<T> const& other);
+template <typename T>
+inline void assign_packet(std::unordered_set<T>& self,
+                          std::unordered_set<T>&& other);
+template <typename T_key, typename T_value>
+inline void assign_packet(std::unordered_map<T_key, T_value>& self,
+                          std::unordered_map<T_key, T_value> const& other);
+template <typename T_key, typename T_value>
+inline void assign_packet(std::unordered_map<T_key, T_value>& self,
+                          std::unordered_map<T_key, T_value>&& other);
 }
 }   //  end namespace {namespace_name}
 
@@ -660,24 +679,6 @@ bool less(::beltpp::packet const& first,
     std::less<std::string> c;
     return c(saver(first), saver(second));
 }
-template <typename T>
-inline void assign_packet(std::vector<T>& self,
-                          std::vector<T> const& other);
-template <typename T>
-inline void assign_packet(std::vector<T>& self,
-                          std::vector<T>&& other);
-template <typename T>
-inline void assign_packet(std::unordered_set<T>& self,
-                          std::unordered_set<T> const& other);
-template <typename T>
-inline void assign_packet(std::unordered_set<T>& self,
-                          std::unordered_set<T>&& other);
-template <typename T_key, typename T_value>
-inline void assign_packet(std::unordered_map<T_key, T_value>& self,
-                          std::unordered_map<T_key, T_value> const& other);
-template <typename T_key, typename T_value>
-inline void assign_packet(std::unordered_map<T_key, T_value>& self,
-                          std::unordered_map<T_key, T_value>&& other);
 )file_template"
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 R"file_template(

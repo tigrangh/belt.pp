@@ -160,6 +160,8 @@ int main(int argc, char* argv[])
         {
             file_contents_declarations = replace_all(file_contents_declarations, "inline ", "");
             file_contents_declarations = replace_all(file_contents_declarations, "inline\n", "");
+            file_contents_template_definitions = replace_all(file_contents_template_definitions, "inline ", "");
+            file_contents_template_definitions = replace_all(file_contents_template_definitions, "inline\n", "");
         }
         else
             file_contents_definitions = replace_all(file_contents_definitions, "template class storage<void>;\n", "");
