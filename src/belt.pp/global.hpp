@@ -26,7 +26,7 @@
 
 #define B_OS_LINUX
 
-#define BELT_EXPORT
+#define BELT_EXPORT __attribute__ ((visibility ("default")))
 #define BELT_IMPORT
 #endif
 
