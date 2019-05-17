@@ -185,7 +185,7 @@ int main(int argc, char* argv[])
             {
                 ofstream file_declarations(file_name + ".hpp");
                 ofstream file_template_definitions(file_name + ".tmpl.hpp");
-                ofstream file_definitions(file_name + ".cpp");
+                ofstream file_definitions(file_name + ".cpp.hpp");
                 if (file_declarations &&
                     file_template_definitions &&
                     file_definitions)
