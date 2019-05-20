@@ -558,7 +558,7 @@ generated_code analyze_struct(state_holder& state,
     if (false == members.empty())
     {
         result.declarations += "    template <typename T>\n";
-        result.declarations += "    BELT_LOCAL explicit " + type_name + "(T&& other);\n";
+        result.declarations += "    explicit " + type_name + "(T&& other);\n";
 
         result.declarations += "    inline " + type_name + "& operator = (" + type_name + " const& other);\n";
 
@@ -577,7 +577,7 @@ generated_code analyze_struct(state_holder& state,
         result.definitions += "}\n";
 
         result.declarations += "    template <typename T>\n";
-        result.declarations += "    BELT_LOCAL " + type_name + "& operator = (T&& other);\n";
+        result.declarations += "    " + type_name + "& operator = (T&& other);\n";
     }
 
     string const placeholder_other = members.empty() ? string() : " other";
