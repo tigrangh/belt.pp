@@ -21,14 +21,20 @@ std::string format_tm(std::tm const& t)
 
 bool scan_tm(std::string const& strt, std::tm& st)
 {
-    if (6 != sscanf(strt.c_str(),
-                    "%d-%d-%d %d:%d:%d",
-                    &st.tm_year,
-                    &st.tm_mon,
-                    &st.tm_mday,
-                    &st.tm_hour,
-                    &st.tm_min,
-                    &st.tm_sec))
+    if (6 !=
+    #ifdef B_OS_WINDOWS
+        sscanf_s(
+    #else
+        sscanf(
+    #endif
+            strt.c_str(),
+            "%d-%d-%d %d:%d:%d",
+            &st.tm_year,
+            &st.tm_mon,
+            &st.tm_mday,
+            &st.tm_hour,
+            &st.tm_min,
+            &st.tm_sec))
         return false;
 
     st.tm_year -= 1900;
