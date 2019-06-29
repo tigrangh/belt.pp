@@ -19,10 +19,13 @@ public:
         return std::chrono::steady_clock::now();
     }
 
-    void set(std::chrono::steady_clock::duration const& period)
+    void set(std::chrono::steady_clock::duration const& period, bool delay = false)
     {
         is_set = true;
-        last_point_expired = now() - period;
+        if (delay)
+            last_point_expired = now();
+        else
+            last_point_expired = now() - period;
         timer_period = period;
     }
 

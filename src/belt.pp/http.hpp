@@ -187,12 +187,14 @@ public:
         : status(clean)
         , type(post)
         , http_header_scanning(0)
+        , parser_unrecognized_limit_backup(0)
     {}
     ~scan_status() override
     {}
     e_status status;
     e_type type;
     size_t http_header_scanning;
+    size_t parser_unrecognized_limit_backup;
     beltpp::http::request resource;
 };
 }// end of namespace detail
@@ -254,6 +256,8 @@ beltpp::e_three_state_result protocol(beltpp::detail::session_special_data& ssd,
     detail::scan_status* pss = dynamic_cast<detail::scan_status*>(ssd.ptr_data.get());
     if (nullptr == pss)
         return beltpp::e_three_state_result::error;
+
+    pss->parser_unrecognized_limit_backup = ssd.parser_unrecognized_limit;
 
     if (detail::scan_status::clean == pss->status)
     {

@@ -63,6 +63,7 @@ public:
 
     ip_address info(peer_id const& peer) const;
     ip_address info_connection(peer_id const& peer) const;
+    detail::session_special_data& session_data(peer_id const& peer);
 
     std::string dump() const;
 

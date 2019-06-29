@@ -739,6 +739,16 @@ ip_address socket::info_connection(peer_id const& peer) const
     return current_channel.m_socket_bundle_from_network;
 }
 
+detail::session_special_data& socket::session_data(peer_id const& peer)
+{
+    uint64_t current_id = detail::parse_peer_id(peer);
+    detail::channel& current_channel =
+            detail::get_channel(m_pimpl.get(),
+                                current_id);
+
+    return current_channel.m_special_data;
+}
+
 string socket::dump() const
 {
     string result;

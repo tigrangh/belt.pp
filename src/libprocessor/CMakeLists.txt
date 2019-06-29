@@ -1,7 +1,3 @@
-if(NOT WIN32 AND NOT APPLE)
-set( CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-pthread")
-endif()
-
 add_definitions(-DPROCESSOR_LIBRARY)
 
 # define the library
@@ -12,6 +8,11 @@ add_library(processor
 
 # libraries this module links to
 target_link_libraries(processor PUBLIC belt.pp)
+
+if(NOT WIN32 AND NOT APPLE)
+    find_package(Threads REQUIRED)
+    target_link_libraries(processor PRIVATE Threads::Threads)
+endif()
 
 # what to do on make install
 install(TARGETS processor

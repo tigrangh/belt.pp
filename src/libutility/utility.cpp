@@ -1,8 +1,51 @@
 #include "utility.hpp"
 
-#include <sstream>
-#include <iomanip>
 #include <random>
+#include <ctime>
+#include <cassert>
+#include <cstdio>
+
+namespace
+{
+std::string format_tm(std::tm const& t)
+{
+    char buffer[80];
+    if (0 == strftime(buffer, 80, "%Y-%m-%d %H:%M:%S", &t))
+    {
+        assert(false);
+        throw std::logic_error("format_tm");
+    }
+
+    return std::string(buffer);
+}
+
+bool scan_tm(std::string const& strt, std::tm& st)
+{
+    if (6 !=
+    #ifdef B_OS_WINDOWS
+        sscanf_s(
+    #else
+        sscanf(
+    #endif
+            strt.c_str(),
+            "%d-%d-%d %d:%d:%d",
+            &st.tm_year,
+            &st.tm_mon,
+            &st.tm_mday,
+            &st.tm_hour,
+            &st.tm_min,
+            &st.tm_sec))
+        return false;
+
+    st.tm_year -= 1900;
+    --st.tm_mon;
+
+    if (format_tm(st) != strt)
+        return false;
+
+    return true;
+}
+}
 
 namespace beltpp
 {
@@ -43,28 +86,17 @@ time_t lc_tm_to_gm_time_t(std::tm const& t)
 std::string gm_time_t_to_gm_string(time_t t)
 {
     std::tm st = gm_time_t_to_gm_tm(t);
-    std::stringstream ss;
-
-    ss << std::put_time(&st, "%Y-%m-%d %H:%M:%S");
-
-    return ss.str();
+    return format_tm(st);
 }
 std::string gm_time_t_to_lc_string(time_t t)
 {
     std::tm st = gm_time_t_to_lc_tm(t);
-    std::stringstream ss;
-
-    ss << std::put_time(&st, "%Y-%m-%d %H:%M:%S");
-
-    return ss.str();
+    return format_tm(st);
 }
 bool gm_string_to_gm_time_t(std::string const& strt, time_t& t)
 {
     std::tm st;
-    std::stringstream ss(strt);
-
-    ss >> std::get_time(&st, "%Y-%m-%d %H:%M:%S");
-    if (ss.fail())
+    if (false == scan_tm(strt, st))
         return false;
 
     t = gm_tm_to_gm_time_t(st);
@@ -73,10 +105,7 @@ bool gm_string_to_gm_time_t(std::string const& strt, time_t& t)
 bool lc_string_to_gm_time_t(std::string const& strt, time_t& t)
 {
     std::tm st;
-    std::stringstream ss(strt);
-
-    ss >> std::get_time(&st, "%Y-%m-%d %H:%M:%S");
-    if (ss.fail())
+    if (false == scan_tm(strt, st))
         return false;
 
     t = lc_tm_to_gm_time_t(st);

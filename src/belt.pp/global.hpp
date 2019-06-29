@@ -15,19 +15,36 @@
 #define BELT_IMPORT
 #endif
 
+#define BELT_LOCAL
+
 #elif defined __APPLE__
 
 #define B_OS_MACOS
 
+#ifdef BUILD_SHARED_LIBS
+#define BELT_EXPORT __attribute__ ((visibility ("default")))
+#define BELT_IMPORT
+#define BELT_LOCAL __attribute__ ((visibility ("hidden")))
+#else
 #define BELT_EXPORT
 #define BELT_IMPORT
+#define BELT_LOCAL
+#endif
 
 #else
 
 #define B_OS_LINUX
 
+#ifdef BUILD_SHARED_LIBS
+#define BELT_EXPORT __attribute__ ((visibility ("default")))
+#define BELT_IMPORT
+#define BELT_LOCAL __attribute__ ((visibility ("hidden")))
+#else
 #define BELT_EXPORT
 #define BELT_IMPORT
+#define BELT_LOCAL
+#endif
+
 #endif
 
 #include <cstdlib>
