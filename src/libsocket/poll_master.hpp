@@ -81,11 +81,11 @@ public:
         m_event.data.u64 = uint64_t(-1);
         int res = ::epoll_ctl(m_fd, EPOLL_CTL_ADD, m_fd_pipe_read, &m_event);
 
-        m_arr_event.resize(m_arr_event.size() + 1);
+        m_arr_event.push_back(epoll_event());
 
         if (-1 == res)
         {
-            m_arr_event.resize(m_arr_event.size() - 1);
+            m_arr_event.pop_back();
             std::string epoll_error = strerror(errno);
             throw std::runtime_error("epoll_ctl(): " +
                                      epoll_error);
@@ -112,14 +112,14 @@ public:
             action == event_handler::task::send)    //  win version cares for receive case too
             m_event.events |= EPOLLOUT;
 
-        m_arr_event.resize(m_arr_event.size() + 1);
+        m_arr_event.push_back(epoll_event());
 
         int res = ::epoll_ctl(m_fd, EPOLL_CTL_ADD, socket_descriptor, &m_event);
         m_event.events = backup;
 
         if (-1 == res)
         {
-            m_arr_event.resize(m_arr_event.size() - 1);
+            m_arr_event.pop_back();
             std::string epoll_error = strerror(errno);
             throw std::runtime_error("epoll_ctl(): " +
                                      epoll_error);
@@ -141,7 +141,7 @@ public:
             }
         }
 
-        m_arr_event.resize(m_arr_event.size() - 1);
+        m_arr_event.pop_back();
     }
 
     std::unordered_set<uint64_t> wait(beltpp::timer const& tm, bool& on_demand)
