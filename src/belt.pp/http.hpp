@@ -317,7 +317,7 @@ beltpp::e_three_state_result protocol(beltpp::detail::session_special_data& ssd,
 
             if (false == pss->resource.set(string(iter_scan_check_begin,
                                                   iter_scan_check_end.first)))
-                    return beltpp::e_three_state_result::error;
+                return beltpp::e_three_state_result::error;
         }
     }
 

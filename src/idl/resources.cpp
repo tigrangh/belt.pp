@@ -209,6 +209,7 @@ void extension_helper(::beltpp::message_loader_utility& utl)
                                              iter_scan_begin,
                                              iter_scan_end,
                                              ssd.parser_unrecognized_limit,
+                                             ssd.parser_depth_limit,
                                              proot);
 
     if (::beltpp::e_three_state_result::success == code &&
@@ -1019,6 +1020,7 @@ bool loader(T& value,
                                              iter_scan_begin,
                                              iter_scan_end,
                                              0,
+                                             size_t(-1),
                                              proot);
 
     if (code != ::beltpp::e_three_state_result::success)

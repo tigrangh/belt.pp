@@ -26,6 +26,7 @@ bool json_parse(string const& buf, ::beltpp::e_three_state_result status)
                                              iter_scan_begin,
                                              iter_scan_end,
                                              1024*1024,
+                                             50,
                                              proot);
 
     //cout << buf << endl;

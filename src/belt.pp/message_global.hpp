@@ -41,10 +41,12 @@ class session_special_data
 public:
     session_special_data()
         : parser_unrecognized_limit(1024)
+        , parser_depth_limit(50)
         , ptr_data(beltpp::t_unique_nullptr<iscan_status>())
         , session_specal_handler(nullptr)
         , autoreply() {}
     size_t parser_unrecognized_limit;
+    size_t parser_depth_limit;
     beltpp::t_unique_ptr<iscan_status> ptr_data;
     std::string(*session_specal_handler)(session_special_data&, beltpp::packet const&);
     std::string autoreply;

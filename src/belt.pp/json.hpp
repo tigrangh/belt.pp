@@ -653,6 +653,7 @@ parse_stream(ptr_expression_tree& ptr_expression,
              T_iterator& it_begin,
              T_iterator const& it_end,
              size_t const junk_limit,
+             size_t const depth_limit,
              expression_tree* &proot)
 {
     beltpp::e_three_state_result code = beltpp::e_three_state_result::attempt;
@@ -712,10 +713,15 @@ parse_stream(ptr_expression_tree& ptr_expression,
     {   //  iterator was advanced as much as possible
         //  and we have a fully parsed object
 
-        ptr_expression.release();
-        ptr_expression.reset(proot);
+        if (proot->depth() > depth_limit)
+            code = beltpp::e_three_state_result::error;
+        else
+        {
+            ptr_expression.release();
+            ptr_expression.reset(proot);
 
-        code = beltpp::e_three_state_result::success;
+            code = beltpp::e_three_state_result::success;
+        }
     }
 
     return code;
