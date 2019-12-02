@@ -22,7 +22,8 @@ class request
     vector<string> split(string const& value,
                          string const& separator,
                          bool skip_empty,
-                         size_t limit)
+                         size_t limit,
+                         bool till_the_end = false)
     {
         vector<string> parts;
 
@@ -32,7 +33,11 @@ class request
                parts.size() < limit)
         {
             size_t next_index = value.find(separator, find_index);
-            if (next_index == string::npos)
+            if (next_index == string::npos ||
+                (
+                    parts.size() == limit - 1 &&
+                    till_the_end
+                ))
                 next_index = value.size();
 
             string part = value.substr(find_index, next_index - find_index);
@@ -162,7 +167,7 @@ public:
 
     bool add_property(string const& value)
     {
-        vector<string> parts = split(value, ": ", false, 2);
+        vector<string> parts = split(value, ": ", false, 2, true);
 
         if (parts.empty() ||
             parts.size() > 2)
@@ -312,6 +317,7 @@ beltpp::e_three_state_result protocol(beltpp::detail::session_special_data& ssd,
             pss->http_header_scanning += scanned_line.length();
             iter_scan_begin = iter_scan_check_end.second;
             iter_fallback = iter_scan_begin;
+            long_enough_message = false;
 
             pss->status = detail::scan_status::http_properties_progress;
 
@@ -344,6 +350,7 @@ beltpp::e_three_state_result protocol(beltpp::detail::session_special_data& ssd,
 
             iter_scan_begin = iter_scan_check_end.second;
             iter_fallback = iter_scan_begin;
+            long_enough_message = false;
 
             if (scanned_begin.empty())
                 pss->status = detail::scan_status::http_done;
