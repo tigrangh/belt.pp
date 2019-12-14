@@ -12,6 +12,7 @@ class ilog
 public:
     virtual ~ilog() {}
     virtual std::string name() const noexcept = 0;
+    virtual bool enabled() const noexcept = 0;
     virtual void enable() noexcept = 0;
     virtual void disable() noexcept = 0;
 

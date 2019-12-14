@@ -28,7 +28,7 @@ class log_console : public ilog
 {
 public:
     log_console(string const& name, bool print_time)
-        : enabled(true)
+        : enabled_(true)
         , print_time(print_time)
         , str_name(name)
     {}
@@ -38,18 +38,22 @@ public:
     {
         return str_name;
     }
+    bool enabled() const noexcept override
+    {
+        return enabled_;
+    }
     void enable() noexcept override
     {
-        enabled = true;
+        enabled_ = true;
     }
     void disable() noexcept override
     {
-        enabled = false;
+        enabled_ = false;
     }
 
     void message(std::string const& value) override
     {
-        if (false == enabled)
+        if (false == enabled_)
             return;
         if (print_time)
             cout << time_now() << " - ";
@@ -58,7 +62,7 @@ public:
     }
     void warning(std::string const& value) override
     {
-        if (false == enabled)
+        if (false == enabled_)
             return;
         if (print_time)
             cout << time_now() << " - ";
@@ -67,7 +71,7 @@ public:
     }
     void error(std::string const& value) override
     {
-        if (false == enabled)
+        if (false == enabled_)
             return;
         if (print_time)
             cout << time_now() << " - ";
@@ -75,7 +79,7 @@ public:
         cerr << "Error:   " << value << endl;
     }
 
-    bool enabled;
+    bool enabled_;
     bool print_time;
     string str_name;
 };

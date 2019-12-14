@@ -21,7 +21,7 @@ class log_file : public ilog
 {
 public:
     log_file(string const& name, string const& file_name)
-        : enabled(true)
+        : enabled_(true)
         , str_name(name)
         , file_name(file_name)
     {
@@ -36,18 +36,22 @@ public:
     {
         return str_name;
     }
+    bool enabled() const noexcept override
+    {
+        return enabled_;
+    }
     void enable() noexcept override
     {
-        enabled = true;
+        enabled_ = true;
     }
     void disable() noexcept override
     {
-        enabled = false;
+        enabled_ = false;
     }
 
     void message(std::string const& value) override
     {
-        if (false == enabled)
+        if (false == enabled_)
             return;
 
         ofstream of;
@@ -61,7 +65,7 @@ public:
     }
     void warning(std::string const& value) override
     {
-        if (false == enabled)
+        if (false == enabled_)
             return;
 
         ofstream of;
@@ -75,7 +79,7 @@ public:
     }
     void error(std::string const& value) override
     {
-        if (false == enabled)
+        if (false == enabled_)
             return;
 
         ofstream of;
@@ -88,7 +92,7 @@ public:
         of << "Error:   " << value << endl;
     }
 
-    bool enabled;
+    bool enabled_;
     string str_name;
     string file_name;
 };
