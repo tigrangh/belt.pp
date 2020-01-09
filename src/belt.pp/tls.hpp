@@ -1,5 +1,21 @@
 #pragma once
 
+/*
+ * this code expects the dependencies on the following libraries be defined
+ * by the client module
+ *
+ * Boost::system
+ * OpenSSL::SSL
+ * OpenSSL::Crypto
+ *
+ * here's an example cmake code
+ *
+ * target_link_libraries(target_name PRIVATE Boost::system)
+ * find_package(OpenSSL REQUIRED SSL Crypto)
+ * target_link_libraries(target_name PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+ *
+ */
+
 #include "message_global.hpp"
 //#include "parser.hpp"
 #include "scope_helper.hpp"
@@ -219,14 +235,28 @@ public:
         io_context.get_executor();
     }
 
-    size_t read_some(boost::asio::mutable_buffer const& buffer, boost::system::error_code& ec) const
+    template <typename HANDLER>
+    size_t async_read_some(boost::asio::mutable_buffer const& buffers, HANDLER h) const
     {
-        return 0;
-    }
-    size_t write_some(boost::asio::const_buffers_1 buffer, boost::system::error_code& ec) const
-    {
+        B_UNUSED(h);
+        //void f(boost::system::error_code ec, std::size_t bytes_transferred = ~std::size_t(0), int start = 0);
         return 1;
     }
+    /*size_t read_some(boost::asio::mutable_buffer const& buffer, boost::system::error_code& ec) const
+    {
+        return 0;
+    }*/
+    template <typename HANDLER>
+    size_t async_write_some(boost::asio::const_buffers_1 buffer, HANDLER h) const
+    {
+        B_UNUSED(h);
+        //void f(boost::system::error_code ec, std::size_t bytes_transferred = ~std::size_t(0), int start = 0);
+        return 0;
+    }
+    /*size_t write_some(boost::asio::const_buffers_1 buffer, boost::system::error_code& ec) const
+    {
+        return 1;
+    }*/
     class lowest_layer_type
     {
     public:
@@ -252,6 +282,37 @@ public:
     lowest_layer_type lowest_layer_;
 };
 }// end of namespace detail
+
+inline
+void test_func()
+{
+    boost::asio::io_context io_context;
+    boost::asio::ssl::context context(boost::asio::ssl::context::sslv23);
+    context.set_options(
+        boost::asio::ssl::context::default_workarounds
+        | boost::asio::ssl::context::no_sslv2/*
+        | boost::asio::ssl::context::single_dh_use*/);
+    context.set_password_callback([](std::size_t/* size*/,
+                                     boost::asio::ssl::context_base::password_purpose/* purpose*/){return string();});
+    //context.set_password_callback([boost::bind(&server::get_password, this));
+    context.use_certificate_chain_file("/home/tigran/temp.key/server.crt");
+    context.use_private_key_file("/home/tigran/temp.key/server.key", boost::asio::ssl::context::pem);
+    context.use_tmp_dh_file("/home/tigran/temp.key/dh2048.pem");
+
+    boost::asio::ssl::stream<boost::asio::ip::tcp::socket> socket2(io_context, context);
+    socket2.get_executor();
+
+    boost::asio::ssl::stream<detail::boost_tool> socket1(io_context, context);
+    //socket1.handshake(boost::asio::ssl::stream_base::client);
+    for (size_t index = 0; index < 10; ++index)
+    {
+        socket1.async_handshake(boost::asio::ssl::stream_base::server,
+                                [index](boost::system::error_code const& ec)
+        {
+            return index == 9;
+        });
+    }
+}
 
 #if 0
 inline
@@ -289,7 +350,6 @@ string http_not_found(beltpp::detail::session_special_data& ssd,
 
     return str_result;
 }
-#endif
 
 inline pair<beltpp::e_three_state_result, detail::scan_status>
 protocol(beltpp::detail::session_special_data& ssd,
@@ -301,29 +361,6 @@ protocol(beltpp::detail::session_special_data& ssd,
          size_t content_max_size,
          string& posted)
 {
-    boost::asio::io_context io_context;
-    boost::asio::ssl::context context(boost::asio::ssl::context::sslv23);
-    context.set_options(
-        boost::asio::ssl::context::default_workarounds
-        | boost::asio::ssl::context::no_sslv2
-        | boost::asio::ssl::context::single_dh_use);
-    context.set_password_callback([](std::size_t/* size*/,
-                                     boost::asio::ssl::context_base::password_purpose/* purpose*/){return string();});
-    //context.set_password_callback([boost::bind(&server::get_password, this));
-    //context.use_certificate_chain_file("server.pem");
-    //context.use_private_key_file("server.pem", boost::asio::ssl::context::pem);
-    //context.use_tmp_dh_file("dh512.pem");
-
-
-    boost::asio::ssl::stream<boost::asio::ip::tcp::socket> socket2(io_context, context);
-    socket2.get_executor();
-
-    boost::asio::ssl::stream<detail::boost_tool> socket1(io_context, context);
-    socket1.handshake(boost::asio::ssl::stream_base::client);
-    /*socket1.async_handshake(boost::asio::ssl::stream_base::client,
-                            [](boost::system::error_code const& ec) {});*/
-
-
     string const value_post = "POST ", value_get = "GET ", value_options = "OPTIONS ";
 
     bool long_enough_message = (size_t(std::distance(iter_scan_begin, iter_scan_end)) >
@@ -506,6 +543,7 @@ protocol(beltpp::detail::session_special_data& ssd,
 
     return std::make_pair(beltpp::e_three_state_result::attempt, ss);
 }
+#endif
 
-}// end of namespace http
+}// end of namespace tls
 }// end of namespace beltpp
