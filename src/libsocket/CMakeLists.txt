@@ -1,4 +1,5 @@
 add_definitions(-DSOCKET_LIBRARY)
+#add_definitions(-DUSE_BOOST_SOCKET)
 
 # define the library
 add_library(socket
@@ -17,6 +18,24 @@ if (WIN32)
 endif()
 # libraries this module links to
 target_link_libraries(socket PUBLIC belt.pp packet PRIVATE ${wslib})
+
+# some code duplication goes here related to boost
+#if (NOT BUILD_SHARED_LIBS)
+#set (Boost_USE_STATIC_LIBS ON)
+#set (CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_STATIC_LIBRARY_SUFFIX})
+#endif()
+#set (Boost_MULTITHREADED ON)
+#set (Boost_USE_STATIC_RUNTIME OFF)
+#
+#find_package(Boost 1.58 REQUIRED
+#    COMPONENTS system
+#               filesystem
+#               program_options
+#               locale)
+#target_link_libraries(socket PRIVATE Boost::system)
+#
+#find_package(OpenSSL REQUIRED SSL Crypto)
+#target_link_libraries(socket PRIVATE OpenSSL::SSL OpenSSL::Crypto)
 
 # what to do on make install
 install(TARGETS socket

@@ -3,10 +3,13 @@
 #include "message_global.hpp"
 #include "parser.hpp"
 
+#include <belt.pp/scope_helper.hpp>
+
 #include <vector>
 #include <string>
 #include <unordered_map>
 #include <iterator>
+#include <utility>
 
 namespace beltpp
 {
@@ -15,6 +18,7 @@ namespace http
 using std::vector;
 using std::string;
 using std::unordered_map;
+using std::pair;
 
 class request
 {
@@ -192,14 +196,12 @@ public:
         : status(clean)
         , type(post)
         , http_header_scanning(0)
-        , parser_unrecognized_limit_backup(0)
     {}
     ~scan_status() override
     {}
     e_status status;
     e_type type;
     size_t http_header_scanning;
-    size_t parser_unrecognized_limit_backup;
     beltpp::http::request resource;
 };
 }// end of namespace detail
@@ -240,31 +242,34 @@ string http_not_found(beltpp::detail::session_special_data& ssd,
     return str_result;
 }
 
-inline
-beltpp::e_three_state_result protocol(beltpp::detail::session_special_data& ssd,
-                                      string::const_iterator& iter_scan_begin,
-                                      string::const_iterator const& iter_scan_end,
-                                      string::const_iterator& iter_fallback,
-                                      size_t enough_length,
-                                      size_t header_max_size,
-                                      size_t content_max_size,
-                                      string& posted)
+inline pair<beltpp::e_three_state_result, detail::scan_status>
+protocol(beltpp::detail::session_special_data& ssd,
+         string::const_iterator& iter_scan_begin,
+         string::const_iterator const& iter_scan_end,
+         string::const_iterator& iter_fallback,
+         size_t enough_length,
+         size_t header_max_size,
+         size_t content_max_size,
+         string& posted)
 {
     string const value_post = "POST ", value_get = "GET ", value_options = "OPTIONS ";
 
     bool long_enough_message = (size_t(std::distance(iter_scan_begin, iter_scan_end)) >
                                 enough_length);
 
-    if (nullptr == ssd.ptr_data)
-        ssd.ptr_data = beltpp::new_dc_unique_ptr<beltpp::detail::iscan_status, detail::scan_status>();
+    if (ssd.lst_ptr_data.empty() ||
+        nullptr == dynamic_cast<detail::scan_status*>(ssd.lst_ptr_data.back().get()))
+        ssd.lst_ptr_data.push_back(beltpp::new_dc_unique_ptr<beltpp::detail::iscan_status, detail::scan_status>());
 
-    detail::scan_status* pss = dynamic_cast<detail::scan_status*>(ssd.ptr_data.get());
-    if (nullptr == pss)
-        return beltpp::e_three_state_result::error;
+    detail::scan_status& ss = dynamic_cast<detail::scan_status&>(*ssd.lst_ptr_data.back().get());
 
-    pss->parser_unrecognized_limit_backup = ssd.parser_unrecognized_limit;
+    beltpp::on_failure guard([&ssd]
+    {
+        ssd.lst_ptr_data.pop_back();
+    });
+    bool guard_force = false;
 
-    if (detail::scan_status::clean == pss->status)
+    if (detail::scan_status::clean == ss.status)
     {
         auto iter_scan = beltpp::check_begin(iter_scan_begin, iter_scan_end, value_post);
         if (iter_scan_begin == iter_scan)
@@ -275,11 +280,11 @@ beltpp::e_three_state_result protocol(beltpp::detail::session_special_data& ssd,
         if (iter_scan_begin != iter_scan)
         {   //  even if "P", "G" or "O" occured switch to http mode
             string temp(iter_scan_begin, iter_scan);
-            pss->status = detail::scan_status::http_request_progress;
+            ss.status = detail::scan_status::http_request_progress;
         }
     }
 
-    if (detail::scan_status::http_request_progress == pss->status)
+    if (detail::scan_status::http_request_progress == ss.status)
     {
         string const value_ending = " HTTP/1.1\r\n";
         auto iter_scan_check_begin = beltpp::check_begin(iter_scan_begin, iter_scan_end, value_post);
@@ -295,7 +300,7 @@ beltpp::e_three_state_result protocol(beltpp::detail::session_special_data& ssd,
 
         if (scanned_begin.empty() ||
             (scanned_ending.empty() && long_enough_message))
-            return beltpp::e_three_state_result::error;
+            return std::make_pair(beltpp::e_three_state_result::error, ss);
         else if ((scanned_begin != value_post &&
                   scanned_begin != value_get &&
                   scanned_begin != value_options) ||
@@ -308,27 +313,27 @@ beltpp::e_three_state_result protocol(beltpp::detail::session_special_data& ssd,
             string scanned_line(iter_scan_begin, iter_scan_check_end.second);
 
             if (scanned_begin == value_get)
-                pss->type = detail::scan_status::get;
+                ss.type = detail::scan_status::get;
             else if (scanned_begin == value_post)
-                pss->type = detail::scan_status::post;
+                ss.type = detail::scan_status::post;
             else// if (scanned_begin == value_options)
-                pss->type = detail::scan_status::options;
+                ss.type = detail::scan_status::options;
 
-            pss->http_header_scanning += scanned_line.length();
+            ss.http_header_scanning += scanned_line.length();
             iter_scan_begin = iter_scan_check_end.second;
             iter_fallback = iter_scan_begin;
             long_enough_message = false;
 
-            pss->status = detail::scan_status::http_properties_progress;
+            ss.status = detail::scan_status::http_properties_progress;
 
-            if (false == pss->resource.set(string(iter_scan_check_begin,
-                                                  iter_scan_check_end.first)))
-                return beltpp::e_three_state_result::error;
+            if (false == ss.resource.set(string(iter_scan_check_begin,
+                                                iter_scan_check_end.first)))
+                return std::make_pair(beltpp::e_three_state_result::error, ss);
         }
     }
 
-    while (detail::scan_status::http_properties_progress == pss->status &&
-           pss->http_header_scanning < header_max_size)
+    while (detail::scan_status::http_properties_progress == ss.status &&
+           ss.http_header_scanning < header_max_size)
     {
         string const value_ending = "\r\n";
         auto iter_scan_check_end = beltpp::check_end(iter_scan_begin, iter_scan_end, value_ending);
@@ -337,7 +342,7 @@ beltpp::e_three_state_result protocol(beltpp::detail::session_special_data& ssd,
         string scanned_ending(iter_scan_check_end.first, iter_scan_check_end.second);
 
         if (scanned_ending.empty() && long_enough_message)
-            return beltpp::e_three_state_result::error;
+            return std::make_pair(beltpp::e_three_state_result::error, ss);
         else if (scanned_ending != value_ending)
         {
             //  that's ok, wait for more data
@@ -346,35 +351,35 @@ beltpp::e_three_state_result protocol(beltpp::detail::session_special_data& ssd,
         else
         {
             string scanned_line(iter_scan_begin, iter_scan_check_end.second);
-            pss->http_header_scanning += scanned_line.length();
+            ss.http_header_scanning += scanned_line.length();
 
             iter_scan_begin = iter_scan_check_end.second;
             iter_fallback = iter_scan_begin;
             long_enough_message = false;
 
             if (scanned_begin.empty())
-                pss->status = detail::scan_status::http_done;
-            else if(false == pss->resource.add_property(scanned_begin))
-                return beltpp::e_three_state_result::error;
+                ss.status = detail::scan_status::http_done;
+            else if(false == ss.resource.add_property(scanned_begin))
+                return std::make_pair(beltpp::e_three_state_result::error, ss);
         }
     }
 
-    if (pss->http_header_scanning >= header_max_size)
-        return beltpp::e_three_state_result::error;
+    if (ss.http_header_scanning >= header_max_size)
+        return std::make_pair(beltpp::e_three_state_result::error, ss);
 
-    if (detail::scan_status::http_properties_progress == pss->status ||
-        detail::scan_status::http_request_progress == pss->status)
+    if (detail::scan_status::http_properties_progress == ss.status ||
+        detail::scan_status::http_request_progress == ss.status)
     {
         //  that's ok, wait for more data
     }
-    else if (pss->status == detail::scan_status::http_done)
+    else if (ss.status == detail::scan_status::http_done)
     {
         iter_scan_begin = iter_fallback;
         std::string line(iter_scan_begin, iter_scan_end);
         size_t line_length = line.length();
         B_UNUSED(line_length);
 
-        if (pss->type == detail::scan_status::options)
+        if (ss.type == detail::scan_status::options)
         {
             ssd.session_specal_handler = nullptr;
 
@@ -387,22 +392,22 @@ beltpp::e_three_state_result protocol(beltpp::detail::session_special_data& ssd,
             ssd.autoreply += "Content-Length: 0\r\n";
             ssd.autoreply += "\r\n";
 
-            ssd.ptr_data = beltpp::t_unique_nullptr<beltpp::detail::iscan_status>();
+            guard_force = true;
         }
-        else if (pss->type == detail::scan_status::get)
+        else if (ss.type == detail::scan_status::get)
         {
-            return beltpp::e_three_state_result::success;
+            return std::make_pair(beltpp::e_three_state_result::success, ss);
         }
-        else if (pss->type == detail::scan_status::post)
+        else if (ss.type == detail::scan_status::post)
         {
-            string cl = pss->resource.properties["Content-Length"];
+            string cl = ss.resource.properties["Content-Length"];
             size_t pos;
             uint64_t content_length = beltpp::stoui64(cl, pos);
 
             if (cl.empty() ||
                 pos != cl.length() ||
                 content_length > content_max_size)
-                return beltpp::e_three_state_result::error;
+                return std::make_pair(beltpp::e_three_state_result::error, ss);
             else if (size_t(std::distance(iter_scan_begin, iter_scan_end)) < content_length)
             {
                 //  that's ok, wait for more data
@@ -416,15 +421,18 @@ beltpp::e_three_state_result protocol(beltpp::detail::session_special_data& ssd,
                 }
 
                 posted.assign(iter_fallback, iter_scan_begin);
-                return beltpp::e_three_state_result::success;
+                return std::make_pair(beltpp::e_three_state_result::success, ss);
             }
         }
     }
 
-    if (pss->status == detail::scan_status::clean)
-        return beltpp::e_three_state_result::error;
+    if (ss.status == detail::scan_status::clean)
+        return std::make_pair(beltpp::e_three_state_result::error, ss);
 
-    return beltpp::e_three_state_result::attempt;
+    if (false == guard_force)
+        guard.dismiss();
+
+    return std::make_pair(beltpp::e_three_state_result::attempt, ss);
 }
 
 }// end of namespace http

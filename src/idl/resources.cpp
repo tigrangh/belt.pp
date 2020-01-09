@@ -11,6 +11,8 @@ std::string const resources::file_declarations = R"file_template(
 #include <belt.pp/packet.hpp>
 #include <belt.pp/utility.hpp>
 #include <belt.pp/meta.hpp>
+#include <belt.pp/scope_helper.hpp>
+
 #include <string>
 #include <cstdint>
 #include <unordered_map>
@@ -184,17 +186,17 @@ void extension_helper(::beltpp::message_loader_utility& utl)
         beltpp::detail::session_special_data& ssd,
         void* putl)
 {
-    if (nullptr == ssd.ptr_data)
-        ssd.ptr_data = beltpp::new_dc_unique_ptr<beltpp::detail::iscan_status, scan_status>();
+    if (ssd.lst_ptr_data.empty() ||
+        nullptr == dynamic_cast<scan_status*>(ssd.lst_ptr_data.back().get()))
+        ssd.lst_ptr_data.push_back(beltpp::new_dc_unique_ptr<beltpp::detail::iscan_status, scan_status>());
 
-    ::beltpp::json::ptr_expression_tree pexp_local;
-    ::beltpp::json::ptr_expression_tree* p_temp = &pexp_local;
-    auto pss = dynamic_cast<scan_status*>(ssd.ptr_data.get());
+    auto& ss = dynamic_cast<scan_status&>(*ssd.lst_ptr_data.back().get());
+    ::beltpp::on_failure guard([&ssd]
+    {
+        ssd.lst_ptr_data.pop_back();
+    });
 
-    if (pss)
-        p_temp = &pss->pexp;
-
-    ::beltpp::json::ptr_expression_tree& pexp = *p_temp;
+    ::beltpp::json::ptr_expression_tree& pexp = ss.pexp;
     ::beltpp::json::expression_tree* proot = nullptr;
 
     ::beltpp::message_loader_utility utl;
@@ -228,9 +230,6 @@ void extension_helper(::beltpp::message_loader_utility& utl)
     //
     if (::beltpp::e_three_state_result::error == code)
     {
-        if (pss)
-            ssd.ptr_data = beltpp::t_unique_nullptr<beltpp::detail::iscan_status>();
-
         iter_scan_begin = iter_scan_end;
         return_value = ::beltpp::detail::pmsg_all(size_t(-2),
                                         ::beltpp::void_unique_nullptr(),
@@ -240,12 +239,11 @@ void extension_helper(::beltpp::message_loader_utility& utl)
     {
         //  leave iter_scan_begin, and pexp
         //  on the next run will continue from there
+        guard.dismiss();
         return_value = ::beltpp::detail::pmsg_all(size_t(-1),
                                         ::beltpp::void_unique_nullptr(),
                                         nullptr);
     }
-    else if (pss)
-        ssd.ptr_data = beltpp::t_unique_nullptr<beltpp::detail::iscan_status>();
 
     return return_value;
 }
