@@ -6,11 +6,6 @@
 #include <belt.pp/scope_helper.hpp>
 #include <belt.pp/queue.hpp>
 
-#ifdef USE_BOOST_SOCKET
-#include <boost/asio.hpp>
-#include <boost/asio/ssl.hpp>
-#endif
-
 #ifndef B_OS_WINDOWS
 #include <netdb.h>
 #include <sys/socket.h>

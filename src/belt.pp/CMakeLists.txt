@@ -35,7 +35,7 @@ set(SRC_FILES
     scope_helper.hpp
     socket.hpp
     timer.hpp
-    #tls.hpp
+    tls.hpp
     utility.hpp)
 
 install(FILES
