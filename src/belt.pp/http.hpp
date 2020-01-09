@@ -2,8 +2,7 @@
 
 #include "message_global.hpp"
 #include "parser.hpp"
-
-#include <belt.pp/scope_helper.hpp>
+#include "scope_helper.hpp"
 
 #include <vector>
 #include <string>
