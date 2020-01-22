@@ -59,11 +59,9 @@ namespace detail
 class channel
 {
 public:
-    enum class type {listening, streaming};
-
     channel(size_t attempts = 0,
             native::socket_handle&& socket_descriptor = native::socket_handle(),
-            type e_type = type::listening,
+            socket::peer_type e_type = socket::peer_type::listening,
             ip_address socket_bundle = ip_address(),
             ip_address socket_bundle_from_network = ip_address(),
             uint64_t eh_id = 0,
@@ -80,7 +78,7 @@ public:
 
     bool m_closed;
     native::socket_handle m_socket_descriptor;
-    type m_type;
+    socket::peer_type m_type;
     size_t m_attempts;
     uint64_t m_eh_id;
     ip_address m_socket_bundle;
@@ -151,7 +149,7 @@ sockets socket(addrinfo* servinfo,
 beltpp::socket::peer_id add_channel(beltpp::socket& self,
                                     detail::socket_internals* pimpl,
                                     native::socket_handle&& socket_descriptor,
-                                    detail::channel::type e_type,
+                                    socket::peer_type e_type,
                                     size_t attempts,
                                     const struct sockaddr* addr = nullptr,
                                     size_t len = 0,
@@ -246,7 +244,7 @@ peer_ids socket::listen(ip_address const& address, int backlog/* = 100*/)
                     detail::add_channel(*this,
                                         m_pimpl.get(),
                                         std::move(socket_descriptor),
-                                        detail::channel::type::listening,
+                                        peer_type::listening,
                                         0));
     }
 
@@ -318,7 +316,7 @@ peer_ids socket::open(ip_address address, size_t attempts/* = 0*/)
                     detail::add_channel(*this,
                                         m_pimpl.get(),
                                         std::move(socket_descriptor),
-                                        detail::channel::type::streaming,
+                                        peer_type::streaming_opened,
                                         attempts,
                                         ptr_remoteinfo->ai_addr,
                                         ptr_remoteinfo->ai_addrlen,
@@ -486,7 +484,7 @@ packets socket::receive(peer_id& peer)
                 break;
             }
         }
-        else if (current_channel.m_type == detail::channel::type::listening)
+        else if (current_channel.m_type == peer_type::listening)
         {
             int error_code = 0;
             bool res = 0;
@@ -525,13 +523,14 @@ packets socket::receive(peer_id& peer)
             peer = detail::add_channel(*this,
                                        m_pimpl.get(),
                                        std::move(joined_socket_descriptor),
-                                       detail::channel::type::streaming,
+                                       peer_type::streaming_accepted,
                                        0);
 
             result.emplace_back(beltpp::isocket_join());
             break;
         }
-        else// if(current_channel.m_type == detail::channel::type::streaming)
+        else// if(current_channel.m_type == peer_type::streaming_opened ||
+            //    current_channel.m_type == peer_type::streaming_accepted)
         {
             current_channel.m_receive_stream.reserve();
             char* p_buffer = nullptr;
@@ -681,7 +680,8 @@ void socket::send(peer_id const& peer, packet&& pack)
                 detail::get_channel(m_pimpl.get(),
                                     current_id);
 
-        if (current_channel.m_type != detail::channel::type::streaming)
+        if (current_channel.m_type != peer_type::streaming_opened &&
+            current_channel.m_type != peer_type::streaming_accepted)
             throw std::runtime_error("send message on non streaming channel");
         if (current_channel.m_closed)
             throw std::runtime_error("send message on closed channel");
@@ -717,6 +717,16 @@ void socket::send(peer_id const& peer, packet&& pack)
 
 void socket::timer_action()
 {
+}
+
+socket::peer_type socket::get_peer_type(peer_id const& peer) const
+{
+    uint64_t current_id = detail::parse_peer_id(peer);
+    detail::channel& current_channel =
+            detail::get_channel(m_pimpl.get(),
+                                current_id);
+
+    return current_channel.m_type;
 }
 
 ip_address socket::info(peer_id const& peer) const
@@ -1099,7 +1109,7 @@ sockets socket(addrinfo* servinfo,
 beltpp::socket::peer_id add_channel(beltpp::socket& self,
                                     detail::socket_internals* pimpl,
                                     native::socket_handle&& socket_descriptor,
-                                    detail::channel::type e_type,
+                                    socket::peer_type e_type,
                                     size_t attempts,
                                     const struct sockaddr* addr/* = nullptr*/,
                                     size_t len/* = 0*/,
@@ -1124,7 +1134,7 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
 
     event_handler::task action = event_handler::task::accept;
 
-    if (e_type != detail::channel::type::listening)
+    if (e_type != socket::peer_type::listening)
     {
         if (attempts == 0)
             action = event_handler::task::receive;
@@ -1268,7 +1278,8 @@ void delete_channel(detail::socket_internals* pimpl, uint64_t current_id)
                 current_channel.m_special_data = session_special_data();
 
                 event_handler::task action = event_handler::task::accept;
-                if (current_channel.m_type == detail::channel::type::streaming)
+                if (current_channel.m_type == socket::peer_type::streaming_opened ||
+                    current_channel.m_type == socket::peer_type::streaming_accepted)
                     action = event_handler::task::receive;
 
                 pimpl->m_peh->m_pimpl->remove(current_channel.m_socket_descriptor.handle,

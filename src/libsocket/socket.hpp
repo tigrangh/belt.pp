@@ -38,6 +38,12 @@ public:
         option_reuse_port = 0x1,
         option_keep_alive = 0x2
     };
+    enum class peer_type
+    {
+        listening,
+        streaming_opened,
+        streaming_accepted
+    };
 
     socket(event_handler& eh,
            detail::fptr_message_loader _fmessage_loader,
@@ -61,6 +67,7 @@ public:
 
     void timer_action() override;
 
+    peer_type get_peer_type(peer_id const& peer) const;
     ip_address info(peer_id const& peer) const;
     ip_address info_connection(peer_id const& peer) const;
     detail::session_special_data& session_data(peer_id const& peer);
