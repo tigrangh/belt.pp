@@ -40,7 +40,7 @@ class session_special_data
 {
 public:
     session_special_data()
-        : parser_unrecognized_limit(1024)
+        : parser_unrecognized_limit(20 * 1024)
         , parser_depth_limit(50)
         , lst_ptr_data()
         , session_specal_handler(nullptr)
