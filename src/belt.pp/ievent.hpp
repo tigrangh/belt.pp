@@ -13,7 +13,6 @@ class ievent_handler;
 class ievent_item
 {
 public:
-    friend class ievent_handler;
     ievent_item(ievent_handler&) {}
     virtual ~ievent_item() {}
 

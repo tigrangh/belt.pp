@@ -2,6 +2,7 @@
 
 #include "global.hpp"
 #include "socket.hpp"
+#include "event.hpp"
 
 #include <belt.pp/scope_helper.hpp>
 #include <belt.pp/queue.hpp>

@@ -1,6 +1,7 @@
 #include "socket.hpp"
 
 #include "native.hpp"
+#include "event.hpp"
 #include "event_impl.hpp"
 
 #include <belt.pp/scope_helper.hpp>
@@ -90,14 +91,23 @@ public:
 };
 using channels = beltpp::queue<channel>;
 
+beltpp::event_handler* event_handler_cast(beltpp::ievent_handler* peh)
+{
+    beltpp::event_handler* p = dynamic_cast<beltpp::event_handler*>(peh);
+    if (nullptr == p)
+        throw std::logic_error("beltpp::event_handler event_handler_cast(beltpp::ievent_handler* peh)");
+
+    return p;
+}
+
 class socket_internals
 {
 public:
-    socket_internals(beltpp::event_handler& eh,
+    socket_internals(beltpp::ievent_handler& eh,
                      detail::fptr_message_loader fmessage_loader,
                      beltpp::socket::option e_option,
                      beltpp::void_unique_ptr&& putl)
-        : m_peh(&eh)
+        : m_peh(event_handler_cast(&eh))
         , m_fmessage_loader(fmessage_loader)
         , m_option(e_option)
         , m_putl(std::move(putl))
@@ -168,7 +178,7 @@ ip_address get_socket_bundle(native::socket_handle const& socket_descriptor);
 /*
  * socket
  */
-socket::socket(event_handler& eh,
+socket::socket(ievent_handler& eh,
                detail::fptr_message_loader _fmessage_loader,
                option e_option,
                beltpp::void_unique_ptr&& putl)

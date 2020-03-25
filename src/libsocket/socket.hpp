@@ -1,10 +1,10 @@
 #pragma once
 
 #include "global.hpp"
-#include "event.hpp"
 
 #include <belt.pp/isocket.hpp>
 #include <belt.pp/message_global.hpp>
+#include <belt.pp/ievent.hpp>
 
 #include <memory>
 #include <string>
@@ -45,7 +45,7 @@ public:
         streaming_accepted
     };
 
-    socket(event_handler& eh,
+    socket(ievent_handler& eh,
            detail::fptr_message_loader _fmessage_loader,
            option e_option,
            beltpp::void_unique_ptr&& putl);
@@ -79,7 +79,7 @@ private:
 };
 
 template <typename T_socket_family>
-socket getsocket(event_handler& eh,
+socket getsocket(ievent_handler& eh,
                  socket::option e_option,
                  beltpp::void_unique_ptr&& putl)
 {
@@ -91,7 +91,7 @@ socket getsocket(event_handler& eh,
 }
 
 template <typename T_socket_family>
-socket getsocket(event_handler& eh,
+socket getsocket(ievent_handler& eh,
                  socket::option e_option = socket::option_none)
 {
     beltpp::void_unique_ptr putl = beltpp::new_void_unique_ptr<beltpp::message_loader_utility>();
