@@ -2,6 +2,8 @@
 
 #include "global.hpp"
 #include "ievent.hpp"
+#include "stream.hpp"
+#include "message_global.hpp"
 
 #include <string>
 #include <list>
@@ -232,54 +234,53 @@ public:
     ip_destination remote;
 };
 
-class isocket : public ievent_item
+class socket : public stream
 {
 public:
-    using peer_id = std::string;
-    using packets = std::list<packet>;
+    enum class peer_type
+    {
+        listening,
+        streaming_opened,
+        streaming_accepted
+    };
 
-    isocket(ievent_handler& eh) : ievent_item(eh) {}
-    virtual ~isocket() {}
+    using peer_id = stream::peer_id;
+    using packets = stream::packets;
+    using peer_ids = std::list<peer_id>;
 
-    virtual packets receive(peer_id& peer) = 0;
+    socket(ievent_handler& eh) : stream(eh) {}
+    virtual ~socket() {}
 
-    virtual void send(peer_id const& peer,
-                      packet&& pack) = 0;
+    virtual peer_ids listen(ip_address const& address,
+                            int backlog = 100) = 0;
+
+    virtual peer_ids open(ip_address address,
+                          size_t attempts = 0) = 0;
+
+    packets receive(peer_id& peer) override = 0;
+
+    void send(peer_id const& peer,
+              packet&& pack) override = 0;
+
+    virtual peer_type get_peer_type(peer_id const& peer) = 0;
+
+    virtual ip_address info(peer_id const& peer) = 0;
+    virtual ip_address info_connection(peer_id const& peer) = 0;
+    virtual detail::session_special_data& session_data(peer_id const& peer) = 0;
+
+    virtual std::string dump() const = 0;
 };
 
-class isocket_join
-{
-public:
-    static const size_t rtt = size_t(-10);
-    static std::string pvoid_saver(void*) { return std::string(); }
-};
-class isocket_drop
-{
-public:
-    static const size_t rtt = size_t(-11);
-    static std::string pvoid_saver(void*) { return std::string(); }
-};
+using socket_ptr = std::unique_ptr<socket>;
 
-class isocket_protocol_error
-{
-public:
-    static const size_t rtt = size_t(-12);
-    static std::string pvoid_saver(void*) { return std::string(); }
-
-    isocket_protocol_error(std::string const& buf = std::string())
-        : buffer(buf) {}
-
-    std::string buffer;
-};
-
-class isocket_open_refused
+class socket_open_refused
 {
 public:
     static const size_t rtt = size_t(-13);
     static std::string pvoid_saver(void*) { return std::string(); }
 
-    isocket_open_refused(std::string const& reason_ = std::string(),
-                         ip_address const& addr = ip_address())
+    socket_open_refused(std::string const& reason_ = std::string(),
+                        ip_address const& addr = ip_address())
         : reason(reason_)
         , address(addr)
     {}
@@ -288,14 +289,14 @@ public:
     ip_address address;
 };
 
-class isocket_open_error
+class socket_open_error
 {
 public:
     static const size_t rtt = size_t(-14);
     static std::string pvoid_saver(void*) { return std::string(); }
 
-    isocket_open_error(std::string const& reason_ = std::string(),
-                       ip_address const& addr = ip_address())
+    socket_open_error(std::string const& reason_ = std::string(),
+                      ip_address const& addr = ip_address())
         : reason(reason_)
         , address(addr)
     {}

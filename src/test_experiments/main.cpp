@@ -138,7 +138,8 @@ int main(int argc, char** argv)
 #else
         const int listen_count = 10;
         beltpp::event_handler eh;
-        beltpp::socket sk = beltpp::getsocket<sf>(eh);
+        beltpp::socket_ptr ptr_sk = beltpp::getsocket<sf>(eh);
+        beltpp::socket& sk = *ptr_sk;
         eh.add(sk);
 
         if (1 == argc) //server mode
@@ -174,10 +175,10 @@ int main(int argc, char** argv)
                     std::string str_type;
                     switch (packet.type())
                     {
-                    case beltpp::isocket_join::rtt:
+                    case beltpp::stream_join::rtt:
                         str_type = "joined";
                         break;
-                    case beltpp::isocket_drop::rtt:
+                    case beltpp::stream_drop::rtt:
                         str_type = "dropped";
                         break;
                     default:
@@ -219,7 +220,7 @@ int main(int argc, char** argv)
                 {
                     beltpp::socket::peer_id channel_id;
                     
-                    beltpp::isocket::packets pcs;
+                    beltpp::stream::packets pcs;
                     if (beltpp::ievent_handler::wait_result::event & eh.wait(set_items))
                         pcs = sk.receive(channel_id);
 
@@ -228,11 +229,11 @@ int main(int argc, char** argv)
 
                     for (auto const& pc : pcs)
                     {
-                        if (pc.type() == beltpp::isocket_join::rtt)
+                        if (pc.type() == beltpp::stream_join::rtt)
                         {
                             std::cout << i << std::endl;
                             if (i >= arr_channel_id.size())
-                                sk.send(arr_channel_id[index], beltpp::packet(beltpp::isocket_drop()));
+                                sk.send(arr_channel_id[index], beltpp::packet(beltpp::stream_drop()));
 
                             arr_channel_id[index] = channel_id;
                         }

@@ -49,11 +49,9 @@ using sockets = vector<pair<beltpp::native::socket_handle, addrinfo*>>;
 using peer_ids = beltpp::socket::peer_ids;
 using packets = beltpp::socket::packets;
 
-namespace beltpp
+namespace beltpp_socket_impl
 {
-/*
- * internals
- */
+using namespace beltpp;
 namespace detail
 {
 
@@ -86,7 +84,7 @@ public:
     ip_address m_socket_bundle_from_network;
     beltpp::queue<char> m_receive_stream;
     beltpp::queue<char> m_send_stream;
-    session_special_data m_special_data;
+    beltpp::detail::session_special_data m_special_data;
     native::sync_result m_sync_result;
 };
 using channels = beltpp::queue<channel>;
@@ -104,8 +102,8 @@ class socket_internals
 {
 public:
     socket_internals(beltpp::ievent_handler& eh,
-                     detail::fptr_message_loader fmessage_loader,
-                     beltpp::socket::option e_option,
+                     beltpp::detail::fptr_message_loader fmessage_loader,
+                     beltpp::libsocket::option e_option,
                      beltpp::void_unique_ptr&& putl)
         : m_peh(event_handler_cast(&eh))
         , m_fmessage_loader(fmessage_loader)
@@ -129,15 +127,60 @@ public:
     }
 
     beltpp::event_handler* m_peh;
-    detail::fptr_message_loader m_fmessage_loader;
-    beltpp::socket::option m_option;
+    beltpp::detail::fptr_message_loader m_fmessage_loader;
+    beltpp::libsocket::option m_option;
     beltpp::void_unique_ptr m_putl;
     std::list<channels> m_lst_channels;
     std::mutex m_mutex;
     static size_t counter;
 };
 size_t socket_internals::counter = 0;
+}
 
+class socket_impl : public beltpp::socket
+{
+public:
+    using peer_id = socket::peer_id;
+    using peer_ids = socket::peer_ids;
+    using packets = socket::packets;
+
+    socket_impl(ievent_handler& eh,
+                beltpp::detail::fptr_message_loader _fmessage_loader,
+                libsocket::option e_option,
+                beltpp::void_unique_ptr&& putl);
+    socket_impl(socket_impl&& other);
+    ~socket_impl() override;
+
+    peer_ids listen(ip_address const& address,
+                    int backlog = 100) override;
+
+    peer_ids open(ip_address address,
+                  size_t attempts = 0) override;
+
+    void prepare_wait() override;
+
+    packets receive(peer_id& peer) override;
+
+    void send(peer_id const& peer,
+              packet&& pack) override;
+
+    void timer_action() override;
+
+    beltpp::socket::peer_type get_peer_type(peer_id const& peer) override;
+    ip_address info(peer_id const& peer) override;
+    ip_address info_connection(peer_id const& peer) override;
+    beltpp::detail::session_special_data& session_data(peer_id const& peer) override;
+
+    std::string dump() const override;
+
+private:
+    detail::socket_internals m_impl;
+};
+/*
+ * internals
+ */
+namespace detail
+{
 string construct_peer_id(uint64_t id, ip_address const& socket_bundle);
 uint64_t parse_peer_id(string const& peer_id);
 string dump(sockaddr& address);
@@ -156,14 +199,14 @@ sockets socket(addrinfo* servinfo,
                bool reuse,
                bool alive,
                bool non_blocking);
-beltpp::socket::peer_id add_channel(beltpp::socket& self,
-                                    detail::socket_internals* pimpl,
-                                    native::socket_handle&& socket_descriptor,
-                                    socket::peer_type e_type,
-                                    size_t attempts,
-                                    const struct sockaddr* addr = nullptr,
-                                    size_t len = 0,
-                                    ip_address* paddress = nullptr);
+beltpp_socket_impl::socket_impl::peer_id add_channel(beltpp_socket_impl::socket_impl& self,
+                                                     detail::socket_internals* pimpl,
+                                                     native::socket_handle&& socket_descriptor,
+                                                     socket::peer_type e_type,
+                                                     size_t attempts,
+                                                     const struct sockaddr* addr = nullptr,
+                                                     size_t len = 0,
+                                                     ip_address* paddress = nullptr);
 
 detail::channel& get_channel(detail::socket_internals* pimpl,
                              uint64_t id);
@@ -178,39 +221,34 @@ ip_address get_socket_bundle(native::socket_handle const& socket_descriptor);
 /*
  * socket
  */
-socket::socket(ievent_handler& eh,
-               detail::fptr_message_loader _fmessage_loader,
-               option e_option,
-               beltpp::void_unique_ptr&& putl)
-    : isocket(eh)
-    , m_pimpl(new detail::socket_internals(eh,
-                                           _fmessage_loader,
-                                           e_option,
-                                           std::move(putl)))
+socket_impl::socket_impl(ievent_handler& eh,
+                         beltpp::detail::fptr_message_loader _fmessage_loader,
+                         libsocket::option e_option,
+                         beltpp::void_unique_ptr&& putl)
+    : socket(eh)
+    , m_impl(eh,
+             _fmessage_loader,
+             e_option,
+             std::move(putl))
 {
 }
 
-socket::socket(socket&&) = default;
-
-socket::~socket()
+socket_impl::~socket_impl()
 {
-    if (m_pimpl)    //  check if the socket has been moved out from
+    for (auto& channels_item : m_impl.m_lst_channels)
+    for (auto& channel_data : channels_item)
     {
-        for (auto& channels_item : m_pimpl->m_lst_channels)
-        for (auto& channel_data : channels_item)
+        if (channel_data.m_closed)
+            continue;
+        if (0 != channel_data.m_socket_descriptor.reset())
         {
-            if (channel_data.m_closed)
-                continue;
-            if (0 != channel_data.m_socket_descriptor.reset())
-            {
-                assert(false);
-                std::terminate();
-            }
+            assert(false);
+            std::terminate();
         }
     }
 }
 
-peer_ids socket::listen(ip_address const& address, int backlog/* = 100*/)
+peer_ids socket_impl::listen(ip_address const& address, int backlog/* = 100*/)
 {
     peer_ids peers;
     string error_message;
@@ -224,8 +262,8 @@ peer_ids socket::listen(ip_address const& address, int backlog/* = 100*/)
 
     sockets arr_sockets = detail::socket(ptr_servinfo.get(),
                                          true,    //  bind
-                                         (m_pimpl->m_option & option_reuse_port),
-                                         (m_pimpl->m_option & option_keep_alive),
+                                         (m_impl.m_option & libsocket::option_reuse_port),
+                                         (m_impl.m_option & libsocket::option_keep_alive),
                                          true);   //  non blocking
 
     for (auto& socket_info : arr_sockets)
@@ -252,7 +290,7 @@ peer_ids socket::listen(ip_address const& address, int backlog/* = 100*/)
 
         peers.emplace_back(
                     detail::add_channel(*this,
-                                        m_pimpl.get(),
+                                        &m_impl,
                                         std::move(socket_descriptor),
                                         peer_type::listening,
                                         0));
@@ -265,7 +303,7 @@ peer_ids socket::listen(ip_address const& address, int backlog/* = 100*/)
     return peers;
 }
 
-peer_ids socket::open(ip_address address, size_t attempts/* = 0*/)
+peer_ids socket_impl::open(ip_address address, size_t attempts/* = 0*/)
 {
     peer_ids peers;
 
@@ -294,8 +332,8 @@ peer_ids socket::open(ip_address address, size_t attempts/* = 0*/)
 
     sockets arr_sockets = detail::socket(ptr_localinfo.get(),
                                          bind,    //  bind, always true
-                                         (m_pimpl->m_option & option_reuse_port),
-                                         (m_pimpl->m_option & option_keep_alive),
+                                         (m_impl.m_option & libsocket::option_reuse_port),
+                                         (m_impl.m_option & libsocket::option_keep_alive),
                                          true);   //  non blocking
 
     for (auto& socket_info : arr_sockets)
@@ -324,7 +362,7 @@ peer_ids socket::open(ip_address address, size_t attempts/* = 0*/)
 
         peers.emplace_back(
                     detail::add_channel(*this,
-                                        m_pimpl.get(),
+                                        &m_impl,
                                         std::move(socket_descriptor),
                                         peer_type::streaming_opened,
                                         attempts,
@@ -380,26 +418,26 @@ void set_nonblocking(int socket_descriptor, bool option)
 
 #endif
 
-void socket::prepare_wait()
+void socket_impl::prepare_wait()
 {
 }
 
-packets socket::receive(peer_id& peer)
+packets socket_impl::receive(peer_id& peer)
 {
     packets result;
 
     peer = peer_id();
 
-    std::unordered_set<uint64_t> set_ids = m_pimpl->m_peh->waited(*this);
+    std::unordered_set<uint64_t> set_ids = m_impl.m_peh->waited(*this);
 
     for (uint64_t current_id : set_ids)
     {
         detail::channel* pchannel = nullptr;
-        if (false == detail::get_channel_safe(pchannel, m_pimpl.get(), current_id))
+        if (false == detail::get_channel_safe(pchannel, &m_impl, current_id))
             continue;
         detail::channel& current_channel = *pchannel;
 
-        m_pimpl->m_peh->m_pimpl->reset(current_channel.m_eh_id);
+        m_impl.m_peh->m_pimpl->reset(current_channel.m_eh_id);
 
         if (current_channel.m_attempts)
         {
@@ -419,7 +457,7 @@ packets socket::receive(peer_id& peer)
             }
             else
             {
-                res = native::get_connected_status(m_pimpl->m_peh->m_pimpl.get(),
+                res = native::get_connected_status(m_impl.m_peh->m_pimpl.get(),
                                                    current_channel.m_eh_id,
                                                    socket_descriptor.handle,
                                                    error_code);
@@ -442,14 +480,14 @@ packets socket::receive(peer_id& peer)
 
             if (connect_result == e_three_state_result::success)
             {
-                m_pimpl->m_peh->m_pimpl->remove(socket_descriptor.handle,
+                m_impl.m_peh->m_pimpl->remove(socket_descriptor.handle,
                                                 current_channel.m_eh_id,
                                                 false,   //  already_closed
                                                 event_handler::task::connect,
                                                 true);
 
                 current_channel.m_eh_id =
-                        m_pimpl->m_peh->m_pimpl->add(*this,
+                        m_impl.m_peh->m_pimpl->add(*this,
                                                      socket_descriptor.handle,
                                                      current_id,
                                                      event_handler::task::receive,
@@ -460,7 +498,7 @@ packets socket::receive(peer_id& peer)
                 current_channel.m_socket_bundle_from_network =
                         detail::get_socket_bundle(socket_descriptor);
 
-                result.emplace_back(beltpp::isocket_join());
+                result.emplace_back(beltpp::stream_join());
 
                 peer = detail::construct_peer_id(current_id,
                                                  socket_bundle);
@@ -473,22 +511,22 @@ packets socket::receive(peer_id& peer)
                 auto local_peer = detail::construct_peer_id(current_id,
                                                             socket_bundle);
 
-                detail::delete_channel(m_pimpl.get(), current_id);
+                detail::delete_channel(&m_impl, current_id);
 
                 if (attempts)
                     open(socket_bundle, attempts);
                 else
                 {
-                    result.emplace_back(beltpp::isocket_open_refused(connect_error, socket_bundle));
+                    result.emplace_back(beltpp::socket_open_refused(connect_error, socket_bundle));
                     peer = local_peer;
                     break;
                 }
             }
             else if (connect_result == e_three_state_result::error)
             {
-                detail::delete_channel(m_pimpl.get(), current_id);
+                detail::delete_channel(&m_impl, current_id);
 
-                result.emplace_back(beltpp::isocket_open_error(connect_error, socket_bundle));
+                result.emplace_back(beltpp::socket_open_error(connect_error, socket_bundle));
                 peer = detail::construct_peer_id(current_id,
                                                  socket_bundle);
                 break;
@@ -500,7 +538,7 @@ packets socket::receive(peer_id& peer)
             bool res = 0;
 
             native::socket_handle joined_socket_descriptor(
-                    native::accept(m_pimpl->m_peh->m_pimpl.get(),
+                    native::accept(m_impl.m_peh->m_pimpl.get(),
                                    current_channel.m_eh_id,
                                    current_channel.m_socket_descriptor.handle,
                                    res,
@@ -531,12 +569,12 @@ packets socket::receive(peer_id& peer)
                 continue; // even (joined_socket_descriptor.is_invalid()) does not cover this case
 
             peer = detail::add_channel(*this,
-                                       m_pimpl.get(),
+                                       &m_impl,
                                        std::move(joined_socket_descriptor),
                                        peer_type::streaming_accepted,
                                        0);
 
-            result.emplace_back(beltpp::isocket_join());
+            result.emplace_back(beltpp::stream_join());
             break;
         }
         else// if(current_channel.m_type == peer_type::streaming_opened ||
@@ -550,7 +588,7 @@ packets socket::receive(peer_id& peer)
             auto const& socket_descriptor = current_channel.m_socket_descriptor;
 
             int error_code = 0;
-            size_t res = native::recv(m_pimpl->m_peh->m_pimpl.get(),
+            size_t res = native::recv(m_impl.m_peh->m_pimpl.get(),
                                       current_channel.m_eh_id,
                                       socket_descriptor.handle,
                                       p_buffer,
@@ -563,7 +601,7 @@ packets socket::receive(peer_id& peer)
                 //  since we have some data to send
                 //  most probably this is a signal to do so
                 size_t send_res = native::send(socket_descriptor.handle,
-                                               m_pimpl->m_peh->m_pimpl.get(),
+                                               m_impl.m_peh->m_pimpl.get(),
                                                *this,
                                                current_id,
                                                current_channel.m_eh_id,
@@ -575,9 +613,9 @@ packets socket::receive(peer_id& peer)
                     peer = detail::construct_peer_id(current_id,
                                                      current_channel.m_socket_bundle);
 
-                    detail::delete_channel(m_pimpl.get(), current_id);
+                    detail::delete_channel(&m_impl, current_id);
 
-                    result.emplace_back(beltpp::isocket_drop());
+                    result.emplace_back(beltpp::stream_drop());
 
                     break;
                 }
@@ -606,9 +644,9 @@ packets socket::receive(peer_id& peer)
                 peer = detail::construct_peer_id(current_id,
                                                  current_channel.m_socket_bundle);
 
-                detail::delete_channel(m_pimpl.get(), current_id);
+                detail::delete_channel(&m_impl, current_id);
 
-                result.emplace_back(beltpp::isocket_drop());
+                result.emplace_back(beltpp::stream_drop());
                 break;
             }
             else
@@ -626,10 +664,10 @@ packets socket::receive(peer_id& peer)
                     string buf(stm.cbegin(), stm.cend());
 
                     auto it_begin = buf.cbegin();
-                    auto pmsgall = m_pimpl->m_fmessage_loader(it_begin,
+                    auto pmsgall = m_impl.m_fmessage_loader(it_begin,
                                                               buf.cend(),
                                                               current_channel.m_special_data,
-                                                              m_pimpl->m_putl.get());
+                                                              m_impl.m_putl.get());
 
                     auto it_begin_orig = buf.cbegin();
                     while (false == current_channel.m_receive_stream.empty() &&
@@ -640,7 +678,7 @@ packets socket::receive(peer_id& peer)
                     }
 
                     if (pmsgall.rtt == size_t(-2))
-                        result.emplace_back(beltpp::isocket_protocol_error(buf));
+                        result.emplace_back(beltpp::stream_protocol_error(buf));
                     else if (pmsgall.pmsg)
                     {
                         packet pack;
@@ -653,7 +691,7 @@ packets socket::receive(peer_id& peer)
                     else if (false == current_channel.m_special_data.autoreply.empty())
                     {
                         native::async_send(socket_descriptor.handle,
-                                           m_pimpl->m_peh->m_pimpl.get(),
+                                           m_impl.m_peh->m_pimpl.get(),
                                            *this,
                                            current_id,
                                            current_channel.m_eh_id,
@@ -677,17 +715,17 @@ packets socket::receive(peer_id& peer)
     return result;
 }
 
-void socket::send(peer_id const& peer, packet&& pack)
+void socket_impl::send(peer_id const& peer, packet&& pack)
 {
     uint64_t current_id = detail::parse_peer_id(peer);
-    if (pack.type() == beltpp::isocket_drop::rtt)
+    if (pack.type() == beltpp::stream_drop::rtt)
     {
-        detail::delete_channel(m_pimpl.get(), current_id);
+        detail::delete_channel(&m_impl, current_id);
     }
     else
     {
         detail::channel& current_channel =
-                detail::get_channel(m_pimpl.get(),
+                detail::get_channel(&m_impl,
                                     current_id);
 
         if (current_channel.m_type != peer_type::streaming_opened &&
@@ -715,7 +753,7 @@ void socket::send(peer_id const& peer, packet&& pack)
             auto const& socket_descriptor = current_channel.m_socket_descriptor;
 
             native::async_send(socket_descriptor.handle,
-                               m_pimpl->m_peh->m_pimpl.get(),
+                               m_impl.m_peh->m_pimpl.get(),
                                *this,
                                current_id,
                                current_channel.m_eh_id,
@@ -725,55 +763,55 @@ void socket::send(peer_id const& peer, packet&& pack)
     }
 }
 
-void socket::timer_action()
+void socket_impl::timer_action()
 {
 }
 
-socket::peer_type socket::get_peer_type(peer_id const& peer) const
+socket_impl::peer_type socket_impl::get_peer_type(peer_id const& peer)
 {
     uint64_t current_id = detail::parse_peer_id(peer);
     detail::channel& current_channel =
-            detail::get_channel(m_pimpl.get(),
+            detail::get_channel(&m_impl,
                                 current_id);
 
     return current_channel.m_type;
 }
 
-ip_address socket::info(peer_id const& peer) const
+ip_address socket_impl::info(peer_id const& peer)
 {
     uint64_t current_id = detail::parse_peer_id(peer);
     detail::channel& current_channel =
-            detail::get_channel(m_pimpl.get(),
+            detail::get_channel(&m_impl,
                                 current_id);
 
     return current_channel.m_socket_bundle;
 }
 
-ip_address socket::info_connection(peer_id const& peer) const
+ip_address socket_impl::info_connection(peer_id const& peer)
 {
     uint64_t current_id = detail::parse_peer_id(peer);
     detail::channel& current_channel =
-            detail::get_channel(m_pimpl.get(),
+            detail::get_channel(&m_impl,
                                 current_id);
 
     return current_channel.m_socket_bundle_from_network;
 }
 
-detail::session_special_data& socket::session_data(peer_id const& peer)
+beltpp::detail::session_special_data& socket_impl::session_data(peer_id const& peer)
 {
     uint64_t current_id = detail::parse_peer_id(peer);
     detail::channel& current_channel =
-            detail::get_channel(m_pimpl.get(),
+            detail::get_channel(&m_impl,
                                 current_id);
 
     return current_channel.m_special_data;
 }
 
-string socket::dump() const
+string socket_impl::dump() const
 {
     string result;
 
-    for (auto const& channels_item : m_pimpl->m_lst_channels)
+    for (auto const& channels_item : m_impl.m_lst_channels)
     {
         auto id = channels_item.begin_index();
         for (auto const& channel_data : channels_item)
@@ -1116,14 +1154,14 @@ sockets socket(addrinfo* servinfo,
     return result;
 }
 
-beltpp::socket::peer_id add_channel(beltpp::socket& self,
-                                    detail::socket_internals* pimpl,
-                                    native::socket_handle&& socket_descriptor,
-                                    socket::peer_type e_type,
-                                    size_t attempts,
-                                    const struct sockaddr* addr/* = nullptr*/,
-                                    size_t len/* = 0*/,
-                                    ip_address* paddress/* = nullptr*/)
+beltpp_socket_impl::socket_impl::peer_id add_channel(beltpp_socket_impl::socket_impl& self,
+                                                     detail::socket_internals* pimpl,
+                                                     native::socket_handle&& socket_descriptor,
+                                                     socket::peer_type e_type,
+                                                     size_t attempts,
+                                                     const struct sockaddr* addr/* = nullptr*/,
+                                                     size_t len/* = 0*/,
+                                                     ip_address* paddress/* = nullptr*/)
 {
     std::lock_guard<std::mutex> lock(pimpl->m_mutex);
 
@@ -1219,7 +1257,7 @@ beltpp::socket::peer_id add_channel(beltpp::socket& self,
                                       eh_id,
                                       connect_result));
 
-    beltpp::socket::peer_id current_peer =
+    beltpp_socket_impl::socket_impl::peer_id current_peer =
         detail::construct_peer_id(id, socket_bundle);
 
     scope_guard.dismiss();
@@ -1285,7 +1323,7 @@ void delete_channel(detail::socket_internals* pimpl, uint64_t current_id)
                 current_channel.m_closed = true;
                 current_channel.m_receive_stream = beltpp::queue<char>();
                 current_channel.m_send_stream = beltpp::queue<char>();
-                current_channel.m_special_data = session_special_data();
+                current_channel.m_special_data = beltpp::detail::session_special_data();
 
                 event_handler::task action = event_handler::task::accept;
                 if (current_channel.m_type == socket::peer_type::streaming_opened ||
@@ -1322,4 +1360,13 @@ void delete_channel(detail::socket_internals* pimpl, uint64_t current_id)
 
 }// end detail
 
-}// end beltpp
+}// end beltpp_socket_impl
+
+beltpp::socket_ptr beltpp::libsocket::construct_socket(beltpp::ievent_handler& eh,
+                                                       beltpp::detail::fptr_message_loader _fmessage_loader,
+                                                       option e_option,
+                                                       beltpp::void_unique_ptr&& putl)
+{
+    beltpp::socket* p = new beltpp_socket_impl::socket_impl(eh, _fmessage_loader, e_option, std::move(putl));
+    return beltpp::socket_ptr(p);
+}

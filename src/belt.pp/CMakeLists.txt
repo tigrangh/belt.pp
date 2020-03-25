@@ -34,6 +34,7 @@ set(SRC_FILES
     queue.hpp
     scope_helper.hpp
     socket.hpp
+    stream.hpp
     timer.hpp
     tls.hpp
     utility.hpp)
