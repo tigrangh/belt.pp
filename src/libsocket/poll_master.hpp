@@ -242,7 +242,6 @@ namespace beltpp
 {
 namespace detail
 {
-enum class event_handler_ex_task {remove, accept, connect, receive, send};
 class poll_master
 {
 public:
