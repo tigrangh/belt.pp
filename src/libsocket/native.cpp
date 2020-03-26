@@ -277,13 +277,13 @@ void async_send(int socket_descriptor,
         peh->remove(socket_descriptor,
                     eh_id,
                     false,   //  already_closed
-                    event_handler_ex_task::receive,
+                    detail::event_handler_ex_task::receive,
                     true);
 
         peh->add(ev_it,
                  socket_descriptor,
                  ev_id,
-                 event_handler_ex_task::send,
+                 detail::event_handler_ex_task::send,
                  true,
                  eh_id);
     }
@@ -338,13 +338,13 @@ size_t send(int socket_descriptor,
             peh->remove(socket_descriptor,
                         eh_id,
                         false,   //  already_closed
-                        event_handler_ex_task::send,
+                        detail::event_handler_ex_task::send,
                         true);
 
             peh->add(ev_it,
                      socket_descriptor,
                      ev_id,
-                     event_handler_ex_task::receive,
+                     detail::event_handler_ex_task::receive,
                      true,
                      eh_id);
         }

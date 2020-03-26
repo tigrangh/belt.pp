@@ -479,14 +479,14 @@ packets socket_ex::receive(peer_id& peer)
                 m_impl.m_peh->m_impl.remove(socket_descriptor.handle,
                                             current_channel.m_eh_id,
                                             false,   //  already_closed
-                                            event_handler_ex_task::connect,
+                                            beltpp::detail::event_handler_ex_task::connect,
                                             true);
 
                 current_channel.m_eh_id =
                         m_impl.m_peh->m_impl.add(*this,
                                                  socket_descriptor.handle,
                                                  current_id,
-                                                 event_handler_ex_task::receive,
+                                                 beltpp::detail::event_handler_ex_task::receive,
                                                  true,
                                                  current_channel.m_eh_id);
 
@@ -1176,14 +1176,14 @@ beltpp_socket_impl::socket_ex::peer_id add_channel(beltpp_socket_impl::socket_ex
 
     uint64_t id = it_channels->end_index();
 
-    event_handler_ex_task action = event_handler_ex_task::accept;
+    beltpp::detail::event_handler_ex_task action = beltpp::detail::event_handler_ex_task::accept;
 
     if (e_type != socket::peer_type::listening)
     {
         if (attempts == 0)
-            action = event_handler_ex_task::receive;
+            action = beltpp::detail::event_handler_ex_task::receive;
         else
-            action = event_handler_ex_task::connect;
+            action = beltpp::detail::event_handler_ex_task::connect;
     }
 
     auto native_handle = socket_descriptor.handle;
@@ -1206,7 +1206,7 @@ beltpp_socket_impl::socket_ex::peer_id add_channel(beltpp_socket_impl::socket_ex
 
     native::sync_result connect_result;
 
-    if (action == event_handler_ex_task::connect)
+    if (action == beltpp::detail::event_handler_ex_task::connect)
     {
         native::connect(&pimpl->m_peh->m_impl,
                         eh_id,
@@ -1321,10 +1321,10 @@ void delete_channel(detail::socket_internals* pimpl, uint64_t current_id)
                 current_channel.m_send_stream = beltpp::queue<char>();
                 current_channel.m_special_data = beltpp::detail::session_special_data();
 
-                event_handler_ex_task action = event_handler_ex_task::accept;
+                beltpp::detail::event_handler_ex_task action = beltpp::detail::event_handler_ex_task::accept;
                 if (current_channel.m_type == socket::peer_type::streaming_opened ||
                     current_channel.m_type == socket::peer_type::streaming_accepted)
-                    action = event_handler_ex_task::receive;
+                    action = beltpp::detail::event_handler_ex_task::receive;
 
                 pimpl->m_peh->m_impl.remove(current_channel.m_socket_descriptor.handle,
                                             current_channel.m_eh_id,
