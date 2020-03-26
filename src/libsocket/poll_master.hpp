@@ -1,14 +1,17 @@
 #pragma once
 
 #include "global.hpp"
+#include "native.hpp"
 
 #ifdef B_OS_WINDOWS
 #include <MSWSock.h>
+
 #else// B_OS_WINDOWS
 #include <unistd.h>
 #include <fcntl.h>
 #endif
 
+#include <belt.pp/isocket.hpp>
 #include <belt.pp/timer.hpp>
 #include <belt.pp/scope_helper.hpp>
 
