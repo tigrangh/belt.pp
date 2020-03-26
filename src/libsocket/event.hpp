@@ -1,6 +1,7 @@
 #pragma once
 
 #include "global.hpp"
+#include "event_impl.hpp"
 
 #include <belt.pp/ievent.hpp>
 
@@ -8,32 +9,25 @@
 #include <memory>
 #include <unordered_set>
 
-namespace beltpp
+namespace beltpp_socket_impl
 {
-namespace detail
-{
-    class event_handler_impl;
-}
+using namespace beltpp;
 
-class SOCKETSHARED_EXPORT event_handler : public ievent_handler
+class event_handler_ex : public event_handler
 {
 public:
-    enum class task {remove, accept, connect, receive, send};
-    friend class ievent_item;
+    event_handler_ex();
+    ~event_handler_ex() override;
 
-    event_handler();
-    event_handler(event_handler&&);
-    ~event_handler() override;
-
-    wait_result wait(std::unordered_set<ievent_item const*>& set_items) override;
-    std::unordered_set<uint64_t> waited(ievent_item& ev_it) const override;
+    wait_result wait(std::unordered_set<event_item const*>& set_items) override;
+    std::unordered_set<uint64_t> waited(event_item& ev_it) const override;
 
     void wake() override;
     void set_timer(std::chrono::steady_clock::duration const& period) override;
 
-    void add(ievent_item& ev_it) override;
-    void remove(ievent_item& ev_it) override;
+    void add(event_item& ev_it) override;
+    void remove(event_item& ev_it) override;
 
-    std::unique_ptr<detail::event_handler_impl> m_pimpl;
+    detail::event_handler_impl m_impl;
 };
-}
+}// beltpp_socket_impl

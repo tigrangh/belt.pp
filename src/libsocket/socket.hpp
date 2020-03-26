@@ -29,18 +29,15 @@ enum option
     option_reuse_port = 0x1,
     option_keep_alive = 0x2
 };
-}
 
-namespace libsocket
-{
-SOCKETSHARED_EXPORT socket_ptr construct_socket(ievent_handler& eh,
+SOCKETSHARED_EXPORT socket_ptr construct_socket(event_handler& eh,
                                                 detail::fptr_message_loader _fmessage_loader,
                                                 option e_option,
                                                 beltpp::void_unique_ptr&& putl);
-}
+SOCKETSHARED_EXPORT event_handler_ptr construct_event_handler();
 
 template <typename T_socket_family>
-socket_ptr getsocket(ievent_handler& eh,
+socket_ptr getsocket(event_handler& eh,
                      libsocket::option e_option,
                      beltpp::void_unique_ptr&& putl)
 {
@@ -52,11 +49,12 @@ socket_ptr getsocket(ievent_handler& eh,
 }
 
 template <typename T_socket_family>
-socket_ptr getsocket(ievent_handler& eh,
+socket_ptr getsocket(event_handler& eh,
                      libsocket::option e_option = libsocket::option_none)
 {
     beltpp::void_unique_ptr putl = beltpp::new_void_unique_ptr<beltpp::message_loader_utility>();
     return getsocket<T_socket_family>(eh, e_option, std::move(putl));
+}
 }
 
 }

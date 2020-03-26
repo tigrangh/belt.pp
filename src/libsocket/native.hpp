@@ -2,7 +2,6 @@
 
 #include "global.hpp"
 #include "socket.hpp"
-#include "event.hpp"
 
 #include <belt.pp/scope_helper.hpp>
 #include <belt.pp/queue.hpp>
@@ -31,6 +30,10 @@ using std::string;
 
 namespace beltpp
 {
+namespace detail
+{
+class event_handler_impl;
+}
 namespace native
 {
 
@@ -334,7 +337,7 @@ size_t recv(beltpp::detail::event_handler_impl*,
 #ifdef B_OS_WINDOWS
 void async_send(SOCKET /*socket_descriptor*/,
                 beltpp::detail::event_handler_impl* /*peh*/,
-                ievent_item& /*ev_it*/,
+                event_item& /*ev_it*/,
                 uint64_t /*ev_id*/,
                 uint64_t /*eh_id*/,
                 beltpp::queue<char>& /*send_stream*/,
@@ -346,7 +349,7 @@ void async_send(SOCKET /*socket_descriptor*/,
 
 size_t send(SOCKET /*socket_descriptor*/,
             beltpp::detail::event_handler_impl* /*peh*/,
-            ievent_item& /*ev_it*/,
+            event_item& /*ev_it*/,
             uint64_t /*ev_id*/,
             uint64_t /*eh_id*/,
             beltpp::queue<char>& /*send_stream*/,
@@ -364,7 +367,7 @@ size_t send(SOCKET /*socket_descriptor*/,
 
 void async_send(int socket_descriptor,
                 beltpp::detail::event_handler_impl* peh,
-                ievent_item& ev_it,
+                event_item& ev_it,
                 uint64_t ev_id,
                 uint64_t eh_id,
                 beltpp::queue<char>& send_stream,
@@ -372,7 +375,7 @@ void async_send(int socket_descriptor,
 
 size_t send(int socket_descriptor,
             beltpp::detail::event_handler_impl* peh,
-            ievent_item& ev_it,
+            event_item& ev_it,
             uint64_t ev_id,
             uint64_t eh_id,
             beltpp::queue<char>& send_stream,

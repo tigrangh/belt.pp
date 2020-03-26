@@ -11,13 +11,13 @@ namespace beltpp
 
 class packet;
 
-class stream : public ievent_item
+class stream : public event_item
 {
 public:
     using peer_id = std::string;
     using packets = std::list<packet>;
 
-    stream(ievent_handler& eh) : ievent_item(eh) {}
+    stream(event_handler& eh) : event_item(eh) {}
     virtual ~stream() {}
 
     virtual packets receive(peer_id& peer) = 0;

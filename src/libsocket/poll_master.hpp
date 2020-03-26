@@ -9,8 +9,6 @@
 #include <fcntl.h>
 #endif
 
-#include "native.hpp"
-
 #include <belt.pp/timer.hpp>
 #include <belt.pp/scope_helper.hpp>
 
@@ -33,6 +31,9 @@ using duration = steady_clock::duration;
 #include <sys/epoll.h>
 namespace beltpp
 {
+
+enum class event_handler_ex_task {remove, accept, connect, receive, send};
+
 namespace detail
 {
 class poll_master
@@ -102,14 +103,14 @@ public:
         ::close(m_fd_pipe_write);
     }
 
-    void add(int socket_descriptor, uint64_t id, event_handler::task action)
+    void add(int socket_descriptor, uint64_t id, event_handler_ex_task action)
     {
-        assert(event_handler::task::remove != action);
+        assert(event_handler_ex_task::remove != action);
         m_event.data.u64 = id;
 
         auto backup = m_event.events;
-        if (action == event_handler::task::connect ||
-            action == event_handler::task::send)    //  win version cares for receive case too
+        if (action == event_handler_ex_task::connect ||
+            action == event_handler_ex_task::send)    //  win version cares for receive case too
             m_event.events |= EPOLLOUT;
 
         m_arr_event.push_back(epoll_event());
@@ -126,7 +127,7 @@ public:
         }
     }
 
-    void remove(int socket_descriptor, uint64_t id, bool already_closed, event_handler::task)  //  last argument is used for mac os version
+    void remove(int socket_descriptor, uint64_t id, bool already_closed, event_handler_ex_task)  //  last argument is used for mac os version
     {
         m_event.data.u64 = id;
 
@@ -300,14 +301,14 @@ public:
         ::close(m_fd_pipe_write);
     }
 
-    void add(int socket_descriptor, uint64_t id, event_handler::task action)
+    void add(int socket_descriptor, uint64_t id, event_handler_ex_task action)
     {
-        assert(event_handler::task::remove != action);
+        assert(event_handler_ex_task::remove != action);
 
         std::vector<int16_t> flags;
-        if (event_handler::task::connect == action)    //  win version cares for receive case too
+        if (event_handler_ex_task::connect == action)    //  win version cares for receive case too
             flags = {EVFILT_WRITE};
-        else if (event_handler::task::send == action)
+        else if (event_handler_ex_task::send == action)
             flags = {EVFILT_WRITE, EVFILT_READ};
         else
             flags = {EVFILT_READ};
@@ -332,12 +333,12 @@ public:
         }
     }
 
-    void remove(int socket_descriptor, uint64_t id, bool already_closed, event_handler::task action)
+    void remove(int socket_descriptor, uint64_t id, bool already_closed, event_handler_ex_task action)
     {
         std::vector<int16_t> flags;
-        if (event_handler::task::connect == action)
+        if (event_handler_ex_task::connect == action)
             flags = {EVFILT_WRITE};
-        else if (event_handler::task::send == action)
+        else if (event_handler_ex_task::send == action)
             flags = {EVFILT_WRITE, EVFILT_READ};
         else
             flags = {EVFILT_READ};
@@ -471,7 +472,7 @@ namespace beltpp
                     async_task_running_receive = 0x1,
                     async_task_running_send = 0x2
                 };
-                details(event_handler::task action_, SOCKET socket_)
+                details(event_handler_ex_task action_, SOCKET socket_)
                     : action(action_)
                     , socket(socket_)
                     , async_task_running(async_task_running_none)
@@ -491,13 +492,13 @@ namespace beltpp
 
                 void init()
                 {
-                    if (event_handler::task::remove == action)
-                        throw std::runtime_error("poll master details: event_handler:::remove == action");
+                    if (event_handler_ex_task::remove == action)
+                        throw std::runtime_error("poll master details: event_handler_ex:::remove == action");
 
                     ::ZeroMemory(&overlapped, sizeof(WSAOVERLAPPED));
                     ::ZeroMemory(&overlapped_send, sizeof(WSAOVERLAPPED));
 
-                    if (event_handler::task::accept == action)
+                    if (event_handler_ex_task::accept == action)
                     {
                         if (async_task_running)
                             ::closesocket(accept_socket);
@@ -509,11 +510,11 @@ namespace beltpp
                         if (INVALID_SOCKET == accept_socket)
                             throw std::runtime_error("wsasocket(): " + native::net_last_error());
                     }
-                    else if (event_handler::task::connect == action)
+                    else if (event_handler_ex_task::connect == action)
                     {
                     }
-                    else/* if (event_handler::task::receive == action ||
-                               event_handler::task::send == action)*/
+                    else/* if (event_handler_ex_task::receive == action ||
+                               event_handler_ex_task::send == action)*/
                     {
                         wsa_receive_buffer.len = 1 * 1024 * 1024;
                         wsa_receive_buffer.buf = receive_buffer;
@@ -533,11 +534,11 @@ namespace beltpp
                 {
                     ::ZeroMemory(&overlapped, sizeof(WSAOVERLAPPED));
 
-                    if (event_handler::task::receive != action &&
-                        event_handler::task::send != action)
+                    if (event_handler_ex_task::receive != action &&
+                        event_handler_ex_task::send != action)
                     {
                         assert(false);
-                        throw std::runtime_error("poll master details: event_handler:::receive != action");
+                        throw std::runtime_error("poll master details: event_handler_ex_task::receive != action");
                     }
                     
                     last_error = 0;
@@ -550,10 +551,10 @@ namespace beltpp
                 {
                     ::ZeroMemory(&overlapped_send, sizeof(WSAOVERLAPPED));
 
-                    if (event_handler::task::send != action)
+                    if (event_handler_ex_task::send != action)
                     {
                         assert(false);
-                        throw std::runtime_error("poll master details: event_handler:::send != action");
+                        throw std::runtime_error("poll master details: event_handler_ex_task::send != action");
                     }
 
                     wsa_send_buffer.len = ULONG(len);
@@ -608,7 +609,7 @@ namespace beltpp
                     async_task_running = async_task_running_receive;
                 }
 
-                event_handler::task action;
+                event_handler_ex_task action;
                 SOCKET socket;
                 int async_task_running;
                 WSAOVERLAPPED overlapped;
@@ -647,13 +648,13 @@ namespace beltpp
 
             void add(SOCKET socket_descriptor,
                      uint64_t id,
-                     event_handler::task action)
+                     event_handler_ex_task action)
             {
-                assert(event_handler::task::remove != action);
+                assert(event_handler_ex_task::remove != action);
 
                 auto res = m_events.insert(std::make_pair(id, std::unique_ptr<details>(new details(action, socket_descriptor))));
                 if (false == res.second &&
-                    (res.first->second->action != event_handler::task::remove ||
+                    (res.first->second->action != event_handler_ex_task::remove ||
                      details::async_task_running_none != res.first->second->async_task_running))
                     throw std::runtime_error("poll master add duplicate id: " + std::to_string(id));
                 else if (false == res.second)
@@ -665,13 +666,13 @@ namespace beltpp
             void remove(SOCKET /*socket_descriptor*/,
                         uint64_t id,
                         bool /*already_closed*/,
-                        event_handler::task)  //  last argument is used for mac os version
+                        event_handler_ex_task)  //  last argument is used for mac os version
             {
                 auto it = m_events.find(id);
                 if (it == m_events.end())
                     throw std::runtime_error("poll master remove non existing id: " + std::to_string(id));
 
-                it->second->action = event_handler::task::remove;
+                it->second->action = event_handler_ex_task::remove;
             }
 
             std::unordered_set<uint64_t> wait(beltpp::timer const& tm, bool& on_demand)
@@ -680,7 +681,7 @@ namespace beltpp
                 while (it != m_events.end())
                 {
                     if (false == it->second->async_task_running &&
-                        event_handler::task::remove == it->second->action)
+                        event_handler_ex_task::remove == it->second->action)
                         it = m_events.erase(it);
                     else
                         ++it;
@@ -693,7 +694,7 @@ namespace beltpp
 
                 for (auto& item : m_events)
                 {
-                    if (event_handler::task::accept == item.second->action &&
+                    if (event_handler_ex_task::accept == item.second->action &&
                         details::async_task_running_none == item.second->async_task_running)
                     {
                         bool repeat = false;
@@ -725,14 +726,14 @@ namespace beltpp
 
                         item.second->async_task_running = details::async_task_running_receive;
                     }
-                    else if (event_handler::task::connect == item.second->action)
+                    else if (event_handler_ex_task::connect == item.second->action)
                     {
                         item.second->async_task_running = details::async_task_running_receive;
                     }
-                    else if ((event_handler::task::receive == item.second->action ||
-                              event_handler::task::send == item.second->action))
+                    else if ((event_handler_ex_task::receive == item.second->action ||
+                              event_handler_ex_task::send == item.second->action))
                     {
-                        if (event_handler::task::send == item.second->action &&
+                        if (event_handler_ex_task::send == item.second->action &&
                             0 == (details::async_task_running_send & item.second->async_task_running))
                         {
                             int send_code = ::WSASend(item.second->socket,

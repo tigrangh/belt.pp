@@ -16,7 +16,6 @@ install(TARGETS belt.pp
 set(SRC_FILES
     delegate.hpp
     global.hpp
-    event.hpp
     http.hpp
     idl_parser.hpp
     ievent.hpp

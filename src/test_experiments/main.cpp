@@ -7,8 +7,8 @@
 #include <belt.pp/delegate.hpp>
 #include <belt.pp/processor.hpp>
 #include <belt.pp/packet.hpp>
+#include <belt.pp/ievent.hpp>
 #include <belt.pp/socket.hpp>
-#include <belt.pp/event.hpp>
 #include <belt.pp/json.hpp>
 
 #include "message.hpp"
@@ -137,10 +137,10 @@ int main(int argc, char** argv)
         }
 #else
         const int listen_count = 10;
-        beltpp::event_handler eh;
-        beltpp::socket_ptr ptr_sk = beltpp::getsocket<sf>(eh);
+        beltpp::event_handler_ptr eh = beltpp::libsocket::construct_event_handler();
+        beltpp::socket_ptr ptr_sk = beltpp::libsocket::getsocket<sf>(*eh);
         beltpp::socket& sk = *ptr_sk;
-        eh.add(sk);
+        eh->add(sk);
 
         if (1 == argc) //server mode
         {
@@ -162,9 +162,9 @@ int main(int argc, char** argv)
 
             while (true)
             {
-                std::unordered_set<beltpp::ievent_item const*> set_items;
+                std::unordered_set<beltpp::event_item const*> set_items;
                 
-                eh.wait(set_items);
+                eh->wait(set_items);
 
                 beltpp::socket::packets packets;
                 if (set_items.find(&sk) != set_items.end())
@@ -215,13 +215,13 @@ int main(int argc, char** argv)
                 beltpp::ip_address open_address("", 0, "127.0.0.1", 3550 + (i % listen_count), beltpp::ip_address::e_type::ipv4);
                 sk.open(open_address);
 
-                std::unordered_set<beltpp::ievent_item const*> set_items;
+                std::unordered_set<beltpp::event_item const*> set_items;
                 while (true)
                 {
                     beltpp::socket::peer_id channel_id;
                     
                     beltpp::stream::packets pcs;
-                    if (beltpp::ievent_handler::wait_result::event & eh.wait(set_items))
+                    if (beltpp::event_handler::wait_result::event & eh->wait(set_items))
                         pcs = sk.receive(channel_id);
 
                     if (channel_id.empty())

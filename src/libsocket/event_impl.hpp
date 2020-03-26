@@ -1,7 +1,9 @@
 #pragma once
 
 #include "poll_master.hpp"
+#include "native.hpp"
 
+#include <belt.pp/ievent.hpp>
 #include <belt.pp/queue.hpp>
 #include <belt.pp/scope_helper.hpp>
 #include <belt.pp/timer.hpp>
@@ -24,14 +26,14 @@ namespace detail
 class event_slot
 {
 public:
-    event_slot(uint64_t item_id = 0, ievent_item* pitem = nullptr)
+    event_slot(uint64_t item_id = 0, event_item* pitem = nullptr)
         : m_item_id(item_id)
         , m_pitem(pitem)
     {}
 
     bool m_closed = false;
     uint64_t m_item_id = 0;
-    ievent_item* m_pitem = nullptr;
+    event_item* m_pitem = nullptr;
 };
 using event_slots = beltpp::queue<event_slot>;
 
@@ -42,28 +44,28 @@ public:
     poll_master m_poll_master;
     list<event_slots> m_ids;
     std::mutex m_mutex;
-    unordered_map<ievent_item*, unordered_set<uint64_t>> m_event_item_ids;
-    unordered_set<ievent_item*> m_event_items;
+    unordered_map<event_item*, unordered_set<uint64_t>> m_event_item_ids;
+    unordered_set<event_item*> m_event_items;
     unordered_set<uint64_t> sync_eh_ids;
 
-    inline uint64_t add(ievent_item& ev_it,
+    inline uint64_t add(event_item& ev_it,
                         native::socket_handle::handle_type handle,
                         uint64_t id,
-                        event_handler::task action,
+                        event_handler_ex_task action,
                         bool reuse_slot = false,
                         uint64_t slot_id = 0);
     inline void remove(native::socket_handle::handle_type handle,
                        uint64_t id, bool already_closed,
-                       event_handler::task action,
+                       event_handler_ex_task action,
                        bool keep_slot = false);
     inline void reset(uint64_t reset_id);
     inline void set_sync_result(uint64_t eh_id);
 };
 
-inline uint64_t event_handler_impl::add(ievent_item& ev_it,
+inline uint64_t event_handler_impl::add(event_item& ev_it,
                                         native::socket_handle::handle_type handle,
                                         uint64_t item_id,
-                                        event_handler::task action,
+                                        event_handler_ex_task action,
                                         bool reuse_slot/* = false*/,
                                         uint64_t slot_id/* = 0*/)
 {
@@ -124,7 +126,7 @@ inline uint64_t event_handler_impl::add(ievent_item& ev_it,
 inline void event_handler_impl::remove(native::socket_handle::handle_type handle,
                                        uint64_t id,
                                        bool already_closed,
-                                       event_handler::task action,
+                                       event_handler_ex_task action,
                                        bool keep_slot/* = false*/)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -140,7 +142,7 @@ inline void event_handler_impl::remove(native::socket_handle::handle_type handle
             if (current_event_slot.m_closed)
             {
                 assert(false);
-                throw std::runtime_error("event_handler::remove");
+                throw std::runtime_error("event_handler_ex::remove");
             }
 
             current_event_slot.m_closed = true;
@@ -171,7 +173,7 @@ inline void event_handler_impl::remove(native::socket_handle::handle_type handle
     }
 
     assert(false);
-    throw std::runtime_error("event_handler::remove");
+    throw std::runtime_error("event_handler_ex::remove");
 }
 
 inline void event_handler_impl::reset(uint64_t reset_id)

@@ -1,5 +1,5 @@
 #include "native.hpp"
-#include "event_impl.hpp"
+#include "event.hpp"
 
 #include <cstring>
 
@@ -32,6 +32,7 @@ bool get_connected_status(beltpp::detail::event_handler_impl* peh,
     return res == 0;
 }
 #endif
+
 #ifdef B_OS_WINDOWS
 SOCKET accept(beltpp::detail::event_handler_impl* peh,
               uint64_t id,
@@ -141,7 +142,7 @@ size_t recv(beltpp::detail::event_handler_impl*,
 
 void async_send(SOCKET /*socket_descriptor*/,
                 beltpp::detail::event_handler_impl* peh,
-                ievent_item& /*ev_it*/,
+                event_item& /*ev_it*/,
                 uint64_t /*ev_id*/,
                 uint64_t eh_id,
                 beltpp::queue<char>& send_stream,
@@ -163,7 +164,7 @@ void async_send(SOCKET /*socket_descriptor*/,
         memmove(static_cast<void*>(async_data->send_buffer),
                 static_cast<void const*>(message_copy.c_str()),
                 message_copy.size());
-        async_data->action = event_handler::task::send;
+        async_data->action = event_handler_ex_task::send;
 
         async_data->async_task_running &= ~async_data->async_task_running_send;
         async_data->init_send(message_copy.length());
@@ -182,7 +183,7 @@ void async_send(SOCKET /*socket_descriptor*/,
 
 size_t send(SOCKET /*socket_descriptor*/,
             beltpp::detail::event_handler_impl* peh,
-            ievent_item& /*ev_it*/,
+            event_item& /*ev_it*/,
             uint64_t /*ev_id*/,
             uint64_t eh_id,
             beltpp::queue<char>& send_stream,
@@ -236,13 +237,13 @@ size_t send(SOCKET /*socket_descriptor*/,
                 static_cast<void const*>(message.c_str()),
                 message.size());
 
-        async_data->action = event_handler::task::send;
+        async_data->action = event_handler_ex_task::send;
 
         async_data->init_send(message.length());
     }
     else
     {
-        async_data->action = event_handler::task::receive;
+        async_data->action = event_handler_ex_task::receive;
     }
 
     async_data->async_task_running &= ~async_data->async_task_running_send;
@@ -265,7 +266,7 @@ void connect(beltpp::detail::event_handler_impl* peh,
 #else
 void async_send(int socket_descriptor,
                 beltpp::detail::event_handler_impl* peh,
-                ievent_item& ev_it,
+                event_item& ev_it,
                 uint64_t ev_id,
                 uint64_t eh_id,
                 beltpp::queue<char>& send_stream,
@@ -276,13 +277,13 @@ void async_send(int socket_descriptor,
         peh->remove(socket_descriptor,
                     eh_id,
                     false,   //  already_closed
-                    event_handler::task::receive,
+                    event_handler_ex_task::receive,
                     true);
 
         peh->add(ev_it,
                  socket_descriptor,
                  ev_id,
-                 event_handler::task::send,
+                 event_handler_ex_task::send,
                  true,
                  eh_id);
     }
@@ -293,7 +294,7 @@ void async_send(int socket_descriptor,
 
 size_t send(int socket_descriptor,
             beltpp::detail::event_handler_impl* peh,
-            ievent_item& ev_it,
+            event_item& ev_it,
             uint64_t ev_id,
             uint64_t eh_id,
             beltpp::queue<char>& send_stream,
@@ -337,13 +338,13 @@ size_t send(int socket_descriptor,
             peh->remove(socket_descriptor,
                         eh_id,
                         false,   //  already_closed
-                        event_handler::task::send,
+                        event_handler_ex_task::send,
                         true);
 
             peh->add(ev_it,
                      socket_descriptor,
                      ev_id,
-                     event_handler::task::receive,
+                     event_handler_ex_task::receive,
                      true,
                      eh_id);
         }

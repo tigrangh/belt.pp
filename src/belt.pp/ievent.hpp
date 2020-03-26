@@ -8,23 +8,23 @@
 namespace beltpp
 {
 
-class ievent_handler;
+class event_handler;
 
-class ievent_item
+class event_item
 {
 public:
-    ievent_item(ievent_handler&) {}
-    virtual ~ievent_item() {}
+    event_item(event_handler&) {}
+    virtual ~event_item() {}
 
     virtual void prepare_wait() = 0;
     virtual void timer_action() = 0;
 };
 
-class ievent_handler
+class event_handler
 {
 public:
-    ievent_handler() {}
-    virtual ~ievent_handler() {}
+    event_handler() {}
+    virtual ~event_handler() {}
 
     enum wait_result
     {
@@ -38,14 +38,16 @@ public:
                 on_demand_and_timer_out_and_event = 0x7,
     };
 
-    virtual wait_result wait(std::unordered_set<ievent_item const*>& set_items) = 0;
-    virtual std::unordered_set<uint64_t> waited(ievent_item& ev_it) const = 0;
+    virtual wait_result wait(std::unordered_set<event_item const*>& set_items) = 0;
+    virtual std::unordered_set<uint64_t> waited(event_item& ev_it) const = 0;
 
     virtual void wake() = 0;
     virtual void set_timer(std::chrono::steady_clock::duration const& period) = 0;
 
-    virtual void add(ievent_item& ev_it) = 0;
-    virtual void remove(ievent_item& ev_it) = 0;
+    virtual void add(event_item& ev_it) = 0;
+    virtual void remove(event_item& ev_it) = 0;
 };
+
+using event_handler_ptr = std::unique_ptr<event_handler>;
 
 }

@@ -248,7 +248,7 @@ public:
     using packets = stream::packets;
     using peer_ids = std::list<peer_id>;
 
-    socket(ievent_handler& eh) : stream(eh) {}
+    socket(event_handler& eh) : stream(eh) {}
     virtual ~socket() {}
 
     virtual peer_ids listen(ip_address const& address,
