@@ -161,6 +161,36 @@ inline float stof(std::string const& value, size_t& pos)
 
     return result;
 }
+
+template <typename T1>
+inline t_unique_ptr<T1> nullptr_unique_ptr()
+{
+    t_unique_ptr<T1> result(nullptr,
+                            [](T1* p)
+                            {
+                                delete p;
+                            });
+    return result;
+}
+template <typename T1>
+inline t_unique_ptr<T1> take_unique_ptr(std::unique_ptr<T1>&& pother)
+{
+    t_unique_ptr<T1> result = nullptr_unique_ptr<T1>();
+
+    result.reset(pother.get());
+    pother.release();
+
+    return result;
+}
+template <typename T1>
+inline t_unique_ptr<T1> raw_ptr(T1* pother)
+{
+    t_unique_ptr<T1> result = t_unique_nullptr<T1>();
+
+    result.reset(pother);
+    return result;
+}
+
 inline double stod(std::string const& value, size_t& pos)
 {
     double result = 0;
