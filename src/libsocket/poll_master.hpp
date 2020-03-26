@@ -26,13 +26,15 @@ using steady_clock = chrono::steady_clock;
 using time_point = steady_clock::time_point;
 using duration = steady_clock::duration;
 
+namespace beltpp
+{
+enum class event_handler_ex_task {remove, accept, connect, receive, send};
+}
 #if defined B_OS_LINUX
 
 #include <sys/epoll.h>
 namespace beltpp
 {
-
-enum class event_handler_ex_task {remove, accept, connect, receive, send};
 
 namespace detail
 {
