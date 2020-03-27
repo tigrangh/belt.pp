@@ -6,7 +6,6 @@
 #include <belt.pp/ievent.hpp>
 
 #include <chrono>
-#include <memory>
 #include <unordered_set>
 
 namespace beltpp_socket_impl

@@ -7,9 +7,6 @@
 #include <belt.pp/ievent.hpp>
 
 #include <memory>
-#include <string>
-#include <list>
-#include <vector>
 
 namespace beltpp
 {
