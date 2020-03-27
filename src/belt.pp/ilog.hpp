@@ -21,5 +21,5 @@ public:
     virtual void error(std::string const& value) = 0;
 };
 
-using ilog_ptr = beltpp::t_unique_ptr<ilog>;
+using ilog_ptr = std::unique_ptr<ilog>;
 }

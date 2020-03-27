@@ -99,6 +99,7 @@ public:
 
 ilog_ptr file_logger(string const& name, string const& fname)
 {
-    return beltpp::new_dc_unique_ptr<ilog, log_file>(name, fname);
+    log_file* p = new log_file(name, fname);
+    return beltpp::ilog_ptr(p);
 }
 }

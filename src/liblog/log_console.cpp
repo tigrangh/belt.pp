@@ -86,6 +86,7 @@ public:
 
 ilog_ptr console_logger(string const& name, bool print_time)
 {
-    return beltpp::new_dc_unique_ptr<ilog, log_console>(name, print_time);
+    log_console* p = new log_console(name, print_time);
+    return beltpp::ilog_ptr(p);
 }
 }
