@@ -386,7 +386,7 @@ public:
                        std::string& utf8_value)
     {
         bool code = true;
-        std::ostringstream out;
+        utf8_value.reserve(utf8_encoded.size());
 
         auto it_begin = utf8_encoded.begin();
         auto it_end = utf8_encoded.end();
@@ -538,7 +538,7 @@ public:
                     assert(uint32_t(-1) == code_point_encoded);
                     assert((false == item.empty() && uint32_t(-1) == surrogate_pair_high) ||
                            (item.empty() && uint32_t(-1) != surrogate_pair_high));
-                    out << item;
+                    utf8_value += item;
                 }
             }
         }
@@ -549,8 +549,8 @@ public:
             0 != escape_sequence_remaining)
             code = false;
 
-        if (code)
-            utf8_value = out.str();
+        if (false == code)
+            utf8_value.clear();
 
         return code;
     }
