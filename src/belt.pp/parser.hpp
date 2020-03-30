@@ -78,7 +78,7 @@ public:
     size_t depth() const;
     bool is_value() const noexcept;
     bool is_operator() const noexcept;
-    expression_tree& add_child(ctoken const& child_lexem);
+    expression_tree& add_child(ctoken&& child_lexem);
     expression_tree& add_child(std::unique_ptr<expression_tree>&& ptree);
 
     expression_tree* parent = nullptr;
@@ -152,7 +152,7 @@ bool expression_tree<T_lexers, T_string>::is_operator() const noexcept
 
 template <typename T_lexers, typename T_string>
 expression_tree<T_lexers, T_string>&
-expression_tree<T_lexers,T_string>::add_child(ctoken const& child_lexem)
+expression_tree<T_lexers,T_string>::add_child(ctoken&& child_lexem)
 {
     std::unique_ptr<expression_tree> ptree(new expression_tree);
     ptree->lexem = child_lexem;
@@ -313,7 +313,7 @@ int storage<T_lexers, T_string, T_iterator>::s_initializer =
 
 template <typename T_expression_tree>
 bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
-                  typename T_expression_tree::ctoken& read_result,
+                  typename T_expression_tree::ctoken&& read_result,
                   bool has_default_operator,
                   typename T_expression_tree::ctoken const& default_operator);
 }   //  end detail
@@ -432,7 +432,7 @@ e_three_state_result parse(std::unique_ptr<T_expression_tree>& ptr_expression,
             B_UNUSED(ptr_expression_backup);
 
             if (detail::parse_helper(ptr_expression,
-                                     read_result,
+                                     std::move(read_result),
                                      has_default_operator,
                                      default_operator))
             {
@@ -459,7 +459,7 @@ namespace detail
 {
 template <typename T_expression_tree>
 bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
-                  typename T_expression_tree::ctoken& read_result,
+                  typename T_expression_tree::ctoken&& read_result,
                   bool has_default_operator,
                   typename T_expression_tree::ctoken const& default_operator)
 {
@@ -556,8 +556,8 @@ bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
                 if (fix_the_same_possible)
                 {
                     auto property_backup = ptr_expression->lexem.property;
-                    auto value_backup = ptr_expression->lexem.value;
-                    ptr_expression->lexem = read_result;
+                    auto value_backup = std::move(ptr_expression->lexem.value);
+                    ptr_expression->lexem = std::move(read_result);
                     ptr_expression->lexem.value =
                             value_backup + ptr_expression->lexem.value;
                     ptr_expression->lexem.property =
@@ -570,7 +570,7 @@ bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
                     auto pparent_backup = ptr_backup->parent;
 
                     ptr_expression.reset(new T_expression_tree);
-                    ptr_expression->lexem = read_result;
+                    ptr_expression->lexem = std::move(read_result);
                     ptr_expression->add_child(std::move(ptr_backup));
                     if (pparent_backup)
                     {
@@ -599,7 +599,7 @@ bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
             if (nullptr == ptr_expression)
             {
                 ptr_expression.reset(new T_expression_tree);
-                ptr_expression->lexem = read_result;
+                ptr_expression->lexem = std::move(read_result);
                 success = true;
             }
             else if (pparent && false == pparent->is_operator())
@@ -608,7 +608,7 @@ bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
             }
             else if (pparent)
             {
-                T_expression_tree* ptemp = &pparent->add_child(read_result);
+                T_expression_tree* ptemp = &pparent->add_child(std::move(read_result));
 
                 ptr_expression.release();
                 ptr_expression.reset(ptemp);
@@ -624,7 +624,7 @@ bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
                 if (pparent->lexem.rtt == default_operator.rtt)
                 {
                     T_expression_tree* ptemp = nullptr;
-                    ptemp = &pparent->add_child(read_result);
+                    ptemp = &pparent->add_child(std::move(read_result));
                     ptr_expression.release();
                     ptr_expression.reset(ptemp);
                     success = true;
@@ -640,7 +640,7 @@ bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
 
                     T_expression_tree* ptemp = nullptr;
                     ptemp = &ptr_root->add_child(std::move(ptr_expression));
-                    ptemp = &ptr_root->add_child(read_result);
+                    ptemp = &ptr_root->add_child(std::move(read_result));
                     ptr_expression.release();
                     ptr_expression.reset(ptemp);
                     ptr_root.release();
