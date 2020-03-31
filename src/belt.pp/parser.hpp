@@ -87,14 +87,14 @@ public:
     inline expression_tree_pointer& operator = (expression_tree_pointer const& other) = delete;
     inline expression_tree_pointer& operator = (expression_tree_pointer&& other) noexcept = default;
 
-    bool is_empty() const;
-    void create();
-    bool has_parent() const;
-    void become_parent();
-    void delete_last_child();
-    void add_and_become_child(ctoken&& child_lexem);
-    void add_and_become_child(expression_tree_pointer<T_lexers, T_string>&& child);
-    expression_tree<T_lexers, T_string>& item();
+    inline bool is_empty() const;
+    inline void create();
+    inline bool has_parent() const;
+    inline void become_parent();
+    inline void delete_last_child();
+    inline void add_and_become_child(ctoken&& child_lexem);
+    inline void add_and_become_child(expression_tree_pointer<T_lexers, T_string>&& child);
+    inline expression_tree<T_lexers, T_string>& item();
 };
 
 template <typename T_lexers, typename T_string>
@@ -113,11 +113,11 @@ public:
     inline expression_tree& operator = (expression_tree const& other) = delete;
     inline expression_tree& operator = (expression_tree&& other) noexcept = default;
 
-    size_t depth() const;
-    bool is_value() const noexcept;
-    bool is_operator() const noexcept;
-    expression_tree& add_child(ctoken&& child_lexem);
-    expression_tree& add_child(expression_tree_pointer<T_lexers, T_string>&& child);
+    inline size_t depth() const;
+    inline bool is_value() const noexcept;
+    inline bool is_operator() const noexcept;
+    inline expression_tree& add_child(ctoken&& child_lexem);
+    inline expression_tree& add_child(expression_tree_pointer<T_lexers, T_string>&& child);
 
     ctoken lexem;
     std::vector<expression_tree> children;
@@ -394,6 +394,7 @@ int storage<T_lexers, T_string, T_iterator>::s_initializer =
         dummy<T_lexers, T_string, T_iterator, std::integral_constant<size_t, 0>>::list_readers();
 
 template <typename T_lexers, typename T_string>
+inline
 bool parse_helper(expression_tree_pointer<T_lexers, T_string>& ptr_expression,
                   typename expression_tree<T_lexers, T_string>::ctoken&& read_result,
                   bool has_default_operator,
@@ -467,6 +468,7 @@ check_end(std::string::const_iterator const& iter_scan_begin,
 template <typename T_iterator,
           typename T_lexers,
           typename T_string>
+inline
 e_three_state_result parse(expression_tree_pointer<T_lexers, T_string>& ptr_expression,
                            T_iterator& it_begin,
                            T_iterator const& it_end)
@@ -544,6 +546,7 @@ bool parse_helper(expression_tree_pointer<T_lexers, T_string>& ptr_expression,
     bool success = false;
     enum token_type {token_type_value, token_type_operator};
     std::vector<token_type> types;
+    types.reserve(2);
     if (read_result.right == size_t(-1) &&
         read_result.left_max == size_t(-1) &&
         read_result.left_min == size_t(-1))
