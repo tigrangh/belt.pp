@@ -43,7 +43,7 @@ class scan_status : public beltpp::detail::iscan_status
 public:
     ~scan_status() override
     {}
-    ::beltpp::json::ptr_expression_tree pexp;
+    ::beltpp::json::expression_tree_pointer pexp;
 };
 
 {export} inline
@@ -196,7 +196,7 @@ void extension_helper(::beltpp::message_loader_utility& utl)
         ssd.lst_ptr_data.pop_back();
     });
 
-    ::beltpp::json::ptr_expression_tree& pexp = ss.pexp;
+    ::beltpp::json::expression_tree_pointer& pexp = ss.pexp;
     ::beltpp::json::expression_tree* proot = nullptr;
 
     ::beltpp::message_loader_utility utl;
@@ -215,7 +215,7 @@ void extension_helper(::beltpp::message_loader_utility& utl)
                                              proot);
 
     if (::beltpp::e_three_state_result::success == code &&
-        nullptr == pexp)
+        pexp.is_empty())
     {
         assert(false);
         //  this should not happen, but since this is potentially a
@@ -224,7 +224,7 @@ void extension_helper(::beltpp::message_loader_utility& utl)
         code = ::beltpp::e_three_state_result::error;
     }
     else if (::beltpp::e_three_state_result::success == code &&
-             false == detail::message_list_load_helper(pexp.get(), return_value, utl))
+             false == detail::message_list_load_helper(&pexp.item(), return_value, utl))
         code = ::beltpp::e_three_state_result::error;
     //
     //
@@ -739,14 +739,14 @@ bool analyze_json(std::vector<T>& value,
     {
         auto pscan = pexp;
         if (pexp->children.size() == 1 &&
-            pexp->children.front()->lexem.rtt == ::beltpp::json::operator_comma::rtt &&
-            false == pexp->children.front()->children.empty())
-            pscan = pexp->children.front();
+            pexp->children.front().lexem.rtt == ::beltpp::json::operator_comma::rtt &&
+            false == pexp->children.front().children.empty())
+            pscan = &pexp->children.front();
 
-        for (auto const& item : pscan->children)
+        for (auto& item : pscan->children)
         {
             T item_value;
-            if (analyze_json(item_value, item, utl))
+            if (analyze_json(item_value, &item, utl))
                 value.push_back(std::move(item_value));
             else
             {
@@ -804,14 +804,14 @@ bool analyze_json(std::unordered_set<T>& value,
     {
         auto pscan = pexp;
         if (pexp->children.size() == 1 &&
-            pexp->children.front()->lexem.rtt == ::beltpp::json::operator_comma::rtt &&
-            false == pexp->children.front()->children.empty())
-            pscan = pexp->children.front();
+            pexp->children.front().lexem.rtt == ::beltpp::json::operator_comma::rtt &&
+            false == pexp->children.front().children.empty())
+            pscan = &pexp->children.front();
 
-        for (auto const& item : pscan->children)
+        for (auto& item : pscan->children)
         {
             T item_value;
-            if (analyze_json(item_value, item, utl))
+            if (analyze_json(item_value, &item, utl))
             {
                 auto it_code = value.insert(std::move(item_value));
                 if (false == it_code.second)
@@ -849,14 +849,14 @@ bool analyze_json(std::pair<T_first, T_second>& value,
     if (nullptr == pexp ||
         pexp->lexem.rtt != ::beltpp::json::scope_bracket::rtt ||
         pexp->children.size() != 1 ||
-        pexp->children.front()->lexem.rtt != ::beltpp::json::operator_comma::rtt ||
-        pexp->children.front()->children.size() != 2)
+        pexp->children.front().lexem.rtt != ::beltpp::json::operator_comma::rtt ||
+        pexp->children.front().children.size() != 2)
         code = false;
     else
     {
-        auto const& pair_item = pexp->children.front();
-        if (false == analyze_json(value.first, pair_item->children.front(), utl) ||
-            false == analyze_json(value.second, pair_item->children.back(), utl))
+        auto& pair_item = pexp->children.front();
+        if (false == analyze_json(value.first, &pair_item.children.front(), utl) ||
+            false == analyze_json(value.second, &pair_item.children.back(), utl))
             code = false;
     }
 
@@ -932,14 +932,14 @@ bool analyze_json(std::unordered_map<T_key, T_value>& value,
     {
         auto pscan = pexp;
         if (pexp->children.size() == 1 &&
-            pexp->children.front()->lexem.rtt == ::beltpp::json::operator_comma::rtt &&
-            false == pexp->children.front()->children.empty())
-            pscan = pexp->children.front();
+            pexp->children.front().lexem.rtt == ::beltpp::json::operator_comma::rtt &&
+            false == pexp->children.front().children.empty())
+            pscan = &pexp->children.front();
 
-        for (auto const& item : pscan->children)
+        for (auto& item : pscan->children)
         {
             std::pair<T_key, T_value> item_value;
-            if (analyze_json(item_value, item, utl))
+            if (analyze_json(item_value, &item, utl))
                 value.insert(std::move(item_value));
             else
             {
@@ -966,21 +966,21 @@ bool analyze_json(std::unordered_map<std::string, T_value>& value,
     {
         auto pscan = pexp;
         if (pexp->children.size() == 1 &&
-            pexp->children.front()->lexem.rtt == ::beltpp::json::operator_comma::rtt &&
-            false == pexp->children.front()->children.empty())
-            pscan = pexp->children.front();
+            pexp->children.front().lexem.rtt == ::beltpp::json::operator_comma::rtt &&
+            false == pexp->children.front().children.empty())
+            pscan = &pexp->children.front();
 
-        for (auto const& item : pscan->children)
+        for (auto& item : pscan->children)
         {
-            if (item->lexem.rtt == ::beltpp::json::operator_colon::rtt &&
-                item->children.size() == 2)
+            if (item.lexem.rtt == ::beltpp::json::operator_colon::rtt &&
+                item.children.size() == 2)
             {
                 std::string item_key;
                 T_value item_value;
                 std::string decoded;
-                if (item->children.front()->lexem.rtt == ::beltpp::json::value_string::rtt &&
-                    stringloader(item_key, item->children.front()->lexem.value) &&
-                    analyze_json(item_value, item->children.back(), utl))
+                if (item.children.front().lexem.rtt == ::beltpp::json::value_string::rtt &&
+                    stringloader(item_key, item.children.front().lexem.value) &&
+                    analyze_json(item_value, &item.children.back(), utl))
                     value.insert(std::move(std::make_pair(item_key, std::move(item_value))));
                 else
                 {
@@ -1007,7 +1007,7 @@ bool loader(T& value,
     auto iter_scan_begin(encoded.begin());
     auto iter_scan_end(encoded.end());
 
-    ::beltpp::json::ptr_expression_tree pexp;
+    ::beltpp::json::expression_tree_pointer pexp;
     ::beltpp::json::expression_tree* proot = nullptr;
 
     ::beltpp::message_loader_utility utl;
@@ -1023,10 +1023,10 @@ bool loader(T& value,
 
     if (code != ::beltpp::e_three_state_result::success)
         return false;
-    if (nullptr == pexp)
+    if (pexp.is_empty())
         return false;
 
-    return analyze_json(value, pexp.get(), utl);
+    return analyze_json(value, &pexp.item(), utl);
 }
 
 bool loader(::beltpp::packet& package,
@@ -1077,38 +1077,36 @@ bool analyze_json_common(size_t& rtt,
         pexp->lexem.rtt != ::beltpp::json::scope_brace::rtt ||
         1 != pexp->children.size())
         code = false;
-    else if (pexp->children.front() &&
-             pexp->children.front()->lexem.rtt ==
+    else if (pexp->children.front().lexem.rtt ==
              ::beltpp::json::operator_colon::rtt)
     {
-        if (analyze_colon(pexp->children.front(), rtt))
+        if (analyze_colon(&pexp->children.front(), rtt))
             code = true;
         else
             code = false;
     }
-    else if (nullptr == pexp->children.front() ||
-             pexp->children.front()->lexem.rtt !=
+    else if (pexp->children.front().lexem.rtt !=
              ::beltpp::json::operator_comma::rtt ||
-             pexp->children.front()->children.empty())
+             pexp->children.front().children.empty())
     {
         code = false;
     }
     else
     {
         code = false;
-        auto pcomma = pexp->children.front();
-        for (auto item : pcomma->children)
+        auto& pcomma = pexp->children.front();
+        for (auto& item : pcomma.children)
         {
             size_t rtt_temp = size_t(-1);
-            if (false == analyze_colon(item, rtt_temp) &&
-                false == analyze_colon(item, members))
+            if (false == analyze_colon(&item, rtt_temp) &&
+                false == analyze_colon(&item, members))
                 break;
 
             if (size_t(-1) != rtt_temp)
                 rtt = rtt_temp;
         }
 
-        if (members.size() + 1 == pcomma->children.size())
+        if (members.size() + 1 == pcomma.children.size())
             code = true;
     }
 
@@ -1131,29 +1129,27 @@ bool analyze_json_object(::beltpp::json::expression_tree* pexp,
         code = true; // empty packet
     else if (1 != pexp->children.size())
         code = false;
-    else if (pexp->children.front() &&
-             pexp->children.front()->lexem.rtt ==
+    else if (pexp->children.front().lexem.rtt ==
              ::beltpp::json::operator_colon::rtt)
     {
-        if (analyze_colon(pexp->children.front(), rtt))
+        if (analyze_colon(&pexp->children.front(), rtt))
             code = true;
         else
             code = false;
     }
-    else if (nullptr == pexp->children.front() ||
-             pexp->children.front()->lexem.rtt !=
+    else if (pexp->children.front().lexem.rtt !=
              ::beltpp::json::operator_comma::rtt ||
-             pexp->children.front()->children.empty())
+             pexp->children.front().children.empty())
     {
         code = false;
     }
     else
     {
         code = false;
-        auto pcomma = pexp->children.front();
-        for (auto item : pcomma->children)
+        auto& pcomma = pexp->children.front();
+        for (auto& item : pcomma.children)
         {
-            if (analyze_colon(item, rtt))
+            if (analyze_colon(&item, rtt))
             {
                 code = true;
                 break;
@@ -1173,22 +1169,19 @@ bool analyze_colon(::beltpp::json::expression_tree* pexp,
     if (pexp &&
         pexp->lexem.rtt == ::beltpp::json::operator_colon::rtt &&
         2 == pexp->children.size() &&
-        pexp->children.front() &&
-        pexp->children.back() &&
-        pexp->children.front()->lexem.rtt ==
+        pexp->children.front().lexem.rtt ==
         ::beltpp::json::value_string::rtt)
     {
-        auto key = pexp->children.front()->lexem.value;
+        auto key = pexp->children.front().lexem.value;
         if (key != "\"rtt\"")
         {
             //members.insert(std::make_pair(key, item->children.back()));
         }
-        else if (pexp->children.back() &&
-                 pexp->children.back()->lexem.rtt ==
+        else if (pexp->children.back().lexem.rtt ==
                  ::beltpp::json::value_number::rtt)
         {
             size_t pos;
-            auto const& value = pexp->children.back()->lexem.value;
+            auto const& value = pexp->children.back().lexem.value;
             rtt = beltpp::stoui32(value, pos);
             if (pos != value.size())
                 rtt = size_t(-1);
@@ -1207,14 +1200,12 @@ bool analyze_colon(::beltpp::json::expression_tree* pexp,
     if (pexp &&
         pexp->lexem.rtt == ::beltpp::json::operator_colon::rtt &&
         2 == pexp->children.size() &&
-        pexp->children.front() &&
-        pexp->children.back() &&
-        pexp->children.front()->lexem.rtt ==
+        pexp->children.front().lexem.rtt ==
         ::beltpp::json::value_string::rtt)
     {
-        auto key = pexp->children.front()->lexem.value;
+        auto key = pexp->children.front().lexem.value;
 
-        members.insert(std::make_pair(key, pexp->children.back()));
+        members.insert(std::make_pair(key, &pexp->children.back()));
         code = true;
     }
 

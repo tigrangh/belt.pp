@@ -63,6 +63,41 @@ inline bool property_final(size_t property) noexcept
 }
 
 template <typename T_lexers, typename T_string>
+class expression_tree;
+
+template <typename T_lexers, typename T_string>
+class expression_tree_pointer
+{
+public:
+    using lexers = T_lexers;
+    using string = T_string;
+    using ctoken = detail::token<T_string>;
+
+    expression_tree<T_lexers, T_string> root;
+    std::vector<expression_tree<T_lexers, T_string>*> stack;
+
+    expression_tree_pointer()
+        : root()
+        , stack()
+    {}
+
+    expression_tree_pointer(expression_tree_pointer&&) = default;
+    expression_tree_pointer(expression_tree_pointer const&) = delete;
+
+    inline expression_tree_pointer& operator = (expression_tree_pointer const& other) = delete;
+    inline expression_tree_pointer& operator = (expression_tree_pointer&& other) noexcept = default;
+
+    bool is_empty() const;
+    void create();
+    bool has_parent() const;
+    void become_parent();
+    void delete_last_child();
+    void add_and_become_child(ctoken&& child_lexem);
+    void add_and_become_child(expression_tree_pointer<T_lexers, T_string>&& child);
+    expression_tree<T_lexers, T_string>& item();
+};
+
+template <typename T_lexers, typename T_string>
 class expression_tree
 {
 public:
@@ -72,44 +107,85 @@ public:
 
     expression_tree() = default;
     expression_tree(expression_tree&) = delete;
-    expression_tree(expression_tree&&) = delete;
+    expression_tree(expression_tree&&) = default;
     ~expression_tree() noexcept;
+
+    inline expression_tree& operator = (expression_tree const& other) = delete;
+    inline expression_tree& operator = (expression_tree&& other) noexcept = default;
 
     size_t depth() const;
     bool is_value() const noexcept;
     bool is_operator() const noexcept;
     expression_tree& add_child(ctoken&& child_lexem);
-    expression_tree& add_child(std::unique_ptr<expression_tree>&& ptree);
+    expression_tree& add_child(expression_tree_pointer<T_lexers, T_string>&& child);
 
-    expression_tree* parent = nullptr;
     ctoken lexem;
-    std::vector<expression_tree*> children;
+    std::vector<expression_tree> children;
 };
+
+template <typename T_lexers, typename T_string>
+expression_tree<T_lexers, T_string>&
+expression_tree_pointer<T_lexers, T_string>::item()
+{
+    return *stack.back();
+}
+template <typename T_lexers, typename T_string>
+bool expression_tree_pointer<T_lexers, T_string>::is_empty() const
+{
+    return stack.empty();
+}
+template <typename T_lexers, typename T_string>
+void expression_tree_pointer<T_lexers, T_string>::create()
+{
+    stack.push_back(&root);
+}
+template <typename T_lexers, typename T_string>
+bool expression_tree_pointer<T_lexers, T_string>::has_parent() const
+{
+    return stack.size() > 1;
+}
+template <typename T_lexers, typename T_string>
+void expression_tree_pointer<T_lexers, T_string>::become_parent()
+{
+    stack.erase(stack.begin() + stack.size() - 1);
+}
+template <typename T_lexers, typename T_string>
+void expression_tree_pointer<T_lexers, T_string>::delete_last_child()
+{
+    auto& children = item().children;
+    children.erase(children.begin() + children.size() - 1);
+}
+template <typename T_lexers, typename T_string>
+void expression_tree_pointer<T_lexers, T_string>::add_and_become_child(expression_tree_pointer<T_lexers, T_string>&& child)
+{
+    auto& ref = item().add_child(std::move(child));
+    stack.push_back(&ref);
+}
+template <typename T_lexers, typename T_string>
+void expression_tree_pointer<T_lexers, T_string>::add_and_become_child(ctoken&& child_lexem)
+{
+    auto& ref = item().add_child(std::move(child_lexem));
+    stack.push_back(&ref);
+}
 
 template <typename T_lexers, typename T_string>
 expression_tree<T_lexers, T_string>::~expression_tree() noexcept
 {
-    auto pparent = this;
-    while (pparent->parent)
-        pparent = pparent->parent;
-
-    queue<expression_tree<T_lexers, T_string>*> items;
-
-    items.push(pparent);
-
-    while (false == items.empty())
+    if (false == children.empty())
     {
-        auto pitem = items.front();
-        for (auto& pchild : pitem->children)
+        queue<expression_tree<T_lexers, T_string>> items;
+        items.push(std::move(*this));
+
+        while (false == items.empty())
         {
-            pchild->parent = nullptr;
-            items.push(pchild);
-            pchild = nullptr;
+            auto item = std::move(items.front());
+
+            for (auto&& child : item.children)
+                items.push(std::move(child));
+            item.children.clear();
+
+            items.pop();
         }
-        pitem->children.clear();
-        items.pop();
-        if (pitem != this)
-            delete pitem;
     }
 }
 
@@ -128,8 +204,8 @@ size_t expression_tree<T_lexers, T_string>::depth() const
         for (auto index = begin_index; index != end_index; ++index)
         {
             auto pitem = items[index];
-            for (auto& pchild : pitem->children)
-                items.push(pchild);
+            for (auto& child : pitem->children)
+                items.push(&child);
             items.pop();
         }
         ++depth;
@@ -154,34 +230,40 @@ template <typename T_lexers, typename T_string>
 expression_tree<T_lexers, T_string>&
 expression_tree<T_lexers,T_string>::add_child(ctoken&& child_lexem)
 {
-    std::unique_ptr<expression_tree> ptree(new expression_tree);
-    ptree->lexem = child_lexem;
+    expression_tree_pointer<T_lexers,T_string> child;
+    child.create();
+    child.item().lexem = std::move(child_lexem);
 
-    return add_child(std::move(ptree));
+    return add_child(std::move(child));
 }
 
 template <typename T_lexers, typename T_string>
 expression_tree<T_lexers, T_string>&
-expression_tree<T_lexers, T_string>::add_child(
-        std::unique_ptr<expression_tree>&& ptree)
+expression_tree<T_lexers, T_string>::add_child(expression_tree_pointer<T_lexers, T_string>&& child)
 {
-    if (ptree->parent)
-    {
-        auto iter = ptree->parent->children.begin();
-        for (; iter != ptree->parent->children.end(); ++iter)
-        {
-            if (*iter == ptree.get())
-            {
-                ptree->parent->children.erase(iter);
-                break;
-            }
-        }
-    }
-    ptree->parent = this;
-    children.push_back(ptree.get());
-    ptree.release();
+//    if (children.empty())
+//        children.reserve(5);
+    children.push_back(std::move(child.item()));
 
-    return *children.back();
+    if (child.has_parent())
+    {
+        child.become_parent();
+        child.delete_last_child();
+    }
+
+    /*std::vector<expression_tree<T_lexers, T_string>> other;
+    other.reserve(children.size());
+    for (auto&& child_item : children)
+        other.push_back(std::move(child_item));
+    children = std::move(other);
+
+    std::vector<expression_tree<T_lexers, T_string>> other2;
+    other2.reserve(children.size());
+    for (auto&& child_item : children)
+        other2.push_back(std::move(child_item));
+    children = std::move(other2);*/
+
+    return children.back();
 }
 
 namespace detail
@@ -311,11 +393,11 @@ template <typename T_lexers, typename T_string, typename T_iterator>
 int storage<T_lexers, T_string, T_iterator>::s_initializer =
         dummy<T_lexers, T_string, T_iterator, std::integral_constant<size_t, 0>>::list_readers();
 
-template <typename T_expression_tree>
-bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
-                  typename T_expression_tree::ctoken&& read_result,
+template <typename T_lexers, typename T_string>
+bool parse_helper(expression_tree_pointer<T_lexers, T_string>& ptr_expression,
+                  typename expression_tree<T_lexers, T_string>::ctoken&& read_result,
                   bool has_default_operator,
-                  typename T_expression_tree::ctoken const& default_operator);
+                  typename expression_tree<T_lexers, T_string>::ctoken const& default_operator);
 }   //  end detail
 
 
@@ -383,31 +465,26 @@ check_end(std::string::const_iterator const& iter_scan_begin,
 }
 
 template <typename T_iterator,
-          typename T_expression_tree>
-e_three_state_result parse(std::unique_ptr<T_expression_tree>& ptr_expression,
+          typename T_lexers,
+          typename T_string>
+e_three_state_result parse(expression_tree_pointer<T_lexers, T_string>& ptr_expression,
                            T_iterator& it_begin,
                            T_iterator const& it_end)
 {
-    using storage =
-        detail::storage<
-            typename T_expression_tree::lexers,
-            typename T_expression_tree::string,
-            T_iterator>;
+    using expression_tree_pointer = expression_tree_pointer<T_lexers, T_string>;
+    using storage = detail::storage<T_lexers, T_string,T_iterator>;
     //  fake, as if using the following member
     //  force template compiler to use it too
     auto storage_initialized = storage::s_initializer;
     B_UNUSED(storage_initialized);  //  avoid warning/error
     auto readers = storage::s_readers;
 
-    auto default_operator = typename T_expression_tree::ctoken();
-    auto read_result = typename T_expression_tree::ctoken();
+    auto default_operator = typename expression_tree_pointer::ctoken();
+    auto read_result = typename expression_tree_pointer::ctoken();
 
     using cdummy =
-        detail::dummy<
-            typename T_expression_tree::lexers,
-            typename T_expression_tree::string,
-            T_iterator,
-            std::integral_constant<size_t, 0>>;
+        detail::dummy<T_lexers, T_string,
+                        T_iterator, std::integral_constant<size_t, 0>>;
 
     auto it_copy = it_begin;
 
@@ -428,8 +505,7 @@ e_three_state_result parse(std::unique_ptr<T_expression_tree>& ptr_expression,
         if (e_three_state_result::success == read_op_code)
         {   //  try to place the operator token in the expression tree
             //  if successful then update it_begin and return
-            auto ptr_expression_backup = ptr_expression.get();
-            B_UNUSED(ptr_expression_backup);
+            auto ptr_expression_stack_backup = ptr_expression.stack;
 
             if (detail::parse_helper(ptr_expression,
                                      std::move(read_result),
@@ -442,7 +518,7 @@ e_three_state_result parse(std::unique_ptr<T_expression_tree>& ptr_expression,
             else
             {   //  otherwise don't forget to reset it_copy to it_begin
                 it_copy = it_begin;
-                assert(ptr_expression.get() == ptr_expression_backup);
+                assert(ptr_expression_stack_backup == ptr_expression.stack);
             }
         }
         else if (e_three_state_result::attempt == read_op_code)
@@ -457,12 +533,14 @@ e_three_state_result parse(std::unique_ptr<T_expression_tree>& ptr_expression,
 
 namespace detail
 {
-template <typename T_expression_tree>
-bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
-                  typename T_expression_tree::ctoken&& read_result,
+template <typename T_lexers, typename T_string>
+bool parse_helper(expression_tree_pointer<T_lexers, T_string>& ptr_expression,
+                  typename expression_tree<T_lexers, T_string>::ctoken&& read_result,
                   bool has_default_operator,
-                  typename T_expression_tree::ctoken const& default_operator)
+                  typename expression_tree<T_lexers, T_string>::ctoken const& default_operator)
 {
+    using expression_tree = expression_tree<T_lexers, T_string>;
+
     bool success = false;
     enum token_type {token_type_value, token_type_operator};
     std::vector<token_type> types;
@@ -475,13 +553,14 @@ bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
         if (read_result.left_max > 0)
             types.push_back(token_type_operator);
 
-        std::unique_ptr<T_expression_tree> ptr_temp(new T_expression_tree);
-        ptr_temp->lexem = read_result;
+        expression_tree_pointer<T_lexers, T_string> ptr_temp;
+        ptr_temp.create();
+        ptr_temp.item().lexem = read_result;
 
         if (read_result.left_min == 0 &&
                 (
-                    ptr_temp->is_value() ||
-                    ptr_temp->is_operator()
+                    ptr_temp.item().is_value() ||
+                    ptr_temp.item().is_operator()
                 )
             )
             types.push_back(token_type_value);
@@ -492,19 +571,30 @@ bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
         if (success)
             break;
         if (token_type_operator == ttype &&
-            ptr_expression)
+            false == ptr_expression.is_empty())
         {
-            T_expression_tree* pparent = ptr_expression.get();
-            T_expression_tree* test_pparent = pparent;
+            size_t pparent_index = ptr_expression.stack.size() - 1;
+            size_t test_pparent_index = pparent_index;
+            expression_tree* pparent = ptr_expression.stack[pparent_index];
+            expression_tree* test_pparent = pparent;
             while (pparent &&
                    pparent->is_value() &&
                    pparent->lexem.priority >= read_result.priority)
             {
                 test_pparent = pparent;
-                pparent = pparent->parent;
+                test_pparent_index = pparent_index;
+
+                if (pparent_index == 0)
+                    pparent = nullptr;
+                else
+                {
+                    --pparent_index;
+                    pparent = ptr_expression.stack[pparent_index];
+                }
             }
             assert(test_pparent);
             pparent = test_pparent;
+            pparent_index = test_pparent_index;
             //  now pparent is either the same as ptr_expression
             //  or is the weakest priority binary operator, that is still stronger
             //  than read_result but it cannot go as weak as the enclosing operator
@@ -519,12 +609,14 @@ bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
                     test_pparent->lexem.rtt == read_result.rtt)
                 {
                     pparent = test_pparent;
+                    pparent_index = test_pparent_index;
                     break;
                 }
-                if (nullptr == test_pparent->parent ||
+                if (0 == test_pparent_index ||
                     false == test_pparent->is_value())
                     break;
-                test_pparent = test_pparent->parent;
+                --test_pparent_index;
+                test_pparent = ptr_expression.stack[test_pparent_index];
             }
 
             bool fix_the_same_possible = false;
@@ -547,38 +639,31 @@ bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
                 read_result.left_min = 0;
                 read_result.left_max -= left_count;
 
-                if (ptr_expression.get() != pparent)
-                {
-                    ptr_expression.release();
-                    ptr_expression.reset(pparent);
-                }
+                if (&ptr_expression.item() != pparent)
+                    ptr_expression.stack.resize(pparent_index + 1);
 
                 if (fix_the_same_possible)
                 {
-                    auto property_backup = ptr_expression->lexem.property;
-                    auto value_backup = std::move(ptr_expression->lexem.value);
-                    ptr_expression->lexem = std::move(read_result);
-                    ptr_expression->lexem.value =
-                            value_backup + ptr_expression->lexem.value;
-                    ptr_expression->lexem.property =
+                    auto property_backup = ptr_expression.item().lexem.property;
+                    auto value_backup = std::move(ptr_expression.item().lexem.value);
+                    ptr_expression.item().lexem = std::move(read_result);
+                    ptr_expression.item().lexem.value =
+                            value_backup + ptr_expression.item().lexem.value;
+                    ptr_expression.item().lexem.property =
                             detail::property_combine(property_backup,
-                                                     ptr_expression->lexem.property);
+                                                     ptr_expression.item().lexem.property);
                 }
                 else
                 {
-                    auto ptr_backup = std::move(ptr_expression);
-                    auto pparent_backup = ptr_backup->parent;
-
-                    ptr_expression.reset(new T_expression_tree);
-                    ptr_expression->lexem = std::move(read_result);
-                    ptr_expression->add_child(std::move(ptr_backup));
-                    if (pparent_backup)
-                    {
-                        auto pexpression =
-                                &pparent_backup->add_child(
-                                    std::move(ptr_expression));
-                        ptr_expression.reset(pexpression);
-                    }
+                    expression_tree_pointer<T_lexers, T_string> insertion;
+                    insertion.create();
+                    insertion.item().lexem = std::move(read_result);
+                    insertion.item().add_child(std::move(ptr_expression));
+                    //ptr_expression became parent and item deleted
+                    if (ptr_expression.is_empty())
+                        ptr_expression = std::move(insertion);
+                    else
+                        ptr_expression.add_and_become_child(std::move(insertion));
                 }
 
                 success = true;
@@ -586,20 +671,32 @@ bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
         }
         else if (token_type_value == ttype)
         {
-            T_expression_tree* pparent = ptr_expression.get();
-            T_expression_tree* pparent_previous = pparent;
+            size_t pparent_index = ptr_expression.stack.size() - 1;
+            size_t pparent_previous_index = pparent_index;
+            expression_tree* pparent = nullptr;
+            if (false == ptr_expression.is_empty())
+                pparent = ptr_expression.stack[pparent_index];
+            expression_tree* pparent_previous = pparent;
+
             while (pparent &&
                    false == pparent->is_operator() &&
                    pparent->is_value())
             {
                 pparent_previous = pparent;
-                pparent = pparent->parent;
+                pparent_previous_index = pparent_index;
+                if (pparent_index == 0)
+                    pparent = nullptr;
+                else
+                {
+                    --pparent_index;
+                    pparent = ptr_expression.stack[pparent_index];
+                }
             }
 
-            if (nullptr == ptr_expression)
+            if (ptr_expression.is_empty())
             {
-                ptr_expression.reset(new T_expression_tree);
-                ptr_expression->lexem = std::move(read_result);
+                ptr_expression.create();
+                ptr_expression.item().lexem = std::move(read_result);
                 success = true;
             }
             else if (pparent && false == pparent->is_operator())
@@ -608,42 +705,38 @@ bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
             }
             else if (pparent)
             {
-                T_expression_tree* ptemp = &pparent->add_child(std::move(read_result));
+                ptr_expression.stack.resize(pparent_index + 1);
+                ptr_expression.add_and_become_child(std::move(read_result));
 
-                ptr_expression.release();
-                ptr_expression.reset(ptemp);
                 --pparent->lexem.right;
                 success = true;
             }
             else if (has_default_operator)
             {
                 assert(pparent_previous);
-                assert(nullptr == pparent_previous->parent);
+                assert(0 == pparent_previous_index);
                 pparent = pparent_previous;
+                pparent_index = pparent_previous_index;
 
                 if (pparent->lexem.rtt == default_operator.rtt)
                 {
-                    T_expression_tree* ptemp = nullptr;
-                    ptemp = &pparent->add_child(std::move(read_result));
-                    ptr_expression.release();
-                    ptr_expression.reset(ptemp);
+                    ptr_expression.stack.resize(pparent_index + 1);
+                    ptr_expression.add_and_become_child(std::move(read_result));
                     success = true;
                 }
                 else
                 {
-                    std::unique_ptr<T_expression_tree>
-                            ptr_root(new T_expression_tree);
-                    ptr_root->lexem = default_operator;
+                    expression_tree_pointer<T_lexers, T_string> ptr_root;
+                    ptr_root.create();
+                    ptr_root.item().lexem = default_operator;
 
-                    ptr_expression.release();
-                    ptr_expression.reset(pparent);
+                    ptr_expression.stack.resize(pparent_index + 1);
 
-                    T_expression_tree* ptemp = nullptr;
-                    ptemp = &ptr_root->add_child(std::move(ptr_expression));
-                    ptemp = &ptr_root->add_child(std::move(read_result));
-                    ptr_expression.release();
-                    ptr_expression.reset(ptemp);
-                    ptr_root.release();
+                    ptr_root.item().add_child(std::move(ptr_expression));
+                    ptr_root.add_and_become_child(std::move(read_result));
+
+                    ptr_expression = std::move(ptr_root);
+
                     success = true;
                 }
             }
@@ -1078,14 +1171,12 @@ public:
 };
 
 template <typename T_expression_tree>
-typename T_expression_tree::string dump(T_expression_tree const* pexpression)
+typename T_expression_tree::string dump(T_expression_tree const& expression)
 {
+    throw std::runtime_error("todo");
     typename T_expression_tree::string result;
 
-    if (nullptr == pexpression)
-        return result;
-
-    auto p_iterator = pexpression;
+    auto p_iterator = &expression;
     std::vector<size_t> track;
     size_t depth = 0;
 
@@ -1120,14 +1211,14 @@ typename T_expression_tree::string dump(T_expression_tree const* pexpression)
 
         if (size_t(-1) != next_child_index)
         {
-            p_iterator = p_iterator->children[next_child_index];
+            p_iterator = &p_iterator->children[next_child_index];
             ++depth;
             if (track.size() > depth + 1)
                 track.resize(depth + 1);
         }
         else
         {
-            p_iterator = p_iterator->parent;
+            //p_iterator = p_iterator->parent;
             --depth;
         }
     }
@@ -1135,9 +1226,14 @@ typename T_expression_tree::string dump(T_expression_tree const* pexpression)
     return result;
 }
 
-template <typename T_expression_tree>
-T_expression_tree* root(T_expression_tree* pexpression, bool& is_value)
+template <typename T_lexers, typename T_string>
+expression_tree<T_lexers, T_string>* root(expression_tree_pointer<T_lexers, T_string>& ptr_expression, bool& is_value)
 {
+    expression_tree<T_lexers, T_string>* pexpression = nullptr;
+    size_t pexpression_index = ptr_expression.stack.size() - 1;
+    if (false == ptr_expression.is_empty())
+        pexpression = ptr_expression.stack[pexpression_index];
+
     bool missing_expression = false;
     if (nullptr == pexpression)
         missing_expression = true;
@@ -1145,8 +1241,11 @@ T_expression_tree* root(T_expression_tree* pexpression, bool& is_value)
         missing_expression = true;
 
     if (pexpression)
-    while (auto parent = pexpression->parent)
+    while (pexpression_index)
     {
+        --pexpression_index;
+        auto parent = ptr_expression.stack[pexpression_index];
+
         if (false == parent->is_value())
             missing_expression = true;
         pexpression = parent;

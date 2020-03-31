@@ -86,35 +86,35 @@ string construct_type_name(expression_tree const* member_type,
              member_type->children.size() == 1)
     {
         string type_name;
-        if (member_type->children.front()->lexem.rtt == identifier::rtt)
-            type_name = convert_type(member_type->children.front()->lexem.value,
+        if (member_type->children.front().lexem.rtt == identifier::rtt)
+            type_name = convert_type(member_type->children.front().lexem.value,
                                      state, type_detail, type_names);
         else
-            type_name = construct_type_name(member_type->children.front(),
+            type_name = construct_type_name(&member_type->children.front(),
                                             state, type_detail, type_names);
 
         return "std::vector<" + type_name + ">";
     }
     else if (member_type->lexem.rtt == keyword_set::rtt &&
              member_type->children.size() == 1 &&
-             member_type->children.front()->lexem.rtt == identifier::rtt)
+             member_type->children.front().lexem.rtt == identifier::rtt)
     {
-        string type_name = convert_type(member_type->children.front()->lexem.value,
+        string type_name = convert_type(member_type->children.front().lexem.value,
                                         state, type_detail, type_names);
 
         return "std::unordered_set<" + type_name + ">";
     }
     else if (member_type->lexem.rtt == keyword_hash::rtt &&
              member_type->children.size() == 2 &&
-             member_type->children.front()->lexem.rtt == identifier::rtt &&
-             member_type->children.back()->lexem.rtt == identifier::rtt)
+             member_type->children.front().lexem.rtt == identifier::rtt &&
+             member_type->children.back().lexem.rtt == identifier::rtt)
     {
         g_type_info type_detail_key, type_detail_value;
         string key_type_name =
-                construct_type_name(member_type->children.front(),
+                construct_type_name(&member_type->children.front(),
                                     state, type_detail_key, type_names);
         string value_type_name =
-                construct_type_name(member_type->children.back(),
+                construct_type_name(&member_type->children.back(),
                                     state, type_detail_value, type_names);
 
         type_detail = static_cast<g_type_info>(type_detail_key | type_detail_value);
@@ -144,29 +144,29 @@ generated_code analyze(state_holder& state,
 
     if (pexpression->lexem.rtt != keyword_module::rtt ||
         pexpression->children.size() != 2 ||
-        pexpression->children.front()->lexem.rtt != identifier::rtt ||
-        pexpression->children.back()->lexem.rtt != scope_brace::rtt ||
-        pexpression->children.back()->children.empty())
+        pexpression->children.front().lexem.rtt != identifier::rtt ||
+        pexpression->children.back().lexem.rtt != scope_brace::rtt ||
+        pexpression->children.back().children.empty())
         throw runtime_error("wtf");
     else
     {
-        string module_name = pexpression->children.front()->lexem.value;
+        string module_name = pexpression->children.front().lexem.value;
         state.namespace_name = module_name;
-        size_t remain_count = pexpression->children.back()->children.size();
-        for (auto item : pexpression->children.back()->children)
+        size_t remain_count = pexpression->children.back().children.size();
+        for (auto& item : pexpression->children.back().children)
         {
             remain_count--;
-            if (item->lexem.rtt == keyword_class::rtt)
+            if (item.lexem.rtt == keyword_class::rtt)
             {
-                if (item->children.size() != 2 ||
-                    item->children.front()->lexem.rtt != identifier::rtt ||
-                    item->children.back()->lexem.rtt != scope_brace::rtt)
+                if (item.children.size() != 2 ||
+                    item.children.front().lexem.rtt != identifier::rtt ||
+                    item.children.back().lexem.rtt != scope_brace::rtt)
                     throw runtime_error("class syntax is wrong");
 
-                string type_name = item->children.front()->lexem.value;
+                string type_name = item.children.front().lexem.value;
                 std::string class_members;
                 generated_code code = analyze_struct(state,
-                                                     item->children.back(),
+                                                     &item.children.back(),
                                                      rtt,
                                                      type_name,
                                                      dependencies,
@@ -187,17 +187,17 @@ generated_code analyze(state_holder& state,
                 name_to_code.insert(std::make_pair(type_name, std::move(code)));
                 ++rtt;
             }
-            else if (item->lexem.rtt == keyword_enum::rtt)
+            else if (item.lexem.rtt == keyword_enum::rtt)
             {
-                if (item->children.size() != 2 ||
-                    item->children.front()->lexem.rtt != identifier::rtt ||
-                    item->children.back()->lexem.rtt != scope_brace::rtt)
+                if (item.children.size() != 2 ||
+                    item.children.front().lexem.rtt != identifier::rtt ||
+                    item.children.back().lexem.rtt != scope_brace::rtt)
                     throw runtime_error("enum syntax is wrong");
 
-                string enum_name = item->children.front()->lexem.value;
+                string enum_name = item.children.front().lexem.value;
                 std::string enum_members;
                 generated_code code = analyze_enum(state,
-                                                   item->children.back(),
+                                                   &item.children.back(),
                                                    enum_name,
                                                    enum_members);
                 json_schema += enum_members;
@@ -402,14 +402,14 @@ generated_code analyze_struct(state_holder& state,
          it != pexpression->children.end();
          ++index, ++it)
     {
-        auto const* member_type = *it;
+        auto const& member_type = *it;
         ++it;
-        auto const* member_name = *it;
+        auto const& member_name = *it;
 
-        if (member_name->lexem.rtt != identifier::rtt)
+        if (member_name.lexem.rtt != identifier::rtt)
             throw runtime_error("inside class syntax error, wtf, still " + type_name);
 
-        members.push_back(std::make_pair(member_name, member_type));
+        members.push_back(std::make_pair(&member_name, &member_type));
     }
 
     generated_code result;
@@ -454,7 +454,7 @@ generated_code analyze_struct(state_holder& state,
         map_member_name_type.insert(std::make_pair(member_name.value, member_type_name));
 
         if (member_pair.second->lexem.rtt == keyword_array::rtt)
-            class_members += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value  + " " + member_type->children.front()->lexem.value  + "\"},\n";
+            class_members += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value  + " " + member_type->children.front().lexem.value  + "\"},\n";
         else
             class_members += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + "\"},\n";
     }
@@ -872,7 +872,7 @@ generated_code analyze_enum(state_holder& state,
 
     for (auto const& item : pexpression->children)
     {
-        enum_members += "            \"" + item->lexem.value + "\"";
+        enum_members += "            \"" + item.lexem.value + "\"";
         remain_count--;
         if (remain_count > 0)
             enum_members += ",\n";
@@ -883,7 +883,7 @@ generated_code analyze_enum(state_holder& state,
             result.declarations += "{";
         else
             result.declarations += ",";
-        result.declarations += "\n    " + item->lexem.value;
+        result.declarations += "\n    " + item.lexem.value;
 
         first = false;
     }
@@ -900,9 +900,9 @@ generated_code analyze_enum(state_holder& state,
     result.definitions += "{\n";
     for (auto const& item : pexpression->children)
     {
-        result.definitions += "    if (\"" + item->lexem.value + "\" == string_value)\n";
+        result.definitions += "    if (\"" + item.lexem.value + "\" == string_value)\n";
         result.definitions += "    {\n";
-        result.definitions += "        value = " + enum_name + "::" + item->lexem.value + ";\n";
+        result.definitions += "        value = " + enum_name + "::" + item.lexem.value + ";\n";
         result.definitions += "        return;\n";
         result.definitions += "    }\n";
     }
@@ -912,7 +912,7 @@ generated_code analyze_enum(state_holder& state,
     {
         if (false == first)
             result.definitions += ", ";
-        result.definitions += item->lexem.value;
+        result.definitions += item.lexem.value;
         first = false;
     }
     result.definitions += "}\");\n";
@@ -931,9 +931,9 @@ generated_code analyze_enum(state_holder& state,
 
     for (auto const& item : pexpression->children)
     {
-        result.definitions += "    if (\"" + item->lexem.value + "\" == string_value)\n";
+        result.definitions += "    if (\"" + item.lexem.value + "\" == string_value)\n";
         result.definitions += "    {\n";
-        result.definitions += "        value = " + enum_name + "::" + item->lexem.value + ";\n";
+        result.definitions += "        value = " + enum_name + "::" + item.lexem.value + ";\n";
         result.definitions += "        return true;\n";
         result.definitions += "    }\n";
     }
@@ -947,8 +947,8 @@ generated_code analyze_enum(state_holder& state,
     result.definitions += "    {\n";
     for (auto const& item : pexpression->children)
     {
-        result.definitions += "    case " + enum_name + "::" + item->lexem.value + ":\n";
-        result.definitions += "        return saver(std::string(\"" + item->lexem.value + "\"));\n";
+        result.definitions += "    case " + enum_name + "::" + item.lexem.value + ":\n";
+        result.definitions += "        return saver(std::string(\"" + item.lexem.value + "\"));\n";
     }
     result.definitions += "    }\n";
     result.definitions += "    //  msvc thinks this is an execution path that needs to be covered\n";

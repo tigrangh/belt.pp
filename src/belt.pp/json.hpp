@@ -645,11 +645,11 @@ class discard :
 {};
 
 using expression_tree = beltpp::expression_tree<lexers, std::string>;
-using ptr_expression_tree = std::unique_ptr<expression_tree>;
+using expression_tree_pointer = beltpp::expression_tree_pointer<lexers, std::string>;
 
 template <typename T_iterator>
 beltpp::e_three_state_result
-parse_stream(ptr_expression_tree& ptr_expression,
+parse_stream(expression_tree_pointer& ptr_expression,
              T_iterator& it_begin,
              T_iterator const& it_end,
              size_t const junk_limit,
@@ -677,7 +677,7 @@ parse_stream(ptr_expression_tree& ptr_expression,
     //  probably the stream will be filled later, and parser will succeed
 
     bool is_value = false;
-    proot = beltpp::root(ptr_expression.get(), is_value);
+    proot = beltpp::root(ptr_expression, is_value);
 
     if (it_backup == it_begin ||
         false == is_value)
@@ -717,8 +717,7 @@ parse_stream(ptr_expression_tree& ptr_expression,
             code = beltpp::e_three_state_result::error;
         else
         {
-            ptr_expression.release();
-            ptr_expression.reset(proot);
+            ptr_expression.stack.resize(1);
 
             code = beltpp::e_three_state_result::success;
         }

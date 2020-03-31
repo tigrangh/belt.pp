@@ -17,8 +17,6 @@ using std::ofstream;
 using std::ifstream;
 using std::vector;
 
-using ptr_expression_tree = std::unique_ptr<expression_tree>;
-
 string replace(string const& source,
                string const& lookup,
                string const& replace)
@@ -51,7 +49,7 @@ string replace_all(string const& source,
 int main(int argc, char* argv[])
 {
     string definition;
-    ptr_expression_tree ptr_expression;
+    expression_tree_pointer ptr_expression;
     try
     {
         if (argc >= 2)
@@ -103,10 +101,10 @@ int main(int argc, char* argv[])
         }
 
         bool is_value = false;
-        auto proot = beltpp::root(ptr_expression.get(), is_value);
+        auto proot = beltpp::root(ptr_expression, is_value);
+        B_UNUSED(proot);
 
-        ptr_expression.release();
-        ptr_expression.reset(proot);
+        ptr_expression.stack.resize(1);
 
         if (false == is_value)
             throw runtime_error("missing expression, apparently");
@@ -115,7 +113,7 @@ int main(int argc, char* argv[])
             throw runtime_error("syntax error, maybe: " +
                                 string(it_begin, it_end));
 
-        if (ptr_expression->depth() > 30)
+        if (ptr_expression.item().depth() > 30)
             throw runtime_error("expected tree max depth 30 is exceeded");
 
         state_holder state;
@@ -123,7 +121,7 @@ int main(int argc, char* argv[])
         string file_contents_declarations = resources::file_declarations;
         string file_contents_template_definitions = resources::file_template_definitions;
         string file_contents_definitions = resources::file_definitions;
-        generated_code generated = analyze(state, ptr_expression.get());
+        generated_code generated = analyze(state, &ptr_expression.item());
         file_contents_declarations = replace_all(file_contents_declarations,
                                                  "{namespace_name}",
                                                  state.namespace_name);
@@ -215,10 +213,10 @@ int main(int argc, char* argv[])
     {
         cout << "exception: " << ex.what() << endl;
 
-        if (ptr_expression)
+        if (false == ptr_expression.is_empty())
         {
             cout << "=====\n";
-            cout << beltpp::dump(ptr_expression.get()) << endl;
+            cout << beltpp::dump(ptr_expression.item()) << endl;
         }
 
         return 2;
