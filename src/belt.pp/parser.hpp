@@ -75,11 +75,11 @@ public:
     expression_tree(expression_tree&&) = delete;
     ~expression_tree() noexcept;
 
-    size_t depth() const;
-    bool is_value() const noexcept;
-    bool is_operator() const noexcept;
-    expression_tree& add_child(ctoken&& child_lexem);
-    expression_tree& add_child(std::unique_ptr<expression_tree>&& ptree);
+    inline size_t depth() const;
+    inline bool is_value() const noexcept;
+    inline bool is_operator() const noexcept;
+    inline expression_tree& add_child(ctoken&& child_lexem);
+    inline expression_tree& add_child(std::unique_ptr<expression_tree>&& ptree);
 
     expression_tree* parent = nullptr;
     ctoken lexem;
@@ -155,7 +155,7 @@ expression_tree<T_lexers, T_string>&
 expression_tree<T_lexers,T_string>::add_child(ctoken&& child_lexem)
 {
     std::unique_ptr<expression_tree> ptree(new expression_tree);
-    ptree->lexem = child_lexem;
+    ptree->lexem = std::move(child_lexem);
 
     return add_child(std::move(ptree));
 }
@@ -178,6 +178,7 @@ expression_tree<T_lexers, T_string>::add_child(
         }
     }
     ptree->parent = this;
+    children.reserve(2);
     children.push_back(ptree.get());
     ptree.release();
 
@@ -312,6 +313,7 @@ int storage<T_lexers, T_string, T_iterator>::s_initializer =
         dummy<T_lexers, T_string, T_iterator, std::integral_constant<size_t, 0>>::list_readers();
 
 template <typename T_expression_tree>
+inline
 bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
                   typename T_expression_tree::ctoken&& read_result,
                   bool has_default_operator,
@@ -384,6 +386,7 @@ check_end(std::string::const_iterator const& iter_scan_begin,
 
 template <typename T_iterator,
           typename T_expression_tree>
+inline
 e_three_state_result parse(std::unique_ptr<T_expression_tree>& ptr_expression,
                            T_iterator& it_begin,
                            T_iterator const& it_end)
@@ -466,6 +469,7 @@ bool parse_helper(std::unique_ptr<T_expression_tree>& ptr_expression,
     bool success = false;
     enum token_type {token_type_value, token_type_operator};
     std::vector<token_type> types;
+    types.reserve(2);
     if (read_result.right == size_t(-1) &&
         read_result.left_max == size_t(-1) &&
         read_result.left_min == size_t(-1))
