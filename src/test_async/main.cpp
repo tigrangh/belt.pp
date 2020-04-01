@@ -24,7 +24,7 @@ void test_async_processor(size_t count,
     time_point tp_wait;
     time_point tp_destruct;
     {
-        beltpp::processor<task_t> proc(threads);
+        beltpp::processor_old<task_t> proc(threads);
 
         beltpp::ctask ttob;
         ttob.i = unitWeight;

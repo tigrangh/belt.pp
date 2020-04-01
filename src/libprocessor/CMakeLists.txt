@@ -7,7 +7,11 @@ add_library(processor
     processor.hpp)
 
 # libraries this module links to
-target_link_libraries(processor PUBLIC belt.pp)
+target_link_libraries(processor
+    PUBLIC
+        belt.pp
+    PRIVATE
+        packet)
 
 if(NOT WIN32 AND NOT APPLE)
     find_package(Threads REQUIRED)

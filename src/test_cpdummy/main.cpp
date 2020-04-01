@@ -11,9 +11,9 @@ struct bobo
 {
     size_t index;
     size_t count;
-    beltpp::iprocessor<task_t>* processor_producer;
-    beltpp::iprocessor<task_t>* processor_consumer;
-    beltpp::iprocessor<task_t>* processor_finisher;
+    beltpp::iprocessor_old<task_t>* processor_producer;
+    beltpp::iprocessor_old<task_t>* processor_consumer;
+    beltpp::iprocessor_old<task_t>* processor_finisher;
 };
 void producer(bobo object);
 void consumer(bobo object);
@@ -62,15 +62,15 @@ int main(int argc, char** argv)
 
     try
     {
-        using iprocessorptr = std::unique_ptr<beltpp::iprocessor<task_t>>;
+        using iprocessorptr = std::unique_ptr<beltpp::iprocessor_old<task_t>>;
 
-        iprocessorptr ptr_producer(new beltpp::processor<task_t>(1));
-        iprocessorptr ptr_consumer(new beltpp::processor<task_t>(1));
-        iprocessorptr ptr_finisher(new beltpp::processor<task_t>(1));
+        iprocessorptr ptr_producer(new beltpp::processor_old<task_t>(1));
+        iprocessorptr ptr_consumer(new beltpp::processor_old<task_t>(1));
+        iprocessorptr ptr_finisher(new beltpp::processor_old<task_t>(1));
 
-        /*beltpp::iprocessor<task_t>& processor_producer = *ptr_producer;
-        beltpp::iprocessor<task_t>& processor_consumer = *ptr_consumer;
-        beltpp::iprocessor<task_t>& processor_finisher = *ptr_finisher;*/
+        /*beltpp::iprocessor_old<task_t>& processor_producer = *ptr_producer;
+        beltpp::iprocessor_old<task_t>& processor_consumer = *ptr_consumer;
+        beltpp::iprocessor_old<task_t>& processor_finisher = *ptr_finisher;*/
 
         bobo object;
         object.count = size_t(1e7);
