@@ -453,7 +453,7 @@ processor_event_handler_ex::processor_event_handler_ex()
 processor_event_handler_ex::~processor_event_handler_ex()
 {}
 
-event_handler::wait_result processor_event_handler_ex::wait(std::unordered_set<event_item const*>& set_items)
+event_handler::wait_result processor_event_handler_ex::wait(std::unordered_set<event_item const*>& /*set_items*/)
 {
     if (nullptr == ev_it)
         throw std::logic_error("processor_event_handler_ex::wait");
@@ -486,7 +486,7 @@ void processor_event_handler_ex::wake()
     std::unique_lock<std::mutex> lock(ev_it->m_mutex);
     ev_it->m_cv_loop__output_ready.notify_one();
 }
-void processor_event_handler_ex::set_timer(std::chrono::steady_clock::duration const& period)
+void processor_event_handler_ex::set_timer(std::chrono::steady_clock::duration const& /*period*/)
 {
     throw std::logic_error("processor_event_handler_ex::set_timer");
 }
