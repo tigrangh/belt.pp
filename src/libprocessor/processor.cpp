@@ -459,7 +459,7 @@ processor_event_handler_ex::processor_event_handler_ex()
 processor_event_handler_ex::~processor_event_handler_ex()
 {}
 
-event_handler::wait_result processor_event_handler_ex::wait(std::unordered_set<event_item const*>& /*set_items*/)
+event_handler::wait_result processor_event_handler_ex::wait(std::unordered_set<event_item const*>& set_items)
 {
     set_items.clear();
 
