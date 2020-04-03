@@ -6,7 +6,6 @@
 #include <belt.pp/stream.hpp>
 
 #include <memory>
-#include <functional>
 
 namespace beltpp
 {
@@ -73,8 +72,13 @@ private:
     std::unique_ptr<detail::processor_old_internals<task_t>> m_pimpl;
 };
 
+namespace libprocessor
+{
+using fpworker = beltpp::packet(*)(beltpp::packet&&);
+
 PROCESSORSHARED_EXPORT stream_ptr construct_processor(event_handler& eh,
                                                       size_t count,
-                                                      std::function<beltpp::packet(beltpp::packet&&)> const& worker);
+                                                      libprocessor::fpworker const& worker);
 PROCESSORSHARED_EXPORT event_handler_ptr construct_event_handler();
+}
 }

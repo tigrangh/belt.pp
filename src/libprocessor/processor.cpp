@@ -245,7 +245,7 @@ public:
 
     processor_ex(event_handler& eh,
                  size_t count,
-                 std::function<beltpp::packet(beltpp::packet&&)> const& worker);
+                 libprocessor::fpworker const& worker);
     processor_ex(processor_ex const&) = delete;
     processor_ex(processor_ex&&) = delete;
     ~processor_ex() noexcept override;
@@ -267,11 +267,12 @@ public:
     void setCoreCount(size_t count) override;
     size_t getCoreCount() override;
 
+    bool on_demand_wakeup;
     pending_policy m_policy;
     size_t m_thread_count;
     size_t m_busy_count;
     size_t m_i_task_count;
-    std::function<beltpp::packet(beltpp::packet&&)> m_worker;
+    libprocessor::fpworker m_worker;
     threads m_threads;
     mutex m_mutex;
     cv m_cv_run_exit__loop;
@@ -283,8 +284,9 @@ public:
 
 processor_ex::processor_ex(event_handler& eh,
                            size_t count,
-                           std::function<beltpp::packet(beltpp::packet&&)> const& worker)
+                           libprocessor::fpworker const& worker)
     : processor(eh)
+    , on_demand_wakeup(false)
     , m_policy(pending_policy::allow_new)
     , m_thread_count(count)
     , m_busy_count(0)
@@ -418,12 +420,16 @@ void loop_ex(size_t id, processor_ex& host) noexcept
 
             lock.unlock();
 
+            bool processed = false;
             beltpp::packet response;
 
             try
             {
                 if (pending_policy::empty_queue != host.m_policy)
+                {
+                    processed = true;
                     response = host.m_worker(std::move(package));
+                }
             }
             catch (...){}
 
@@ -436,7 +442,7 @@ void loop_ex(size_t id, processor_ex& host) noexcept
                 host.m_cv_loop__wait.notify_one();
             }
 
-            if (false == response.empty())
+            if (processed)
             {
                 host.m_output_queue.push(std::move(response));
                 host.m_cv_loop__output_ready.notify_one();
@@ -455,22 +461,35 @@ processor_event_handler_ex::~processor_event_handler_ex()
 
 event_handler::wait_result processor_event_handler_ex::wait(std::unordered_set<event_item const*>& /*set_items*/)
 {
+    set_items.clear();
+
     if (nullptr == ev_it)
         throw std::logic_error("processor_event_handler_ex::wait");
 
     event_handler::wait_result result;
 
     std::unique_lock<std::mutex> lock(ev_it->m_mutex);
+    result = event_handler::wait_result::nothing;
 
     ev_it->m_cv_loop__output_ready.wait(lock, [this, &result]
     {
-        if (ev_it->m_output_queue.empty())
+        if (false == ev_it->m_output_queue.empty())
+        {
             result = event_handler::wait_result::event;
-        else
-            result = event_handler::wait_result::nothing;
+            return true;
+        }
+        if (ev_it->on_demand_wakeup)
+        {
+            result = event_handler::wait_result::on_demand;
+            ev_it->on_demand_wakeup = false;
+            return true;
+        }
 
-        return true;
+        return false;
     });
+
+    if (event_handler::wait_result::event == result)
+        set_items.insert(ev_it);
 
     return result;
 }
@@ -484,6 +503,7 @@ void processor_event_handler_ex::wake()
     if (nullptr == ev_it)
         throw std::logic_error("processor_event_handler_ex::wake");
     std::unique_lock<std::mutex> lock(ev_it->m_mutex);
+    ev_it->on_demand_wakeup = true;
     ev_it->m_cv_loop__output_ready.notify_one();
 }
 void processor_event_handler_ex::set_timer(std::chrono::steady_clock::duration const& /*period*/)
@@ -509,9 +529,11 @@ void processor_event_handler_ex::remove(event_item&/* ev_it*/)
     ev_it = nullptr;
 }
 
+namespace libprocessor
+{
 stream_ptr construct_processor(event_handler& eh,
                                size_t count,
-                               std::function<beltpp::packet(beltpp::packet&&)> const& worker)
+                               libprocessor::fpworker const& worker)
 {
     beltpp::stream* p = new processor_ex(eh, count, worker);
     return beltpp::stream_ptr(p);
@@ -520,6 +542,7 @@ event_handler_ptr construct_event_handler()
 {
     beltpp::event_handler* p = new processor_event_handler_ex();
     return beltpp::event_handler_ptr(p);
+}
 }
 
 }
