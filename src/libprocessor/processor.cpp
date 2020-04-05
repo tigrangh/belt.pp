@@ -267,7 +267,7 @@ public:
     void setCoreCount(size_t count) override;
     size_t getCoreCount() override;
 
-    bool on_demand_wakeup;
+    size_t on_demand_wakeup;
     pending_policy m_policy;
     size_t m_thread_count;
     size_t m_busy_count;
@@ -286,7 +286,7 @@ processor_ex::processor_ex(event_handler& eh,
                            size_t count,
                            libprocessor::fpworker const& worker)
     : processor(eh)
-    , on_demand_wakeup(false)
+    , on_demand_wakeup(0)
     , m_policy(pending_policy::allow_new)
     , m_thread_count(count)
     , m_busy_count(0)
@@ -481,7 +481,7 @@ event_handler::wait_result processor_event_handler_ex::wait(std::unordered_set<e
         if (ev_it->on_demand_wakeup)
         {
             result = event_handler::wait_result::on_demand;
-            ev_it->on_demand_wakeup = false;
+            --ev_it->on_demand_wakeup;
             return true;
         }
 
@@ -503,7 +503,7 @@ void processor_event_handler_ex::wake()
     if (nullptr == ev_it)
         throw std::logic_error("processor_event_handler_ex::wake");
     std::unique_lock<std::mutex> lock(ev_it->m_mutex);
-    ev_it->on_demand_wakeup = true;
+    ++ev_it->on_demand_wakeup;
     ev_it->m_cv_loop__output_ready.notify_one();
 }
 void processor_event_handler_ex::set_timer(std::chrono::steady_clock::duration const& /*period*/)
