@@ -190,7 +190,7 @@ class scan_status : public beltpp::detail::iscan_status
 {
 public:
     enum e_status {clean, http_request_progress, http_properties_progress, http_done};
-    enum e_type {get, post, options};
+    enum e_type {get, post, put, del, options};
     scan_status()
         : status(clean)
         , type(post)
@@ -241,6 +241,24 @@ string http_not_found(beltpp::detail::session_special_data& ssd,
     return str_result;
 }
 
+inline
+string http_internal_server_error(beltpp::detail::session_special_data& ssd,
+                                  string const& buffer)
+{
+    ssd.session_specal_handler = nullptr;
+
+    string str_result;
+    str_result += "HTTP/1.1 500 Internal Server Error\r\n";
+    str_result += "Content-Type: text/plain\r\n";
+    str_result += "Access-Control-Allow-Origin: *\r\n";
+    str_result += "Content-Length: ";
+    str_result += std::to_string(buffer.size());
+    str_result += "\r\n\r\n";
+    str_result += buffer;
+
+    return str_result;
+}
+
 inline pair<beltpp::e_three_state_result, detail::scan_status>
 protocol(beltpp::detail::session_special_data& ssd,
          string::const_iterator& iter_scan_begin,
@@ -249,9 +267,13 @@ protocol(beltpp::detail::session_special_data& ssd,
          size_t enough_length,
          size_t header_max_size,
          size_t content_max_size,
-         string& posted)
+         string& body)
 {
-    string const value_post = "POST ", value_get = "GET ", value_options = "OPTIONS ";
+    string const value_post = "POST ";
+    string const value_get = "GET ";
+    string const value_put = "PUT ";
+    string const value_delete = "DELETE ";
+    string const value_options = "OPTIONS ";
 
     bool long_enough_message = (size_t(std::distance(iter_scan_begin, iter_scan_end)) >
                                 enough_length);
@@ -274,10 +296,14 @@ protocol(beltpp::detail::session_special_data& ssd,
         if (iter_scan_begin == iter_scan)
             iter_scan = beltpp::check_begin(iter_scan_begin, iter_scan_end, value_get);
         if (iter_scan_begin == iter_scan)
+            iter_scan = beltpp::check_begin(iter_scan_begin, iter_scan_end, value_put);
+        if (iter_scan_begin == iter_scan)
+            iter_scan = beltpp::check_begin(iter_scan_begin, iter_scan_end, value_delete);
+        if (iter_scan_begin == iter_scan)
             iter_scan = beltpp::check_begin(iter_scan_begin, iter_scan_end, value_options);
 
         if (iter_scan_begin != iter_scan)
-        {   //  even if "P", "G" or "O" occured switch to http mode
+        {   //  even if "P", "G", "D" or "O" occured switch to http mode
             string temp(iter_scan_begin, iter_scan);
             ss.status = detail::scan_status::http_request_progress;
         }
@@ -289,6 +315,10 @@ protocol(beltpp::detail::session_special_data& ssd,
         auto iter_scan_check_begin = beltpp::check_begin(iter_scan_begin, iter_scan_end, value_post);
         if (iter_scan_begin == iter_scan_check_begin)
             iter_scan_check_begin = beltpp::check_begin(iter_scan_begin, iter_scan_end, value_get);
+        if (iter_scan_begin == iter_scan_check_begin)
+            iter_scan_check_begin = beltpp::check_begin(iter_scan_begin, iter_scan_end, value_put);
+        if (iter_scan_begin == iter_scan_check_begin)
+            iter_scan_check_begin = beltpp::check_begin(iter_scan_begin, iter_scan_end, value_delete);
         if (iter_scan_begin == iter_scan_check_begin)
             iter_scan_check_begin = beltpp::check_begin(iter_scan_begin, iter_scan_end, value_options);
 
@@ -302,6 +332,8 @@ protocol(beltpp::detail::session_special_data& ssd,
             return std::make_pair(beltpp::e_three_state_result::error, ss);
         else if ((scanned_begin != value_post &&
                   scanned_begin != value_get &&
+                  scanned_begin != value_put &&
+                  scanned_begin != value_delete &&
                   scanned_begin != value_options) ||
                  scanned_ending != value_ending)
         {
@@ -315,6 +347,10 @@ protocol(beltpp::detail::session_special_data& ssd,
                 ss.type = detail::scan_status::get;
             else if (scanned_begin == value_post)
                 ss.type = detail::scan_status::post;
+            else if (scanned_begin == value_put)
+                ss.type = detail::scan_status::put;
+            else if (scanned_begin == value_delete)
+                ss.type = detail::scan_status::del;
             else// if (scanned_begin == value_options)
                 ss.type = detail::scan_status::options;
 
@@ -384,7 +420,7 @@ protocol(beltpp::detail::session_special_data& ssd,
 
             ssd.autoreply += "HTTP/1.1 200 OK\r\n";
             ssd.autoreply += "Access-Control-Allow-Origin: *\r\n";
-            ssd.autoreply += "Access-Control-Allow-Methods: POST, GET, OPTIONS\r\n";
+            ssd.autoreply += "Access-Control-Allow-Methods: POST, GET, PUT, DELETE, OPTIONS\r\n";
             ssd.autoreply += "Access-Control-Allow-Headers: X-CUSTOM-HEADER, Content-Type\r\n";
             ssd.autoreply += "Access-Control-Max-Age: 86400\r\n";
             //ssd.autoreply += "Vary: Accept-Encoding, Origin\r\n";
@@ -393,11 +429,13 @@ protocol(beltpp::detail::session_special_data& ssd,
 
             guard_force = true;
         }
-        else if (ss.type == detail::scan_status::get)
+        else if (ss.type == detail::scan_status::get ||
+                 ss.type == detail::scan_status::del)
         {
             return std::make_pair(beltpp::e_three_state_result::success, ss);
         }
-        else if (ss.type == detail::scan_status::post)
+        else if (ss.type == detail::scan_status::post ||
+                 ss.type == detail::scan_status::put)
         {
             string cl = ss.resource.properties["Content-Length"];
             size_t pos;
@@ -419,7 +457,7 @@ protocol(beltpp::detail::session_special_data& ssd,
                     ++iter_scan_begin;
                 }
 
-                posted.assign(iter_fallback, iter_scan_begin);
+                body.assign(iter_fallback, iter_scan_begin);
                 return std::make_pair(beltpp::e_three_state_result::success, ss);
             }
         }
