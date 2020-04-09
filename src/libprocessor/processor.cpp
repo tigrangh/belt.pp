@@ -389,6 +389,18 @@ void processor_ex::wait(size_t i_task_count/* = 0*/)
         return false;
     });
 }
+class async_result_ex : public libprocessor::async_result
+{
+public:
+    void send(beltpp::packet&& result) override
+    {
+        std::lock_guard<std::mutex> lock(host->m_mutex);
+
+        host->m_output_queue.push(std::move(result));
+        host->m_cv_loop__output_ready.notify_one();
+    }
+    processor_ex* host;
+};
 
 void loop_ex(size_t id, processor_ex& host) noexcept
 {
@@ -420,16 +432,14 @@ void loop_ex(size_t id, processor_ex& host) noexcept
 
             lock.unlock();
 
-            bool processed = false;
             beltpp::packet response;
+            async_result_ex async_result;
+            async_result.host = &host;
 
             try
             {
                 if (pending_policy::empty_queue != host.m_policy)
-                {
-                    processed = true;
-                    response = host.m_worker(std::move(package));
-                }
+                    host.m_worker(std::move(package), async_result);
             }
             catch (...){}
 
@@ -442,11 +452,6 @@ void loop_ex(size_t id, processor_ex& host) noexcept
                 host.m_cv_loop__wait.notify_one();
             }
 
-            if (processed)
-            {
-                host.m_output_queue.push(std::move(response));
-                host.m_cv_loop__output_ready.notify_one();
-            }
             lock.unlock();
         }
     }

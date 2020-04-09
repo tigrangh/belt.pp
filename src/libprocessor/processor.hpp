@@ -74,7 +74,15 @@ private:
 
 namespace libprocessor
 {
-using fpworker = beltpp::packet(*)(beltpp::packet&&);
+
+class async_result
+{
+public:
+    virtual ~async_result() {}
+    virtual void send(beltpp::packet&&) = 0;
+};
+
+using fpworker = void(*)(beltpp::packet&&, async_result&);
 
 PROCESSORSHARED_EXPORT stream_ptr construct_processor(event_handler& eh,
                                                       size_t count,

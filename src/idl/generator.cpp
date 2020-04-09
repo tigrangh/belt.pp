@@ -490,7 +490,7 @@ generated_code analyze_struct(state_holder& state,
     if (false == members.empty())
     {
         result.declarations += "    inline " + type_name + "(" + type_name + " const& other);\n";
-        result.declarations += "    inline " + type_name + "(" + type_name + "&& other);\n";
+        result.declarations += "    inline " + type_name + "(" + type_name + "&& other) noexcept;\n";
     }
 
     string copy_constructor, move_constructor;
@@ -514,7 +514,7 @@ generated_code analyze_struct(state_holder& state,
         {
             copy_constructor = type_name + "::" + type_name + "(" + type_name + " const& other)\n"
                     "  : " + copy_expr;
-            move_constructor = type_name + "::" + type_name + "(" + type_name + "&& other)\n"
+            move_constructor = type_name + "::" + type_name + "(" + type_name + "&& other) noexcept\n"
                     "  : " + move_expr;
         }
         else
@@ -568,9 +568,9 @@ generated_code analyze_struct(state_holder& state,
         result.definitions += "    return *this;\n";
         result.definitions += "}\n";
 
-        result.declarations += "    inline " + type_name + "& operator = (" + type_name + "&& other);\n";
+        result.declarations += "    inline " + type_name + "& operator = (" + type_name + "&& other) noexcept;\n";
 
-        result.definitions += type_name + "& " + type_name + "::operator = (" + type_name + "&& other)\n";
+        result.definitions += type_name + "& " + type_name + "::operator = (" + type_name + "&& other) noexcept\n";
         result.definitions += "{\n";
         result.definitions += "    ::beltpp::assign(*this, std::move(other));\n";
         result.definitions += "    return *this;\n";
