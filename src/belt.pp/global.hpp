@@ -182,6 +182,13 @@ inline t_unique_ptr<T1> take_unique_ptr(std::unique_ptr<T1>&& pother)
 
     return result;
 }
+template <typename T>
+inline t_unique_ptr<T> custom_ptr(T* pother, detail::fptr_deleter<T> deleter)
+{
+    t_unique_ptr<T> result = t_unique_ptr<T>(pother, deleter);
+
+    return result;
+}
 template <typename T1>
 inline t_unique_ptr<T1> raw_ptr(T1* pother)
 {
