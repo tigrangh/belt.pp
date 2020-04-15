@@ -300,8 +300,15 @@ size_t send(int socket_descriptor,
             beltpp::queue<char>& send_stream,
             int& error_code)
 {
-    string str_send_buffer(send_stream.cbegin(),
-                           send_stream.cend());
+    string str_send_buffer;
+    //  it is of course better to process as much data as the kernel tells available
+    //  but for now, just hardcode some buffer size
+    size_t const chunk_size = 2 * 1024 * 1024;
+    str_send_buffer.reserve(chunk_size);
+    for (auto it = send_stream.cbegin();
+         it != send_stream.cend() && str_send_buffer.size() < chunk_size;
+         ++it)
+        str_send_buffer += *it;
     ssize_t res = 0;
     if (false == str_send_buffer.empty())
     {
