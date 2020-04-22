@@ -21,6 +21,7 @@ using std::pair;
 
 class request
 {
+public:
     static
     vector<string> split(string const& value,
                          string const& separator,
