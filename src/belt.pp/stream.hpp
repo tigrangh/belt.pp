@@ -20,11 +20,17 @@ public:
     stream(event_handler& eh) : event_item(eh) {}
     virtual ~stream() {}
 
+    void prepare_wait() override = 0;
+    void timer_action() override = 0;
+
     virtual packets receive(peer_id& peer) = 0;
 
     virtual void send(peer_id const& peer,
                       packet&& pack) = 0;
+
 };
+
+using stream_ptr = std::unique_ptr<stream>;
 
 class stream_join
 {
