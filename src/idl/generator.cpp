@@ -95,6 +95,19 @@ string construct_type_name(expression_tree const* member_type,
 
         return "std::vector<" + type_name + ">";
     }
+    else if (member_type->lexem.rtt == keyword_optional::rtt &&
+             member_type->children.size() == 1)
+    {
+        string type_name;
+        if (member_type->children.front()->lexem.rtt == identifier::rtt)
+            type_name = convert_type(member_type->children.front()->lexem.value,
+                                     state, type_detail, type_names);
+        else
+            type_name = construct_type_name(member_type->children.front(),
+                                            state, type_detail, type_names);
+
+        return "optional<" + type_name + ">";
+    }
     else if (member_type->lexem.rtt == keyword_set::rtt &&
              member_type->children.size() == 1 &&
              member_type->children.front()->lexem.rtt == identifier::rtt)
@@ -453,8 +466,12 @@ generated_code analyze_struct(state_holder& state,
 
         map_member_name_type.insert(std::make_pair(member_name.value, member_type_name));
 
-        if (member_pair.second->lexem.rtt == keyword_array::rtt)
-            class_members += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value  + " " + member_type->children.front()->lexem.value  + "\"},\n";
+        if (member_pair.second->lexem.rtt == keyword_array::rtt ||
+            member_pair.second->lexem.rtt == keyword_optional::rtt ||
+            member_pair.second->lexem.rtt == keyword_set::rtt)
+            class_members += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + " " + member_type->children.front()->lexem.value + "\"},\n";
+        else if (member_pair.second->lexem.rtt == keyword_hash::rtt)
+            class_members += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + " " + member_type->children.front()->lexem.value + " " + member_type->children.back()->lexem.value + "\"},\n";
         else
             class_members += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + "\"},\n";
     }
@@ -778,6 +795,7 @@ generated_code analyze_struct(state_holder& state,
     for (auto member_pair : members)
     {
     auto const& member_name = member_pair.first->lexem;
+    auto const& member_type = member_pair.second->lexem;
     result.definitions += "        if (code)\n";
     result.definitions += "        {\n";
     string utl_var_name = "utl";
@@ -796,10 +814,18 @@ generated_code analyze_struct(state_holder& state,
     result.definitions += "            utl2.m_fp_message_list_load_helper = utl2.m_arr_fp_message_list_load_helper.front();\n";
     result.definitions += "            utl2.m_arr_fp_message_list_load_helper.pop_front();\n";
     }
+    if (member_type.value == "Optional")
+    {
+    result.definitions += "            auto it_find = members.find(\"\\\"" + member_name.value + "\\\"\");\n";
+    result.definitions += "            if (it_find != members.end())\n";
+    }
+    else
+    {
     result.definitions += "            auto it_find = members.find(\"\\\"" + member_name.value + "\\\"\");\n";
     result.definitions += "            if (it_find == members.end())\n";
     result.definitions += "                code = false;\n";
     result.definitions += "            else\n";
+    }
     result.definitions += "            {\n";
     result.definitions += "                beltpp::json::expression_tree* item = it_find->second;\n";
     result.definitions += "                assert(item);\n";
@@ -819,10 +845,22 @@ generated_code analyze_struct(state_holder& state,
     result.definitions += "{\n";
     result.definitions += "    std::string result;\n";
     result.definitions += "    result += \"{\\\"rtt\\\":\" + saver(" + type_name + "::rtt);\n";
+    result.definitions += "    std::string temp;\n";
     for (auto member_pair : members)
     {
     auto const& member_name = member_pair.first->lexem;
-    result.definitions += "    result += \",\\\"" + member_name.value + "\\\":\" + saver(self." + member_name.value + ");\n";
+    auto const& member_type = member_pair.second->lexem;
+    result.definitions += "    temp = saver(self." + member_name.value + ");\n";
+    if (member_type.value == "Optional")
+    {
+        result.definitions += "    if (false == temp.empty())\n";
+        result.definitions += "    {\n";
+    }
+    result.definitions += "    result += \",\\\"" + member_name.value + "\\\":\" + std::move(temp);\n";
+    if (member_type.value == "Optional")
+    {
+        result.definitions += "    }\n";
+    }
     }
     result.definitions += "    result += \"}\";\n";
     result.definitions += "    return result;\n";
