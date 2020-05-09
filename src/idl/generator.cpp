@@ -300,6 +300,7 @@ public:
 };
 
 inline std::vector<serialization_item> storage_serializers();
+BLOCKCHAINSHARED_EXPORT inline std::vector<std::string> models();
 inline std::string storage_json_schema();
 }  // end of namespace detail
 )foo";
@@ -337,6 +338,25 @@ std::vector<serialization_item> storage_serializers()
             result.definitions += "        serialization_item::fptr_new_void_unique_ptr_copy(&::beltpp::new_void_unique_ptr_copy<" + class_name + ">)\n";
             result.definitions += "    }";
         }
+        if (index != max_rtt)
+            result.definitions += ",\n";
+    }
+    result.definitions += R"foo(
+    };
+}
+
+BLOCKCHAINSHARED_EXPORT std::vector<std::string> models()
+{
+    return
+    {
+)foo";
+
+    for (size_t index = 0; index < max_rtt + 1; ++index)
+    {
+        auto it = class_names.find(index);
+        if (it != class_names.end())
+            result.definitions += "            \"" + it->second + "\"";
+
         if (index != max_rtt)
             result.definitions += ",\n";
     }
