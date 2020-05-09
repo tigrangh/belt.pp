@@ -300,7 +300,6 @@ public:
 };
 
 inline std::vector<serialization_item> storage_serializers();
-BLOCKCHAINSHARED_EXPORT std::vector<std::string> models();
 inline std::string storage_json_schema();
 }  // end of namespace detail
 )foo";
