@@ -1230,7 +1230,7 @@ void assign_packet(::beltpp::packet& self, ::beltpp::packet const& other) noexce
         return;
     }
 
-    auto arr_fptr = {namespace_name}::detail::storage_serializers();
+    auto arr_fptr = {namespace_name}::detail::meta_serializers();
 
     if (arr_fptr.size() <= other.type())
     {

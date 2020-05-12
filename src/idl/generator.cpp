@@ -150,10 +150,10 @@ generated_code analyze(state_holder& state,
     generated_code result;
     assert(pexpression);
 
-    unordered_map<size_t, string> class_names;
+    vector<string> class_names;
     unordered_map<string, generated_code> name_to_code;
     unordered_multimap<string, string> dependencies;
-    std::string json_schema;
+    vector<string> json_schema;
 
     if (pexpression->lexem.rtt != keyword_module::rtt ||
         pexpression->children.size() != 2 ||
@@ -165,10 +165,8 @@ generated_code analyze(state_holder& state,
     {
         string module_name = pexpression->children.front()->lexem.value;
         state.namespace_name = module_name;
-        size_t remain_count = pexpression->children.back()->children.size();
         for (auto item : pexpression->children.back()->children)
         {
-            remain_count--;
             if (item->lexem.rtt == keyword_class::rtt)
             {
                 if (item->children.size() != 2 ||
@@ -185,18 +183,10 @@ generated_code analyze(state_holder& state,
                                                      dependencies,
                                                      class_members);
 
-                if (0 == remain_count % 10)
-                {
-                    json_schema += ")foo\" R\"foo(\n";
-                }
 
-                json_schema += class_members;
-                if (remain_count > 0)
-                    json_schema += ",\n\n";
-                else
-                    json_schema += "\n";
+                json_schema.push_back(class_members);
 
-                class_names.insert(std::make_pair(rtt, type_name));
+                class_names.push_back(type_name);
                 name_to_code.insert(std::make_pair(type_name, std::move(code)));
                 ++rtt;
             }
@@ -213,11 +203,7 @@ generated_code analyze(state_holder& state,
                                                    item->children.back(),
                                                    enum_name,
                                                    enum_members);
-                json_schema += enum_members;
-                if (remain_count > 0)
-                    json_schema += ",\n\n";
-                else
-                    json_schema += "\n";
+                json_schema.push_back(enum_members);
 
                 result.declarations += code.declarations;
                 result.template_definitions += code.template_definitions;
@@ -228,13 +214,6 @@ generated_code analyze(state_holder& state,
 
     if (class_names.empty())
         throw runtime_error("wtf, nothing to do");
-
-    size_t max_rtt = 0;
-    for (auto const& class_item : class_names)
-    {
-        if (max_rtt < class_item.first)
-            max_rtt = class_item.first;
-    }
 
     //  clean up dependencies from unknown names
     //  leave class_names only
@@ -299,8 +278,9 @@ public:
     fptr_new_void_unique_ptr_copy fp_new_void_unique_ptr_copy;
 };
 
-inline std::vector<serialization_item> storage_serializers();
-inline std::string storage_json_schema();
+inline std::vector<serialization_item> meta_serializers();
+inline std::vector<std::string> meta_models();
+inline std::string meta_json_schema();
 }  // end of namespace detail
 )foo";
 
@@ -317,58 +297,65 @@ bool analyze_json_template(void* pvalue,
   return analyze_json(*pmsgcode, pexp, utl);
 }
 
-std::vector<serialization_item> storage_serializers()
+std::vector<serialization_item> meta_serializers()
 {
     return
     {
 )foo";
-    for (size_t index = 0; index < max_rtt + 1; ++index)
+    for (size_t index = 0; index < rtt; ++index)
     {
-        auto it = class_names.find(index);
-        if (it == class_names.end())
-            result.definitions += "    {nullptr, nullptr, nullptr, nullptr}";
-        else
-        {
-            auto const& class_name = it->second;
-            result.definitions += "    {\n";
-            result.definitions += "        &" + class_name + "::pvoid_saver,\n";
-            result.definitions += "        &analyze_json_template<" + class_name + ">,\n";
-            result.definitions += "        serialization_item::fptr_new_void_unique_ptr(&::beltpp::new_void_unique_ptr<" + class_name + ">),\n";
-            result.definitions += "        serialization_item::fptr_new_void_unique_ptr_copy(&::beltpp::new_void_unique_ptr_copy<" + class_name + ">)\n";
-            result.definitions += "    }";
-        }
-        if (index != max_rtt)
+        auto const& class_name = class_names[index];
+        result.definitions += "    {\n";
+        result.definitions += "        &" + class_name + "::pvoid_saver,\n";
+        result.definitions += "        &analyze_json_template<" + class_name + ">,\n";
+        result.definitions += "        serialization_item::fptr_new_void_unique_ptr(&::beltpp::new_void_unique_ptr<" + class_name + ">),\n";
+        result.definitions += "        serialization_item::fptr_new_void_unique_ptr_copy(&::beltpp::new_void_unique_ptr_copy<" + class_name + ">)\n";
+        result.definitions += "    }";
+
+        if (index != rtt - 1)
             result.definitions += ",\n";
     }
     result.definitions += R"foo(
     };
 }
 
-std::vector<std::string> models()
+std::vector<std::string> meta_models()
 {
     return
     {
 )foo";
 
-    for (size_t index = 0; index < max_rtt + 1; ++index)
+    for (size_t index = 0; index < rtt; ++index)
     {
-        auto it = class_names.find(index);
-        if (it != class_names.end())
-            result.definitions += "            \"" + it->second + "\"";
+        result.definitions += "        \"" + class_names[index] + "\"";
 
-        if (index != max_rtt)
+        if (index != rtt - 1)
             result.definitions += ",\n";
     }
     result.definitions += R"foo(
     };
 }
 
-std::string storage_json_schema()
+std::string meta_json_schema()
 {
     return )foo";
     result.definitions += "R\"foo(\n";
     result.definitions += "{\n\n";
-    result.definitions += json_schema;
+
+    for (size_t index = 0; index < json_schema.size(); ++index)
+    {
+        if (index != json_schema.size() - 1 &&
+            index % 10 == 9)
+            result.definitions += ")foo\" R\"foo(\n\n";
+
+        result.definitions += json_schema[index];
+
+        if (index != json_schema.size() - 1)
+            result.definitions += ",\n\n";
+        else
+            result.definitions += "\n";
+    }
+
     result.definitions += "\n}\n";
     result.definitions += ")foo\";\n";
 
@@ -380,7 +367,7 @@ bool analyze_json_object(beltpp::json::expression_tree* pexp,
 {
     bool code = false;
 
-    auto arr_fptr = storage_serializers();
+    auto arr_fptr = meta_serializers();
     if (arr_fptr.size() > return_value.rtt)
     {
         auto const& item = arr_fptr[return_value.rtt];
