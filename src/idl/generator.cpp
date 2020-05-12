@@ -278,9 +278,9 @@ public:
     fptr_new_void_unique_ptr_copy fp_new_void_unique_ptr_copy;
 };
 
-inline std::vector<serialization_item> meta_serializers();
-inline std::vector<std::string> meta_models();
-inline std::string meta_json_schema();
+inline {export} std::vector<serialization_item> meta_serializers();
+inline {export} std::vector<std::string> meta_models();
+inline {export} std::string meta_json_schema();
 }  // end of namespace detail
 )foo";
 

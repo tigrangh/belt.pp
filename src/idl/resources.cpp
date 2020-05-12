@@ -36,7 +36,6 @@ inline {export} void assign_extension(::beltpp::packet& self, ::beltpp::packet&&
 inline {export} void extension_helper(::beltpp::message_loader_utility& utl);
 
 inline {export} bool loader(::beltpp::packet& package, std::string const& encoded, void* putl);
-inline {export} std::vector<std::string> meta_models();
 }
 
 class scan_status : public beltpp::detail::iscan_status
