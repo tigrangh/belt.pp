@@ -51,7 +51,7 @@
 #include <string>
 #include <memory>
 
-#define B_UNUSED(x) (void)x;
+#define B_UNUSED(x) (void)x
 
 namespace beltpp
 {
