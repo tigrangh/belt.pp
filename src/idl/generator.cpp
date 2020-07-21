@@ -448,10 +448,12 @@ generated_code analyze_struct(state_holder& state,
     class_members += "    \"" + type_name + "\": {\n";
     class_members += "        \"type\": \"object\",\n";
     class_members += "        \"rtt\": " + std::to_string(rtt) + ",\n";
-    class_members += "        \"properties\": {\n";
+    class_members += "        \"properties\": {";
 
-    for (auto member_pair : members)
+    for (size_t index = 0; index < members.size(); ++index)
     {
+        auto const& member_pair = members[index];
+
         auto const& member_name = member_pair.first->lexem;
         auto const& member_type = member_pair.second;
         if (member_name.rtt != identifier::rtt)
@@ -475,14 +477,19 @@ generated_code analyze_struct(state_holder& state,
         if (member_pair.second->lexem.rtt == keyword_array::rtt ||
             member_pair.second->lexem.rtt == keyword_optional::rtt ||
             member_pair.second->lexem.rtt == keyword_set::rtt)
-            class_members += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + " " + member_type->children.front()->lexem.value + "\"},\n";
+            class_members += "\n            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + " " + member_type->children.front()->lexem.value + "\"}";
         else if (member_pair.second->lexem.rtt == keyword_hash::rtt)
-            class_members += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + " " + member_type->children.front()->lexem.value + " " + member_type->children.back()->lexem.value + "\"},\n";
+            class_members += "\n            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + " " + member_type->children.front()->lexem.value + " " + member_type->children.back()->lexem.value + "\"}";
         else
-            class_members += "            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + "\"},\n";
+            class_members += "\n            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + "\"}";
+
+        if (index == members.size() - 1)
+            class_members += "\n        ";
+        else
+            class_members += ",";
     }
 
-    class_members += "        }\n";
+    class_members += "}\n";
     class_members += "    }";
 
     for (string const& dependency_type_name : member_type_names)
@@ -796,14 +803,14 @@ generated_code analyze_struct(state_holder& state,
     result.definitions += "    if (false == analyze_json_common(rtt, pexp, members) ||\n";
     result.definitions += "        rtt != " + type_name + "::rtt)\n";
     result.definitions += "        code = false;\n";
-    result.definitions += "    else\n";
-    result.definitions += "    {\n";
+
+    result.definitions += "    \n";
     for (auto member_pair : members)
     {
     auto const& member_name = member_pair.first->lexem;
     auto const& member_type = member_pair.second->lexem;
-    result.definitions += "        if (code)\n";
-    result.definitions += "        {\n";
+    result.definitions += "    if (code)\n";
+    result.definitions += "    {\n";
     string utl_var_name = "utl";
     bool is_extension = false;
     if (set_extension_name.find(member_name.value) != set_extension_name.end())
@@ -811,39 +818,38 @@ generated_code analyze_struct(state_holder& state,
     if (is_extension)
     {
     utl_var_name = "utl2";
-    result.definitions += "            auto utl2 = utl;\n";
-    result.definitions += "            if (utl2.m_arr_fp_message_list_load_helper.empty() ||\n";
-    result.definitions += "                nullptr == utl2.m_arr_fp_message_list_load_helper.front())\n";
-    result.definitions += "                code = false;\n";
-    result.definitions += "            else\n";
-    result.definitions += "            {\n";
-    result.definitions += "            utl2.m_fp_message_list_load_helper = utl2.m_arr_fp_message_list_load_helper.front();\n";
-    result.definitions += "            utl2.m_arr_fp_message_list_load_helper.pop_front();\n";
+    result.definitions += "        auto utl2 = utl;\n";
+    result.definitions += "        if (utl2.m_arr_fp_message_list_load_helper.empty() ||\n";
+    result.definitions += "            nullptr == utl2.m_arr_fp_message_list_load_helper.front())\n";
+    result.definitions += "            code = false;\n";
+    result.definitions += "        else\n";
+    result.definitions += "        {\n";
+    result.definitions += "        utl2.m_fp_message_list_load_helper = utl2.m_arr_fp_message_list_load_helper.front();\n";
+    result.definitions += "        utl2.m_arr_fp_message_list_load_helper.pop_front();\n";
     }
     if (member_type.value == "Optional")
     {
-    result.definitions += "            auto it_find = members.find(\"\\\"" + member_name.value + "\\\"\");\n";
-    result.definitions += "            if (it_find != members.end())\n";
+    result.definitions += "        auto it_find = members.find(\"\\\"" + member_name.value + "\\\"\");\n";
+    result.definitions += "        if (it_find != members.end())\n";
     }
     else
     {
-    result.definitions += "            auto it_find = members.find(\"\\\"" + member_name.value + "\\\"\");\n";
-    result.definitions += "            if (it_find == members.end())\n";
-    result.definitions += "                code = false;\n";
-    result.definitions += "            else\n";
+    result.definitions += "        auto it_find = members.find(\"\\\"" + member_name.value + "\\\"\");\n";
+    result.definitions += "        if (it_find == members.end())\n";
+    result.definitions += "            code = false;\n";
+    result.definitions += "        else\n";
     }
-    result.definitions += "            {\n";
-    result.definitions += "                beltpp::json::expression_tree* item = it_find->second;\n";
-    result.definitions += "                assert(item);\n";
-    result.definitions += "                code = analyze_json(message." + member_name.value + ", item, " + utl_var_name + ");\n";
-    result.definitions += "            }\n";
+    result.definitions += "        {\n";
+    result.definitions += "            beltpp::json::expression_tree* item = it_find->second;\n";
+    result.definitions += "            assert(item);\n";
+    result.definitions += "            code = analyze_json(message." + member_name.value + ", item, " + utl_var_name + ");\n";
+    result.definitions += "        }\n";
     if (is_extension)
     {
-    result.definitions += "            }\n";
-    }
     result.definitions += "        }\n";
     }
     result.definitions += "    }\n";
+    }
     result.definitions += "    return code;\n";
     result.definitions += "}\n";
 
