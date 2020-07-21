@@ -857,7 +857,10 @@ generated_code analyze_struct(state_holder& state,
     result.definitions += "{\n";
     result.definitions += "    std::string result;\n";
     result.definitions += "    result += \"{\\\"rtt\\\":\" + saver(" + type_name + "::rtt);\n";
-    result.definitions += "    std::string temp;\n";
+    
+    if (false == members.empty())
+        result.definitions += "    std::string temp;\n";
+    
     for (auto member_pair : members)
     {
     auto const& member_name = member_pair.first->lexem;
