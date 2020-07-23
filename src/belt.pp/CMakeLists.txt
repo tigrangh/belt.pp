@@ -15,6 +15,7 @@ install(TARGETS belt.pp
 
 set(SRC_FILES
     delegate.hpp
+    direct_stream.hpp
     global.hpp
     http.hpp
     idl_parser.hpp

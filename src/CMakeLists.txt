@@ -28,6 +28,7 @@ endif()
 
 add_subdirectory(belt.pp)
 add_subdirectory(idl)
+add_subdirectory(libdirect_stream)
 add_subdirectory(liblog)
 add_subdirectory(libpacket)
 add_subdirectory(libprocessor)
