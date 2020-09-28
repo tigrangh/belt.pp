@@ -808,11 +808,21 @@ bool analyze_json(std::unordered_set<T>& value,
             false == pexp->children.front()->children.empty())
             pscan = pexp->children.front();
 
+        T last_inserted;
         for (auto const& item : pscan->children)
         {
             T item_value;
             if (analyze_json(item_value, item, utl))
             {
+                if (false == value.empty() &&
+                    item_value < last_inserted)
+                {
+                    code = false;
+                    break;
+                }
+
+                last_inserted = item_value;
+                
                 auto it_code = value.insert(std::move(item_value));
                 if (false == it_code.second)
                 {
