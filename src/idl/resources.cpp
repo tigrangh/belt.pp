@@ -808,7 +808,7 @@ bool analyze_json(std::unordered_set<T>& value,
             false == pexp->children.front()->children.empty())
             pscan = pexp->children.front();
 
-        T last_inserted();
+        T last_inserted = T();
         for (auto const& item : pscan->children)
         {
             T item_value;
