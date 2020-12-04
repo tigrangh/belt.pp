@@ -726,9 +726,18 @@ void socket_ex::send(peer_id const& peer, packet&& pack)
 
         if (current_channel.m_type != peer_type::streaming_opened &&
             current_channel.m_type != peer_type::streaming_accepted)
-            throw std::runtime_error("send message on non streaming channel");
+            throw std::runtime_error("send message on non streaming channel: peer - " + peer);
         if (current_channel.m_closed)
-            throw std::runtime_error("send message on closed channel");
+        {
+            string message_stream = pack.to_string();
+
+            if (message_stream.length() > 13)
+            {
+                message_stream.resize(10);
+                message_stream += "...";
+            }
+            throw std::runtime_error("send message on closed channel: peer - " + peer + ", " + message_stream);
+        }
 
         {
             string message_stream;
@@ -1271,7 +1280,7 @@ detail::channel& get_channel(detail::socket_internals* pimpl, uint64_t current_i
             return channels_item[current_id];
     }
 
-    throw std::runtime_error("get_channel");
+    throw std::runtime_error("get_channel: " + std::to_string(current_id));
 }
 
 bool get_channel_safe(detail::channel* &pchannel,
