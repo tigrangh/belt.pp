@@ -731,9 +731,9 @@ void socket_ex::send(peer_id const& peer, packet&& pack)
         {
             string message_stream = pack.to_string();
 
-            if (message_stream.length() > 13)
+            if (message_stream.length() > 23)
             {
-                message_stream.resize(10);
+                message_stream.resize(20);
                 message_stream += "...";
             }
             throw std::runtime_error("send message on closed channel: peer - " + peer + ", " + message_stream);
