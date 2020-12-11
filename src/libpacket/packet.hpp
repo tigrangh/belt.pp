@@ -3,6 +3,7 @@
 #include "global.hpp"
 
 #include <belt.pp/message_global.hpp>
+#include <belt.pp/meta.hpp>
 
 #include <memory>
 #include <string>
@@ -134,4 +135,100 @@ void packet::get(T_message& msg) &&
     msg = std::move(*p);
 }
 
+template <int64_t... Vs>
+class variant_packet
+{
+protected:
+    packet p;
+public:
+    using static_set_t = beltpp::static_set::set<Vs...>;
+
+    variant_packet()
+        : p()
+    {}
+    variant_packet(variant_packet<Vs...>&& other)
+        : p(std::move(*other))
+    {}
+    variant_packet(variant_packet<Vs...> const& other) = delete;
+
+    variant_packet(packet&& other)
+        : p(std::move(other))
+    {
+        int64_t index = static_set::find<static_set::set<Vs...>>::check(p.type());
+
+        if (index == -1 && static_set::set<Vs...>::count != 0)
+            throw std::logic_error("variant_packet(packet&& other)");
+    }
+
+    void clean()
+    {
+        int64_t index = static_set::find<static_set::set<Vs...>>::check(packet().type());
+
+        if (index == -1 && static_set::set<Vs...>::count != 0)
+            throw std::logic_error("variant_packet::clean()");
+
+        p.clean();
+    }
+    void set(packet&& other)
+    {
+        int64_t index = static_set::find<static_set::set<Vs...>>::check(other.type());
+
+        if (index == -1 && static_set::set<Vs...>::count != 0)
+            throw std::logic_error("variant_packet::set(packet&& other)");
+
+        p = std::move(other);
+    }
+
+    packet const& operator * () const
+    {
+        int64_t index = static_set::find<static_set::set<Vs...>>::check(p.type());
+
+        if (index == -1 && static_set::set<Vs...>::count != 0)
+            throw std::logic_error("packet const& operator * () const");
+
+        return p;
+    }
+    packet& operator * ()
+    {
+        int64_t index = static_set::find<static_set::set<Vs...>>::check(p.type());
+
+        if (index == -1 && static_set::set<Vs...>::count != 0)
+            throw std::logic_error("packet& operator * ()");
+
+        return p;
+    }
+
+    packet const* operator -> () const
+    {
+        int64_t index = static_set::find<static_set::set<Vs...>>::check(p.type());
+
+        if (index == -1 && static_set::set<Vs...>::count != 0)
+            throw std::logic_error("packet const* operator -> () const");
+
+        return &p;
+    }
+    packet* operator -> ()
+    {
+        int64_t index = static_set::find<static_set::set<Vs...>>::check(p.type());
+
+        if (index == -1 && static_set::set<Vs...>::count != 0)
+            throw std::logic_error("packet* operator -> ()");
+
+        return &p;
+    }
+};
+
+}
+
+namespace std
+{
+    template<>
+    struct hash<beltpp::packet>
+    {
+        inline size_t operator()(beltpp::packet const& value) const noexcept
+        {
+            std::hash<string> hasher;
+            return hasher(value.to_string());
+        }
+    };
 }

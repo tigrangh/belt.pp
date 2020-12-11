@@ -31,7 +31,8 @@ state_holder::state_holder()
                 {"Float64", "double"},
                 {"TimePoint", "ctime"},
                 {"Object", "::beltpp::packet"},
-                {"Extension", "::beltpp::packet"}}
+                {"Extension", "::beltpp::packet"},
+                {"Variant", "variant_type"}}
 {
 }
 
@@ -106,7 +107,40 @@ string construct_type_name(expression_tree const* member_type,
             type_name = construct_type_name(member_type->children.front(),
                                             state, type_detail, type_names);
 
-        return "optional<" + type_name + ">";
+        if (state.optional_type.empty())
+            //throw runtime_error("can't get optional type definition, wtf!");
+            return "optional<" + type_name + ">";
+
+        return state.optional_type + "<" + type_name + ">";
+    }
+    else if (member_type->lexem.rtt == keyword_variant::rtt &&
+             member_type->children.size() == 2 &&
+             member_type->children.front()->lexem.rtt == identifier::rtt &&
+             member_type->children.back()->lexem.rtt == scope_brace::rtt)
+    {
+        string namespace_name = member_type->children.front()->lexem.value;
+        if (namespace_name != state.namespace_name)
+            namespace_name = "::" + namespace_name + "::";
+        else
+            namespace_name.clear();
+
+        string type_name = convert_type(member_type->lexem.value,
+                                        state, type_detail, type_names);
+
+        string variant_type_names;
+        for (expression_tree const* child_type: member_type->children.back()->children)
+        {
+            if (child_type->lexem.rtt != identifier::rtt)
+                throw runtime_error("can't get variant type definition, wtf!");
+
+            string variant_type_name = convert_type(child_type->lexem.value,
+                                                    state, type_detail, type_names);
+            if (false == variant_type_names.empty())
+                variant_type_names += ", ";
+            variant_type_names += namespace_name + variant_type_name + "::rtt";
+        }
+
+        return namespace_name + type_name + "<" + variant_type_names + ">";
     }
     else if (member_type->lexem.rtt == keyword_set::rtt &&
              member_type->children.size() == 1 &&
@@ -261,30 +295,9 @@ generated_code analyze(state_holder& state,
                                      " in the model definition");
     }
 
-    result.declarations += R"foo(
-namespace detail
-{
-class serialization_item
-{
-public:
-    using fptr_saver = ::beltpp::detail::fptr_saver;
-    using fptr_analyze_json = bool (*)(void*, beltpp::json::expression_tree*, ::beltpp::message_loader_utility const&);
-    using fptr_new_void_unique_ptr = ::beltpp::void_unique_ptr (*)();
-    using fptr_new_void_unique_ptr_copy = ::beltpp::void_unique_ptr (*)(void const*);
-
-    fptr_saver fp_saver;
-    fptr_analyze_json fp_analyze_json;
-    fptr_new_void_unique_ptr fp_new_void_unique_ptr;
-    fptr_new_void_unique_ptr_copy fp_new_void_unique_ptr_copy;
-};
-
-inline {export} std::vector<serialization_item> meta_serializers();
-inline {export} std::vector<std::string> meta_models();
-inline {export} std::string meta_json_schema();
-}  // end of namespace detail
-)foo";
-
+    result.definitions += "namespace " + state.namespace_name;
     result.definitions += R"foo(
+{
 namespace detail
 {
 template <typename T_message_type>
@@ -389,6 +402,8 @@ bool analyze_json_object(beltpp::json::expression_tree* pexp,
 }  // end of namespace detail
 )foo";
 
+    result.definitions += "}  // end of namespace " + state.namespace_name + "\n\n";
+
     return result;
 }
 template <typename T>
@@ -432,6 +447,9 @@ generated_code analyze_struct(state_holder& state,
     }
 
     generated_code result;
+
+    result.definitions += "namespace " + state.namespace_name + "\n{\n";
+    result.declarations += "namespace " + state.namespace_name + "\n{\n";
 
     result.declarations += "class {export} " + type_name + "\n";
     result.declarations += "{\npublic:\n";
@@ -690,6 +708,24 @@ generated_code analyze_struct(state_holder& state,
 
     result.declarations += "};\n";  //  end of class
 
+    result.declarations += "namespace detail\n";
+    result.declarations += "{\n";
+    result.declarations += "inline std::string saver(" + type_name + " const& self);\n";
+    result.declarations += "}\n";
+
+    result.declarations += "} // end of namespace " + state.namespace_name + "\n\n";
+
+    result.declarations += "namespace std\n";
+    result.declarations += "{\n";
+    result.declarations += "//  provide a simple hash, required by std::unordered_map\n";
+    result.declarations += "template <>\n";
+    result.declarations += "struct hash<" + state.namespace_name + "::" + type_name + ">\n";
+    result.declarations += "{\n";
+    result.declarations += "    inline size_t operator()(" + state.namespace_name + "::" + type_name + " const& value) const noexcept;\n";
+    result.declarations += "};\n";
+    result.declarations += "}   //  end of namespace std\n";
+    result.declarations += "\n";
+
     if (false == members.empty())
     {
         result.template_definitions += "namespace beltpp\n";
@@ -779,11 +815,6 @@ generated_code analyze_struct(state_holder& state,
         result.template_definitions += "}\n";
     }
 
-    result.template_definitions += "namespace detail\n";
-    result.template_definitions += "{\n";
-    result.template_definitions += "inline std::string saver(" + type_name + " const& self);\n";
-    result.template_definitions += "}\n";
-
     result.template_definitions += "}   //  end of namespace " + state.namespace_name + "\n";
 
     string const message_placeholder = members.empty() ? string() : " message";
@@ -809,6 +840,20 @@ generated_code analyze_struct(state_holder& state,
     {
     auto const& member_name = member_pair.first->lexem;
     auto const& member_type = member_pair.second->lexem;
+
+    string member_namespace_name;
+
+    if (member_pair.second->lexem.rtt == keyword_variant::rtt &&
+        member_pair.second->children.size() == 2 &&
+        member_pair.second->children.front()->lexem.rtt == identifier::rtt)
+    {
+        member_namespace_name = member_pair.second->children.front()->lexem.value;
+        if (member_namespace_name == state.namespace_name)
+            member_namespace_name.clear();
+        else
+            member_namespace_name = "::" + member_namespace_name + "::";
+    }
+
     result.definitions += "    if (code)\n";
     result.definitions += "    {\n";
     string utl_var_name = "utl";
@@ -839,11 +884,32 @@ generated_code analyze_struct(state_holder& state,
     result.definitions += "            code = false;\n";
     result.definitions += "        else\n";
     }
+    if (member_namespace_name.empty())
+    {
     result.definitions += "        {\n";
     result.definitions += "            beltpp::json::expression_tree* item = it_find->second;\n";
     result.definitions += "            assert(item);\n";
     result.definitions += "            code = analyze_json(message." + member_name.value + ", item, " + utl_var_name + ");\n";
     result.definitions += "        }\n";
+    }
+    else
+    {
+    result.definitions += "        {\n";
+    result.definitions += "            beltpp::json::expression_tree* item = it_find->second;\n";
+    result.definitions += "            assert(item);\n";
+    result.definitions += "            ::beltpp::packet package;\n";
+    result.definitions += "            if (false == " + member_namespace_name + "detail::analyze_json(package, item, utl) ||\n";
+    result.definitions += "                0 > ::beltpp::static_set::find<decltype(message." + member_name.value + ")::static_set_t>::check(package.type()))\n";
+    result.definitions += "                code = false;\n";
+    result.definitions += "            else\n";
+    result.definitions += "            {\n";
+    result.definitions += "                if (size_t(-1) == package.type())\n";
+    result.definitions += "                    message." + member_name.value + ".clean();\n";
+    result.definitions += "                else\n";
+    result.definitions += "                    message." + member_name.value + ".set(std::move(package));\n";
+    result.definitions += "            }\n";
+    result.definitions += "        }\n";
+    }
     if (is_extension)
     {
     result.definitions += "        }\n";
@@ -865,7 +931,25 @@ generated_code analyze_struct(state_holder& state,
     {
     auto const& member_name = member_pair.first->lexem;
     auto const& member_type = member_pair.second->lexem;
+
+    string member_namespace_name;
+
+    if (member_pair.second->lexem.rtt == keyword_variant::rtt &&
+        member_pair.second->children.size() == 2 &&
+        member_pair.second->children.front()->lexem.rtt == identifier::rtt)
+    {
+        member_namespace_name = member_pair.second->children.front()->lexem.value;
+        if (member_namespace_name == state.namespace_name)
+            member_namespace_name.clear();
+        else
+            member_namespace_name = "::" + member_namespace_name + "::";
+    }
+
+    if (member_namespace_name.empty())
     result.definitions += "    temp = saver(self." + member_name.value + ");\n";
+    else
+    result.definitions += "    temp = self." + member_name.value + "->to_string();\n";
+
     if (member_type.value == "Optional")
     {
         result.definitions += "    if (false == temp.empty())\n";
@@ -882,21 +966,15 @@ generated_code analyze_struct(state_holder& state,
     result.definitions += "}\n";
     result.definitions += "}   //  end of namespace detail\n";
     result.definitions += "\n";
+    result.definitions += "} // end of namespace " + state.namespace_name + "\n\n";
 
-    result.template_definitions += "namespace std\n";
-    result.template_definitions += "{\n";
-    result.template_definitions += "//  provide a simple hash, required by std::unordered_map\n";
-    result.template_definitions += "template <>\n";
-    result.template_definitions += "struct hash<" + state.namespace_name + "::" + type_name + ">\n";
-    result.template_definitions += "{\n";
-    result.template_definitions += "    size_t operator()(" + state.namespace_name + "::" + type_name + " const& value) const noexcept\n";
-    result.template_definitions += "    {\n";
-    result.template_definitions += "        std::hash<string> hasher;\n";
-    result.template_definitions += "        return hasher(" + state.namespace_name + "::detail::saver(value));\n";
-    result.template_definitions += "    }\n";
-    result.template_definitions += "};\n";
-    result.template_definitions += "}   //  end of namespace std\n";
-    result.template_definitions += "\n";
+    result.definitions += "//  provide a simple hash, required by std::unordered_map\n";
+    result.definitions += "size_t std::hash<" + state.namespace_name + "::" + type_name + ">::operator()(" + state.namespace_name + "::" + type_name + " const& value) const noexcept\n";
+    result.definitions += "{\n";
+    result.definitions += "    std::hash<string> hasher;\n";
+    result.definitions += "    return hasher(" + state.namespace_name + "::detail::saver(value));\n";
+    result.definitions += "}\n";
+    result.definitions += "\n";
 
     return result;
 }
@@ -914,7 +992,10 @@ generated_code analyze_enum(state_holder& state,
     if (pexpression->children.empty())
         throw runtime_error("inside enum syntax error, wtf - " + enum_name);
 
-    result.declarations = "enum class " + enum_name + "\n";
+    result.declarations += "namespace " + state.namespace_name + "\n{\n";
+    result.definitions += "namespace " + state.namespace_name + "\n{\n";
+
+    result.declarations += "enum class " + enum_name + "\n";
 
     bool first = true;
 
@@ -1017,11 +1098,8 @@ generated_code analyze_enum(state_holder& state,
     result.definitions += "    return detail::saver(value);\n";
     result.definitions += "}\n";    //  end of to_string
 
-    result.definitions += "}   //  end of namespace " + state.namespace_name + "\n";
-
-    result.definitions += "\n";
-    result.definitions += "namespace " + state.namespace_name + "\n";
-    result.definitions += "{\n";
+    result.declarations += "} // end of namespace " + state.namespace_name + "\n\n";
+    result.definitions += "} // end of namespace " + state.namespace_name + "\n\n";
 
     return result;
 }

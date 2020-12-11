@@ -12,6 +12,7 @@ class keyword_class,
 class keyword_enum,
 class keyword_array,
 class keyword_optional,
+class keyword_variant,
 class keyword_set,
 class keyword_hash,
 class scope_brace,
@@ -171,6 +172,30 @@ public:
                      T_iterator const& it_end) const
     {
         return std::string(it_begin, it_end) == "Optional";
+    }
+};
+
+class keyword_variant : public beltpp::operator_lexer_base<keyword_variant, lexers>
+{
+public:
+    size_t right = 2;
+    size_t left_max = 0;
+    size_t left_min = 0;
+    size_t property = 1;
+    enum { grow_priority = 1 };
+
+    beltpp::e_three_state_result check(char ch)
+    {
+        if (tolower(ch) >= 'a' && tolower(ch) <= 'z')
+            return beltpp::e_three_state_result::attempt;
+        return beltpp::e_three_state_result::error;
+    }
+
+    template <typename T_iterator>
+    bool final_check(T_iterator const& it_begin,
+                     T_iterator const& it_end) const
+    {
+        return std::string(it_begin, it_end) == "Variant";
     }
 };
 
