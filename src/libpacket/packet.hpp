@@ -179,6 +179,12 @@ public:
         p = std::move(other);
     }
 
+    variant_packet<Vs...>& operator = (variant_packet<Vs...>&& other) noexcept
+    {
+        p = std::move(*other);
+        return *this;
+    }
+
     packet const& operator * () const
     {
         int64_t index = static_set::find<static_set::set<Vs...>>::check(p.type());
@@ -220,15 +226,3 @@ public:
 
 }
 
-namespace std
-{
-    template<>
-    struct hash<beltpp::packet>
-    {
-        inline size_t operator()(beltpp::packet const& value) const noexcept
-        {
-            std::hash<string> hasher;
-            return hasher(value.to_string());
-        }
-    };
-}

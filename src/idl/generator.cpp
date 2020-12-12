@@ -143,11 +143,15 @@ string construct_type_name(expression_tree const* member_type,
         return namespace_name + type_name + "<" + variant_type_names + ">";
     }
     else if (member_type->lexem.rtt == keyword_set::rtt &&
-             member_type->children.size() == 1 &&
-             member_type->children.front()->lexem.rtt == identifier::rtt)
+             member_type->children.size() == 1)
     {
-        string type_name = convert_type(member_type->children.front()->lexem.value,
-                                        state, type_detail, type_names);
+        string type_name;
+        if (member_type->children.front()->lexem.rtt == identifier::rtt)
+            type_name = convert_type(member_type->children.front()->lexem.value,
+                                     state, type_detail, type_names);
+        else
+            type_name = construct_type_name(member_type->children.front(),
+                                            state, type_detail, type_names);
 
         return "std::unordered_set<" + type_name + ">";
     }
@@ -841,19 +845,6 @@ generated_code analyze_struct(state_holder& state,
     auto const& member_name = member_pair.first->lexem;
     auto const& member_type = member_pair.second->lexem;
 
-    string member_namespace_name;
-
-    if (member_pair.second->lexem.rtt == keyword_variant::rtt &&
-        member_pair.second->children.size() == 2 &&
-        member_pair.second->children.front()->lexem.rtt == identifier::rtt)
-    {
-        member_namespace_name = member_pair.second->children.front()->lexem.value;
-        if (member_namespace_name == state.namespace_name)
-            member_namespace_name.clear();
-        else
-            member_namespace_name = "::" + member_namespace_name + "::";
-    }
-
     result.definitions += "    if (code)\n";
     result.definitions += "    {\n";
     string utl_var_name = "utl";
@@ -884,32 +875,11 @@ generated_code analyze_struct(state_holder& state,
     result.definitions += "            code = false;\n";
     result.definitions += "        else\n";
     }
-    if (member_namespace_name.empty())
-    {
     result.definitions += "        {\n";
     result.definitions += "            beltpp::json::expression_tree* item = it_find->second;\n";
     result.definitions += "            assert(item);\n";
     result.definitions += "            code = analyze_json(message." + member_name.value + ", item, " + utl_var_name + ");\n";
     result.definitions += "        }\n";
-    }
-    else
-    {
-    result.definitions += "        {\n";
-    result.definitions += "            beltpp::json::expression_tree* item = it_find->second;\n";
-    result.definitions += "            assert(item);\n";
-    result.definitions += "            ::beltpp::packet package;\n";
-    result.definitions += "            if (false == " + member_namespace_name + "detail::analyze_json(package, item, utl) ||\n";
-    result.definitions += "                0 > ::beltpp::static_set::find<decltype(message." + member_name.value + ")::static_set_t>::check(package.type()))\n";
-    result.definitions += "                code = false;\n";
-    result.definitions += "            else\n";
-    result.definitions += "            {\n";
-    result.definitions += "                if (size_t(-1) == package.type())\n";
-    result.definitions += "                    message." + member_name.value + ".clean();\n";
-    result.definitions += "                else\n";
-    result.definitions += "                    message." + member_name.value + ".set(std::move(package));\n";
-    result.definitions += "            }\n";
-    result.definitions += "        }\n";
-    }
     if (is_extension)
     {
     result.definitions += "        }\n";
@@ -932,24 +902,7 @@ generated_code analyze_struct(state_holder& state,
     auto const& member_name = member_pair.first->lexem;
     auto const& member_type = member_pair.second->lexem;
 
-    string member_namespace_name;
-
-    if (member_pair.second->lexem.rtt == keyword_variant::rtt &&
-        member_pair.second->children.size() == 2 &&
-        member_pair.second->children.front()->lexem.rtt == identifier::rtt)
-    {
-        member_namespace_name = member_pair.second->children.front()->lexem.value;
-        if (member_namespace_name == state.namespace_name)
-            member_namespace_name.clear();
-        else
-            member_namespace_name = "::" + member_namespace_name + "::";
-    }
-
-    if (member_namespace_name.empty())
     result.definitions += "    temp = saver(self." + member_name.value + ");\n";
-    else
-    result.definitions += "    temp = self." + member_name.value + "->to_string();\n";
-
     if (member_type.value == "Optional")
     {
         result.definitions += "    if (false == temp.empty())\n";

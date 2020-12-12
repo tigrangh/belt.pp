@@ -71,6 +71,8 @@ template <int64_t... Vs>
 class variant_type: public ::beltpp::variant_packet<Vs...>
 {
 public:
+    using variant_type_tag = bool;
+
     variant_type()
         : ::beltpp::variant_packet<Vs...>()
     {}
@@ -103,8 +105,42 @@ public:
     inline bool operator > (variant_type<Vs...> const& other) const { return this->operator->()->to_string() > other->to_string(); }
     inline bool operator >= (variant_type<Vs...> const& other) const { return this->operator->()->to_string() >= other->to_string(); }
     inline bool operator <= (variant_type<Vs...> const& other) const { return this->operator->()->to_string() <= other->to_string(); }
+
+    inline
+    bool analyze_json(::beltpp::json::expression_tree* pexp,
+                      ::beltpp::message_loader_utility const& utl);
 };
+
+namespace detail
+{
+template <int64_t... Vs>
+inline
+bool analyze_json(::{namespace_name}::variant_type<Vs...>& value,
+                  ::beltpp::json::expression_tree* pexp,
+                  ::beltpp::message_loader_utility const& utl);
+}
+
+template <int64_t... Vs>
+bool variant_type<Vs...>::analyze_json(::beltpp::json::expression_tree* pexp,
+                                       ::beltpp::message_loader_utility const& utl)
+{
+    return detail::analyze_json(*this, pexp, utl);
+}
 }   // end namespace {namespace_name}
+
+namespace std
+{
+//  provide a simple hash, required by std::unordered_map
+template <int64_t... Vs>
+struct hash<{namespace_name}::variant_type<Vs...>>
+{
+    inline size_t operator()({namespace_name}::variant_type<Vs...> const& value) const noexcept
+    {
+        std::hash<string> hasher;
+        return hasher(value->to_string());
+    }
+};
+}   //  end of namespace std
 
 {expand_message_classes_declarations}
 
@@ -146,6 +182,7 @@ namespace {namespace_name}
 namespace detail
 {
 DECLARE_INTEGER_INSPECTION(rtt);
+DECLARE_TD_INSPECTION(variant_type_tag);
 
 template <typename T>
 inline void assign_packet(std::vector<T>& self,
@@ -636,6 +673,22 @@ bool less(T const& first, T const& second)
 {
     std::less<T> c;
     return c(first, second);
+}
+
+template <typename T,
+          typename TEST = typename std::enable_if<has_type_definition_variant_type_tag<T>::value == 1, bool>::type>
+std::string saver(T const& value)
+{
+    return value->to_string();
+}
+template <int64_t... Vs,
+          template <int64_t...> class Tvariant_type,
+          typename TEST = typename std::enable_if<has_type_definition_variant_type_tag<Tvariant_type<Vs...>>::value == 1, bool>::type>
+bool analyze_json(Tvariant_type<Vs...>& value,
+                  ::beltpp::json::expression_tree* pexp,
+                  ::beltpp::message_loader_utility const& utl)
+{
+    return value.analyze_json(pexp, utl);
 }
 
 inline
