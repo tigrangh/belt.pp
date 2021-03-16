@@ -24,6 +24,7 @@ std::string const resources::file_declarations = R"file_template(
 #include <ctime>
 #include <utility>
 #include <exception>
+#include <stdexcept>
 
 namespace {namespace_name}
 {
@@ -36,6 +37,7 @@ inline {export} void assign_extension(::beltpp::packet& self, ::beltpp::packet&&
 inline {export} void extension_helper(::beltpp::message_loader_utility& utl);
 
 inline {export} bool loader(::beltpp::packet& package, std::string const& encoded, void* putl);
+inline {export} bool analyze_json(::beltpp::packet& package, ::beltpp::json::expression_tree* pexp, ::beltpp::message_loader_utility const& utl);
 }
 
 class scan_status : public beltpp::detail::iscan_status
@@ -65,14 +67,107 @@ public:
     inline bool operator <= (ctime const& other) const { return tm <= other.tm; }
     inline bool operator >= (ctime const& other) const { return tm >= other.tm; }
 };
+
+template <int64_t... Vs>
+class variant_type: public ::beltpp::variant_packet<Vs...>
+{
+public:
+    using variant_type_tag = bool;
+
+    variant_type()
+        : ::beltpp::variant_packet<Vs...>()
+    {}
+    variant_type(variant_type<Vs...>&& other)
+        : ::beltpp::variant_packet<Vs...>(std::move(other))
+    {}
+    variant_type(variant_type<Vs...> const& other)
+        : ::beltpp::variant_packet<Vs...>()
+    {
+        detail::loader(this->p, other->to_string(), nullptr);
+    }
+    variant_type(::beltpp::packet&& package)
+        : ::beltpp::variant_packet<Vs...>(std::move(package))
+    {}
+
+    inline variant_type<Vs...>& operator = (variant_type<Vs...> const& other)
+    {
+        detail::loader(this->p, other->to_string(), nullptr);
+        return *this;
+    }
+    inline variant_type<Vs...>& operator = (variant_type<Vs...>&& other) noexcept
+    {
+        this->p = std::move(*other);
+        return *this;
+    }
+
+    inline bool operator == (variant_type<Vs...> const& other) const { return this->operator->()->to_string() == other->to_string(); }
+    inline bool operator != (variant_type<Vs...> const& other) const { return this->operator->()->to_string() != other->to_string(); }
+    inline bool operator < (variant_type<Vs...> const& other) const { return this->operator->()->to_string() < other->to_string(); }
+    inline bool operator > (variant_type<Vs...> const& other) const { return this->operator->()->to_string() > other->to_string(); }
+    inline bool operator >= (variant_type<Vs...> const& other) const { return this->operator->()->to_string() >= other->to_string(); }
+    inline bool operator <= (variant_type<Vs...> const& other) const { return this->operator->()->to_string() <= other->to_string(); }
+
+    inline
+    bool analyze_json(::beltpp::json::expression_tree* pexp,
+                      ::beltpp::message_loader_utility const& utl);
+};
+
+namespace detail
+{
+template <int64_t... Vs>
+inline
+bool analyze_json(::{namespace_name}::variant_type<Vs...>& value,
+                  ::beltpp::json::expression_tree* pexp,
+                  ::beltpp::message_loader_utility const& utl);
+}
+
+template <int64_t... Vs>
+bool variant_type<Vs...>::analyze_json(::beltpp::json::expression_tree* pexp,
+                                       ::beltpp::message_loader_utility const& utl)
+{
+    return detail::analyze_json(*this, pexp, utl);
+}
 }   // end namespace {namespace_name}
 
-namespace {namespace_name}
+namespace std
 {
+//  provide a simple hash, required by std::unordered_map
+template <int64_t... Vs>
+struct hash<{namespace_name}::variant_type<Vs...>>
+{
+    inline size_t operator()({namespace_name}::variant_type<Vs...> const& value) const noexcept
+    {
+        std::hash<string> hasher;
+        return hasher(value->to_string());
+    }
+};
+}   //  end of namespace std
 
 {expand_message_classes_declarations}
 
-}   //  end namespace {namespace_name}
+namespace {namespace_name}
+{
+namespace detail
+{
+class serialization_item
+{
+public:
+    using fptr_saver = ::beltpp::detail::fptr_saver;
+    using fptr_analyze_json = bool (*)(void*, beltpp::json::expression_tree*, ::beltpp::message_loader_utility const&);
+    using fptr_new_void_unique_ptr = ::beltpp::void_unique_ptr (*)();
+    using fptr_new_void_unique_ptr_copy = ::beltpp::void_unique_ptr (*)(void const*);
+
+    fptr_saver fp_saver;
+    fptr_analyze_json fp_analyze_json;
+    fptr_new_void_unique_ptr fp_new_void_unique_ptr;
+    fptr_new_void_unique_ptr_copy fp_new_void_unique_ptr_copy;
+};
+
+inline {export} std::vector<serialization_item> meta_serializers();
+inline {export} std::vector<std::string> meta_models();
+inline {export} std::string meta_json_schema();
+}  // end of namespace detail
+}  // end of namespace {namespace_name}
 
 )file_template";
 
@@ -88,6 +183,7 @@ namespace {namespace_name}
 namespace detail
 {
 DECLARE_INTEGER_INSPECTION(rtt);
+DECLARE_TD_INSPECTION(variant_type_tag);
 
 template <typename T>
 inline void assign_packet(std::vector<T>& self,
@@ -571,6 +667,31 @@ bool analyze_json(ctime& value,
         return true;
     return false;
 }
+
+template <typename T>
+inline
+bool less(T const& first, T const& second)
+{
+    std::less<T> c;
+    return c(first, second);
+}
+
+template <typename T,
+          typename TEST = typename std::enable_if<has_type_definition_variant_type_tag<T>::value == 1, bool>::type>
+std::string saver(T const& value)
+{
+    return value->to_string();
+}
+template <int64_t... Vs,
+          template <int64_t...> class Tvariant_type,
+          typename TEST = typename std::enable_if<has_type_definition_variant_type_tag<Tvariant_type<Vs...>>::value == 1, bool>::type>
+bool analyze_json(Tvariant_type<Vs...>& value,
+                  ::beltpp::json::expression_tree* pexp,
+                  ::beltpp::message_loader_utility const& utl)
+{
+    return value.analyze_json(pexp, utl);
+}
+
 inline
 std::string saver(::beltpp::packet const& value)
 {
@@ -579,7 +700,7 @@ std::string saver(::beltpp::packet const& value)
         return std::string("{}");
     return std::string(buffer.begin(), buffer.end());
 }
-inline
+
 bool analyze_json(::beltpp::packet& value,
                   ::beltpp::json::expression_tree* pexp,
                   ::beltpp::message_loader_utility const& utl)
@@ -605,6 +726,23 @@ bool analyze_json(::beltpp::packet& value,
 
     return true;
 }
+inline
+bool less(::beltpp::packet const& first,
+          ::beltpp::packet const& second)
+{
+    std::less<std::string> c;
+    return c(saver(first), saver(second));
+}
+
+template <typename T_first, typename T_second>
+inline
+std::string saver(std::pair<T_first, T_second> const& vanalyze_jsonalue);
+template <typename T_first, typename T_second>
+inline
+bool analyze_json(std::pair<T_first, T_second>& value,
+                  ::beltpp::json::expression_tree* pexp,
+                  ::beltpp::message_loader_utility const& utl);
+
 template <typename T>
 inline
 bool analyze_json(std::vector<T>& value,
@@ -615,12 +753,30 @@ inline
 std::string saver(std::vector<T> const& value);
 template <typename T>
 inline
+bool less(std::vector<T> const& first,
+          std::vector<T> const& second)
+{
+    std::less<std::string> c;
+    return c(saver(first), saver(second));
+}
+
+template <typename T>
+inline
 bool analyze_json(std::unordered_set<T>& value,
                   ::beltpp::json::expression_tree* pexp,
                   ::beltpp::message_loader_utility const& utl);
 template <typename T>
 inline
 std::string saver(std::unordered_set<T> const& value);
+template <typename T>
+inline
+bool less(std::unordered_set<T> const& first,
+          std::unordered_set<T> const& second)
+{
+    std::less<std::string> c;
+    return c(saver(first), saver(second));
+}
+
 template <typename T_key, typename T_value>
 inline
 bool analyze_json(std::unordered_map<T_key, T_value>& value,
@@ -637,14 +793,6 @@ std::string saver(std::unordered_map<T_key, T_value> const& value);
 template <typename T_value>
 inline
 std::string saver(std::unordered_map<std::string, T_value> const& value);
-
-template <typename T>
-inline
-bool less(T const& first, T const& second)
-{
-    std::less<T> c;
-    return c(first, second);
-}
 template <typename T_key, typename T_value>
 inline
 bool less(std::unordered_map<T_key, T_value> const& first,
@@ -653,31 +801,28 @@ bool less(std::unordered_map<T_key, T_value> const& first,
     std::less<std::string> c;
     return c(saver(first), saver(second));
 }
-template <typename T>
+
+template <int64_t... Vs>
 inline
-bool less(std::vector<T> const& first,
-          std::vector<T> const& second)
+std::string saver(::{namespace_name}::variant_type<Vs...> const& value);
+template <int64_t... Vs>
+inline
+bool analyze_json(::{namespace_name}::variant_type<Vs...>& value,
+                  ::beltpp::json::expression_tree* pexp,
+                  ::beltpp::message_loader_utility const& utl);
+template <int64_t... Vs>
+inline
+bool less(::{namespace_name}::variant_type<Vs...> const& first,
+          ::{namespace_name}::variant_type<Vs...> const& second)
 {
     std::less<std::string> c;
     return c(saver(first), saver(second));
 }
-template <typename T>
-inline
-bool less(std::unordered_set<T> const& first,
-          std::unordered_set<T> const& second)
-{
-    std::less<std::string> c;
-    return c(saver(first), saver(second));
-}
-inline
-bool less(::beltpp::packet const& first,
-          ::beltpp::packet const& second)
-{
-    std::less<std::string> c;
-    return c(saver(first), saver(second));
-}
+
+{expand_optional_serializer_declarations}
+
 )file_template"
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////analyze_json////////////////////////////////////////////////////////
 R"file_template(
 template <typename T>
 inline void assign_extension(std::vector<T>& self,
@@ -700,11 +845,11 @@ inline void assign_extension(std::unordered_map<T_key, T_value>& self,
 }   // end namespace detail
 }   // end namespace {namespace_name}
 
-namespace {namespace_name}
-{
 
 {expand_message_classes_definitions}
 
+namespace {namespace_name}
+{
 namespace detail
 {
 template <typename T>
@@ -712,6 +857,40 @@ std::string stringsaver(T const& value);
 template <typename T>
 bool stringloader(T& value,
                   std::string const& encoded);
+
+template <typename T_first, typename T_second>
+std::string saver(std::pair<T_first, T_second> const& value)
+{
+    std::string result = "[";
+    result += saver(value.first);
+    result += ",";
+    result += saver(value.second);
+    result += "]";
+    return result;
+}
+template <typename T_first, typename T_second>
+bool analyze_json(std::pair<T_first, T_second>& value,
+                  ::beltpp::json::expression_tree* pexp,
+                  ::beltpp::message_loader_utility const& utl)
+{
+    bool code = true;
+    if (nullptr == pexp ||
+        pexp->lexem.rtt != ::beltpp::json::scope_bracket::rtt ||
+        pexp->children.size() != 1 ||
+        pexp->children.front().lexem.rtt != ::beltpp::json::operator_comma::rtt ||
+        pexp->children.front().children.size() != 2)
+        code = false;
+    else
+    {
+        auto& pair_item = pexp->children.front();
+        if (false == analyze_json(value.first, &pair_item.children.front(), utl) ||
+            false == analyze_json(value.second, &pair_item.children.back(), utl))
+            code = false;
+    }
+
+    return code;
+}
+
 template <typename T>
 std::string saver(std::vector<T> const& value)
 {
@@ -758,6 +937,7 @@ bool analyze_json(std::vector<T>& value,
 
     return code;
 }
+
 template <typename T>
 std::vector<T const*>
     set2vector(std::unordered_set<T> const& value)
@@ -808,17 +988,27 @@ bool analyze_json(std::unordered_set<T>& value,
             false == pexp->children.front().children.empty())
             pscan = &pexp->children.front();
 
+        auto last_inserted = value.end();
         for (auto& item : pscan->children)
         {
             T item_value;
             if (analyze_json(item_value, &item, utl))
             {
+                if (value.end() != last_inserted &&
+                    item_value < *last_inserted)
+                {
+                    code = false;
+                    break;
+                }
+                
                 auto it_code = value.insert(std::move(item_value));
                 if (false == it_code.second)
                 {
                     code = false;
                     break;
                 }
+
+                last_inserted = it_code.first;
             }
             else
             {
@@ -830,38 +1020,7 @@ bool analyze_json(std::unordered_set<T>& value,
 
     return code;
 }
-template <typename T_first, typename T_second>
-std::string saver(std::pair<T_first, T_second> const& value)
-{
-    std::string result = "[";
-    result += saver(value.first);
-    result += ",";
-    result += saver(value.second);
-    result += "]";
-    return result;
-}
-template <typename T_first, typename T_second>
-bool analyze_json(std::pair<T_first, T_second>& value,
-                  ::beltpp::json::expression_tree* pexp,
-                  ::beltpp::message_loader_utility const& utl)
-{
-    bool code = true;
-    if (nullptr == pexp ||
-        pexp->lexem.rtt != ::beltpp::json::scope_bracket::rtt ||
-        pexp->children.size() != 1 ||
-        pexp->children.front().lexem.rtt != ::beltpp::json::operator_comma::rtt ||
-        pexp->children.front().children.size() != 2)
-        code = false;
-    else
-    {
-        auto& pair_item = pexp->children.front();
-        if (false == analyze_json(value.first, &pair_item.children.front(), utl) ||
-            false == analyze_json(value.second, &pair_item.children.back(), utl))
-            code = false;
-    }
 
-    return code;
-}
 template <typename T_key, typename T_value>
 std::vector<std::pair<T_key const, T_value> const*>
     map2vector(std::unordered_map<T_key, T_value> const& value)
@@ -951,7 +1110,6 @@ bool analyze_json(std::unordered_map<T_key, T_value>& value,
 
     return code;
 }
-
 template <typename T_value>
 bool analyze_json(std::unordered_map<std::string, T_value>& value,
                   ::beltpp::json::expression_tree* pexp,
@@ -998,6 +1156,36 @@ bool analyze_json(std::unordered_map<std::string, T_value>& value,
 
     return code;
 }
+
+template <int64_t... Vs>
+std::string saver(::{namespace_name}::variant_type<Vs...> const& value)
+{
+    return saver(*value);
+}
+template <int64_t... Vs>
+bool analyze_json(::{namespace_name}::variant_type<Vs...>& value,
+                  ::beltpp::json::expression_tree* pexp,
+                  ::beltpp::message_loader_utility const& utl)
+{
+    bool code = true;
+    if (nullptr == pexp)
+        code = false;
+    else
+    {
+        ::beltpp::packet package_value;
+        if (analyze_json(package_value, pexp, utl) &&
+            0 <= ::beltpp::static_set::find<::beltpp::static_set::set<Vs...>>::check(package_value.type()))
+            value.set(std::move(package_value));
+        else
+        {
+            code = false;
+        }
+    }
+
+    return code;
+}
+
+{expand_optional_serializer_definitions}
 
 template <typename T>
 bool loader(T& value,
@@ -1220,7 +1408,7 @@ void assign_packet(::beltpp::packet& self, ::beltpp::packet const& other) noexce
         return;
     }
 
-    auto arr_fptr = {namespace_name}::detail::storage_serializers();
+    auto arr_fptr = {namespace_name}::detail::meta_serializers();
 
     if (arr_fptr.size() <= other.type())
     {
@@ -1415,5 +1603,60 @@ void assign_extension(std::unordered_map<T_key, T_value>& self,
 
 }   //  end namespace detail
 }   //  end namespace {namespace_name}
+
+)file_template";
+
+std::string const resources::optional_serializer_declarations = R"file_template(
+
+template <typename T>
+inline
+std::string saver({optional}<T> const& value);
+template <typename T>
+inline
+bool analyze_json({optional}<T>& value,
+                  ::beltpp::json::expression_tree* pexp,
+                  ::beltpp::message_loader_utility const& utl);
+template <typename T>
+inline
+bool less({optional}<T> const& first, {optional}<T> const& second)
+{
+    std::less<std::string> c;
+    return c(saver(first), saver(second));
+}
+
+)file_template";
+
+std::string const resources::optional_serializer_definitions = R"file_template(
+
+template <typename T>
+inline
+bool analyze_json({optional}<T>& value,
+                  ::beltpp::json::expression_tree* pexp,
+                  ::beltpp::message_loader_utility const& utl)
+{
+    value.reset();
+    bool code = true;
+    if (nullptr == pexp)
+        code = false;
+    else
+    {
+        T optional_value;
+        if (analyze_json(optional_value, pexp, utl))
+            value = std::move(optional_value);
+        else
+        {
+            code = false;
+        }
+    }
+
+    return code;
+}
+template <typename T>
+std::string saver({optional}<T> const& value)
+{
+    if (value)
+        return saver(*value);
+    return std::string();
+}
 
 )file_template";

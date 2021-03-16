@@ -6,6 +6,7 @@
 #include <string>
 #include <memory>
 #include <exception>
+#include <stdexcept>
 #include <streambuf>
 #include <cassert>
 
@@ -117,10 +118,18 @@ int main(int argc, char* argv[])
             throw runtime_error("expected tree max depth 30 is exceeded");
 
         state_holder state;
+
+        if (argc >= 6)
+            state.optional_type = argv[5];
+
         //cout << beltpp::dump(ptr_expression.get()) << endl;
         string file_contents_declarations = resources::file_declarations;
         string file_contents_template_definitions = resources::file_template_definitions;
         string file_contents_definitions = resources::file_definitions;
+
+        string optional_serializer_declarations;
+        string optional_serializer_definitions;
+
         generated_code generated = analyze(state, &ptr_expression.item());
         file_contents_declarations = replace_all(file_contents_declarations,
                                                  "{namespace_name}",
@@ -131,6 +140,27 @@ int main(int argc, char* argv[])
         file_contents_definitions = replace_all(file_contents_definitions,
                                                 "{namespace_name}",
                                                 state.namespace_name);
+
+        if (false == state.optional_type.empty())
+        {
+            optional_serializer_declarations = resources::optional_serializer_declarations;
+            optional_serializer_definitions = resources::optional_serializer_definitions;
+
+            optional_serializer_declarations = replace_all(optional_serializer_declarations,
+                                                           "{optional}",
+                                                           state.optional_type);
+            optional_serializer_definitions = replace_all(optional_serializer_definitions,
+                                                           "{optional}",
+                                                           state.optional_type);
+
+        }
+
+        file_contents_definitions = replace_all(file_contents_definitions,
+                                                "{expand_optional_serializer_declarations}",
+                                                optional_serializer_declarations);
+        file_contents_definitions = replace_all(file_contents_definitions,
+                                                "{expand_optional_serializer_definitions}",
+                                                optional_serializer_definitions);
 
         file_contents_declarations = replace(file_contents_declarations,
                                              "{expand_message_classes_declarations}",
@@ -145,17 +175,30 @@ int main(int argc, char* argv[])
         bool generation_success = false;
         bool splitting = false, exporting = false;
 
+        string option_exporting;
         if (argc >= 5)
-            exporting = true;
+        {
+            option_exporting = argv[4];
+
+            if (option_exporting != "noexporting")
+                exporting = true;
+        }
+
+        string option_splitting;
         if (argc >= 4)
-            splitting = true;
+        {
+            option_splitting = argv[3];
+
+            if (option_splitting != "nosplitting")
+                splitting = true;
+        }
 
         if (false == splitting)
             exporting = false;
 
         string keyword;
         if (exporting)
-            keyword = string(argv[4]) + " ";
+            keyword = option_exporting + " ";
 
         if (splitting)
         {
@@ -216,7 +259,7 @@ int main(int argc, char* argv[])
         if (false == ptr_expression.is_empty())
         {
             cout << "=====\n";
-            cout << beltpp::dump(ptr_expression.item()) << endl;
+            cout << beltpp::dump(&ptr_expression.item()) << endl;
         }
 
         return 2;

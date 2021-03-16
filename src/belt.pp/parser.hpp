@@ -1174,12 +1174,11 @@ public:
 };
 
 template <typename T_expression_tree>
-typename T_expression_tree::string dump(T_expression_tree const& expression)
+typename T_expression_tree::string dump(T_expression_tree const* expression)
 {
-    throw std::runtime_error("todo");
     typename T_expression_tree::string result;
 
-    auto p_iterator = &expression;
+    auto p_iterator = expression;
     std::vector<size_t> track;
     size_t depth = 0;
 

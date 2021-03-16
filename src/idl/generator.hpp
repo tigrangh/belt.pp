@@ -12,6 +12,7 @@ class state_holder
 {
 public:
     state_holder();
+    std::string optional_type;
     std::string namespace_name;
     std::unordered_map<std::string, std::string> map_types;
 };

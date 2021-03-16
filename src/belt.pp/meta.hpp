@@ -70,7 +70,80 @@ class type_list_get<INDEX, Tlist<Tfirst, Ts...>>
 public:
     using type = typename type_list_get<INDEX - 1, Tlist<Ts...>>::type;
 };
-}   //  end namespace typelist
+} //  end namespace typelist
+
+namespace static_set
+{
+template <int64_t... values>
+class set
+{
+public:
+    enum {count = sizeof...(values)};
+};
+
+template <int64_t Vfind,
+          typename Tset,
+          typename...>
+class index;
+
+template <int64_t Vfind,
+          template <int64_t...> class Tset>
+class index<Vfind, Tset<>>
+{
+public:
+    enum {value = -1};
+};
+
+template <int64_t Vfind,
+          template <int64_t...> class Tset,
+          int64_t... Vvalues>
+class index<Vfind, Tset<Vfind, Vvalues...>>
+{
+public:
+    enum {value = 0};
+};
+
+template <int64_t Vfind,
+          template <int64_t...> class Tset,
+          int64_t Vvalue0,
+          int64_t... Vvalues>
+class index<Vfind, Tset<Vvalue0, Vvalues...>>
+{
+public:
+    enum {next_value = index<Vfind, Tset<Vvalues...>>::value};
+    enum {value = next_value == -1 ? -1 : 1 + next_value};
+};
+
+template <typename Tset,
+          typename...>
+class find;
+
+template <template <int64_t...> class Tset>
+class find<Tset<>>
+{
+public:
+    static int64_t check(int64_t)
+    {
+        return -1;
+    }
+};
+
+template <template <int64_t...> class Tset,
+          int64_t Vvalue0,
+          int64_t... Vvalues>
+class find<Tset<Vvalue0, Vvalues...>>
+{
+public:
+    static int64_t check(int64_t value)
+    {
+        if (value == Vvalue0)
+            return 0;
+
+        int64_t next_check = find<Tset<Vvalues...>>::check(value);
+        return next_check == -1 ? -1 : 1 + next_check;
+    }
+};
+} //  end namespace static_set
 
 #define DECLARE_INTEGER_INSPECTION(int_name)                                \
 template <typename T>                                                       \

@@ -4,6 +4,8 @@
 #include <ctime>
 #include <cassert>
 #include <cstdio>
+#include <exception>
+#include <stdexcept>
 
 namespace
 {
