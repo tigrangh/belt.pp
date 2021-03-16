@@ -24,6 +24,7 @@
 #include <cerrno>
 #include <cstdint>
 #include <exception>
+#include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
 #include <cassert>

@@ -8,6 +8,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <exception>
+#include <stdexcept>
 #include <list>
 #include <cassert>
 

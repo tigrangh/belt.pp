@@ -4,6 +4,8 @@
 #include <cassert>
 #include <memory>
 #include <iterator>
+#include <exception>
+#include <stdexcept>
 
 namespace beltpp
 {

@@ -6,6 +6,7 @@
 #include <string>
 #include <memory>
 #include <exception>
+#include <stdexcept>
 #include <streambuf>
 #include <cassert>
 

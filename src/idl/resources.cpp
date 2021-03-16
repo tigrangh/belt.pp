@@ -24,6 +24,7 @@ std::string const resources::file_declarations = R"file_template(
 #include <ctime>
 #include <utility>
 #include <exception>
+#include <stdexcept>
 
 namespace {namespace_name}
 {

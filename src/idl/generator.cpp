@@ -4,6 +4,7 @@
 #include <vector>
 #include <unordered_set>
 #include <exception>
+#include <stdexcept>
 #include <utility>
 
 using std::string;

@@ -8,6 +8,7 @@
 #include <string>
 #include <list>
 #include <exception>
+#include <stdexcept>
 
 namespace beltpp
 {
