@@ -93,7 +93,7 @@ public:
     inline void become_parent();
     inline void delete_last_child();
     inline void add_and_become_child(ctoken&& child_lexem);
-    inline void add_and_become_child(expression_tree_pointer<T_lexers, T_string>&& child);
+    inline void add_and_become_child(expression_tree<T_lexers, T_string>&& child);
     inline expression_tree<T_lexers, T_string>& item();
 };
 
@@ -108,7 +108,7 @@ public:
     expression_tree() = default;
     expression_tree(expression_tree&) = delete;
     expression_tree(expression_tree&&) = default;
-    ~expression_tree() noexcept;
+    inline ~expression_tree() noexcept;
 
     inline expression_tree& operator = (expression_tree const& other) = delete;
     inline expression_tree& operator = (expression_tree&& other) noexcept = default;
@@ -117,11 +117,12 @@ public:
     inline bool is_value() const noexcept;
     inline bool is_operator() const noexcept;
     inline expression_tree& add_child(ctoken&& child_lexem);
-    inline expression_tree& add_child(expression_tree_pointer<T_lexers, T_string>&& child);
+    inline expression_tree& add_child(expression_tree<T_lexers, T_string>&& child);
 
     ctoken lexem;
     std::vector<expression_tree> children;
 };
+
 
 template <typename T_lexers, typename T_string>
 expression_tree<T_lexers, T_string>&
@@ -156,7 +157,7 @@ void expression_tree_pointer<T_lexers, T_string>::delete_last_child()
     children.erase(children.begin() + children.size() - 1);
 }
 template <typename T_lexers, typename T_string>
-void expression_tree_pointer<T_lexers, T_string>::add_and_become_child(expression_tree_pointer<T_lexers, T_string>&& child)
+void expression_tree_pointer<T_lexers, T_string>::add_and_become_child(expression_tree<T_lexers, T_string>&& child)
 {
     auto& ref = item().add_child(std::move(child));
     stack.push_back(&ref);
@@ -169,6 +170,7 @@ void expression_tree_pointer<T_lexers, T_string>::add_and_become_child(ctoken&& 
 }
 
 template <typename T_lexers, typename T_string>
+inline
 expression_tree<T_lexers, T_string>::~expression_tree() noexcept
 {
     if (false == children.empty())
@@ -230,38 +232,17 @@ template <typename T_lexers, typename T_string>
 expression_tree<T_lexers, T_string>&
 expression_tree<T_lexers,T_string>::add_child(ctoken&& child_lexem)
 {
-    expression_tree_pointer<T_lexers,T_string> child;
-    child.create();
-    child.item().lexem = std::move(child_lexem);
+    expression_tree<T_lexers,T_string> child;
+    child.lexem = std::move(child_lexem);
 
     return add_child(std::move(child));
 }
 
 template <typename T_lexers, typename T_string>
 expression_tree<T_lexers, T_string>&
-expression_tree<T_lexers, T_string>::add_child(expression_tree_pointer<T_lexers, T_string>&& child)
+expression_tree<T_lexers, T_string>::add_child(expression_tree<T_lexers, T_string>&& child)
 {
-//    if (children.empty())
-//        children.reserve(5);
-    children.push_back(std::move(child.item()));
-
-    if (child.has_parent())
-    {
-        child.become_parent();
-        child.delete_last_child();
-    }
-
-    /*std::vector<expression_tree<T_lexers, T_string>> other;
-    other.reserve(children.size());
-    for (auto&& child_item : children)
-        other.push_back(std::move(child_item));
-    children = std::move(other);
-
-    std::vector<expression_tree<T_lexers, T_string>> other2;
-    other2.reserve(children.size());
-    for (auto&& child_item : children)
-        other2.push_back(std::move(child_item));
-    children = std::move(other2);*/
+    children.push_back(std::move(child));
 
     return children.back();
 }
@@ -481,7 +462,7 @@ e_three_state_result parse(expression_tree_pointer<T_lexers, T_string>& ptr_expr
     B_UNUSED(storage_initialized);  //  avoid warning/error
     auto readers = storage::s_readers;
 
-    auto default_operator = typename expression_tree_pointer::ctoken();
+    static auto default_operator = typename expression_tree_pointer::ctoken();
     auto read_result = typename expression_tree_pointer::ctoken();
 
     using cdummy =
@@ -490,7 +471,9 @@ e_three_state_result parse(expression_tree_pointer<T_lexers, T_string>& ptr_expr
 
     auto it_copy = it_begin;
 
-    bool has_default_operator = cdummy::get_default_operator(default_operator);
+    // looks like clang is able to take advantage of this function being inline
+    // but not g++. anyway, we can make this call static to optimize g++
+    static bool has_default_operator = cdummy::get_default_operator(default_operator);
 
     e_three_state_result error_attempt = e_three_state_result::error;
     for (size_t reader_index = 0; reader_index < storage::count; ++reader_index)
@@ -556,14 +539,13 @@ bool parse_helper(expression_tree_pointer<T_lexers, T_string>& ptr_expression,
         if (read_result.left_max > 0)
             types.push_back(token_type_operator);
 
-        expression_tree_pointer<T_lexers, T_string> ptr_temp;
-        ptr_temp.create();
-        ptr_temp.item().lexem = read_result;
+        expression_tree exp_tree_temp;
+        exp_tree_temp.lexem = read_result;
 
         if (read_result.left_min == 0 &&
                 (
-                    ptr_temp.item().is_value() ||
-                    ptr_temp.item().is_operator()
+                    exp_tree_temp.is_value() ||
+                    exp_tree_temp.is_operator()
                 )
             )
             types.push_back(token_type_value);
@@ -658,13 +640,23 @@ bool parse_helper(expression_tree_pointer<T_lexers, T_string>& ptr_expression,
                 }
                 else
                 {
-                    expression_tree_pointer<T_lexers, T_string> insertion;
-                    insertion.create();
-                    insertion.item().lexem = std::move(read_result);
-                    insertion.item().add_child(std::move(ptr_expression));
-                    //ptr_expression became parent and item deleted
+                    expression_tree insertion;
+                    insertion.lexem = std::move(read_result);
+                    insertion.add_child(std::move(ptr_expression.item()));
+                      
+                    if (ptr_expression.has_parent())
+                    {
+                        ptr_expression.become_parent();
+                        ptr_expression.delete_last_child();
+                    }
+                    else
+                        ptr_expression.stack.clear();
+
                     if (ptr_expression.is_empty())
-                        ptr_expression = std::move(insertion);
+                    {
+                        ptr_expression.root = std::move(insertion);
+                        ptr_expression.create();
+                    }
                     else
                         ptr_expression.add_and_become_child(std::move(insertion));
                 }
@@ -729,16 +721,26 @@ bool parse_helper(expression_tree_pointer<T_lexers, T_string>& ptr_expression,
                 }
                 else
                 {
-                    expression_tree_pointer<T_lexers, T_string> ptr_root;
-                    ptr_root.create();
-                    ptr_root.item().lexem = default_operator;
+                    expression_tree root;
+                    root.lexem = default_operator;
 
                     ptr_expression.stack.resize(pparent_index + 1);
 
-                    ptr_root.item().add_child(std::move(ptr_expression));
-                    ptr_root.add_and_become_child(std::move(read_result));
+                    root.add_child(std::move(ptr_expression.item()));
 
-                    ptr_expression = std::move(ptr_root);
+                    if (ptr_expression.has_parent())
+                    {
+                        assert(false);
+                        ptr_expression.become_parent();
+                        ptr_expression.delete_last_child();
+                    }
+                    else
+                        ptr_expression.stack.clear();
+                    
+                    ptr_expression.root = std::move(root);
+                    ptr_expression.create();
+
+                    ptr_expression.add_and_become_child(std::move(read_result));
 
                     success = true;
                 }
