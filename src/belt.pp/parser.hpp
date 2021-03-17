@@ -1174,22 +1174,22 @@ public:
 };
 
 template <typename T_expression_tree>
-typename T_expression_tree::string dump(T_expression_tree const* expression)
+typename T_expression_tree::string dump(T_expression_tree const& expression)
 {
     typename T_expression_tree::string result;
 
-    auto p_iterator = expression;
     std::vector<size_t> track;
-    size_t depth = 0;
+    size_t depth = 1;
 
-    while (p_iterator)
+    while (depth)
     {
-        if (track.size() == depth)
-            track.push_back(0);
+        T_expression_tree const* p_iterator = &expression;
+        for (size_t index = 0; index != depth - 1; ++index)
+            p_iterator = &p_iterator->children[track[index]];
 
-        if (track.size() == depth + 1)
+        if (track.size() == depth - 1)
         {
-            for (size_t index = 0; index != depth; ++index)
+            for (size_t index = 0; index != depth - 1; ++index)
                 result += ".";
             result += p_iterator->lexem.value;
             if (p_iterator->lexem.right > 0)
@@ -1200,11 +1200,16 @@ typename T_expression_tree::string dump(T_expression_tree const* expression)
         size_t next_child_index = size_t(-1);
         if (false == p_iterator->children.empty())
         {
-            size_t childindex = 0;
-            if (track.size() > depth + 1)
+            size_t childindex;
+            if (track.size() < depth)
             {
-                ++track[depth + 1];
-                childindex = track[depth + 1];
+                track.push_back(0);
+                childindex = 0;
+            }
+            else
+            {
+                ++track[depth - 1];
+                childindex = track[depth - 1];
             }
 
             if (childindex < p_iterator->children.size())
@@ -1213,14 +1218,12 @@ typename T_expression_tree::string dump(T_expression_tree const* expression)
 
         if (size_t(-1) != next_child_index)
         {
-            p_iterator = &p_iterator->children[next_child_index];
             ++depth;
-            if (track.size() > depth + 1)
-                track.resize(depth + 1);
+            if (track.size() > depth - 1)
+                track.resize(depth - 1);
         }
         else
         {
-            //p_iterator = p_iterator->parent;
             --depth;
         }
     }
