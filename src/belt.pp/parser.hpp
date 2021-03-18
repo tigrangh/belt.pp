@@ -640,25 +640,10 @@ bool parse_helper(expression_tree_pointer<T_lexers, T_string>& ptr_expression,
                 }
                 else
                 {
-                    expression_tree insertion;
-                    insertion.lexem = std::move(read_result);
-                    insertion.add_child(std::move(ptr_expression.item()));
-                      
-                    if (ptr_expression.has_parent())
-                    {
-                        ptr_expression.become_parent();
-                        ptr_expression.delete_last_child();
-                    }
-                    else
-                        ptr_expression.stack.clear();
+                    expression_tree expression_move = std::move(ptr_expression.item());
 
-                    if (ptr_expression.is_empty())
-                    {
-                        ptr_expression.root = std::move(insertion);
-                        ptr_expression.create();
-                    }
-                    else
-                        ptr_expression.add_and_become_child(std::move(insertion));
+                    ptr_expression.item().lexem = std::move(read_result);
+                    ptr_expression.item().add_child(std::move(expression_move));
                 }
 
                 success = true;
@@ -721,24 +706,11 @@ bool parse_helper(expression_tree_pointer<T_lexers, T_string>& ptr_expression,
                 }
                 else
                 {
-                    expression_tree root;
-                    root.lexem = default_operator;
-
                     ptr_expression.stack.resize(pparent_index + 1);
+                    expression_tree expression_move = std::move(ptr_expression.item());
 
-                    root.add_child(std::move(ptr_expression.item()));
-
-                    if (ptr_expression.has_parent())
-                    {
-                        assert(false);
-                        ptr_expression.become_parent();
-                        ptr_expression.delete_last_child();
-                    }
-                    else
-                        ptr_expression.stack.clear();
-                    
-                    ptr_expression.root = std::move(root);
-                    ptr_expression.create();
+                    ptr_expression.item().lexem = default_operator;
+                    ptr_expression.item().add_child(std::move(expression_move));
 
                     ptr_expression.add_and_become_child(std::move(read_result));
 
