@@ -83,6 +83,7 @@ public:
 
     expression_tree_pointer(expression_tree_pointer&&) = default;
     expression_tree_pointer(expression_tree_pointer const&) = delete;
+    inline ~expression_tree_pointer() noexcept;
 
     inline expression_tree_pointer& operator = (expression_tree_pointer const& other) = delete;
     inline expression_tree_pointer& operator = (expression_tree_pointer&& other) noexcept = default;
@@ -113,7 +114,8 @@ public:
     inline expression_tree& operator = (expression_tree const& other) = delete;
     inline expression_tree& operator = (expression_tree&& other) noexcept = default;
 
-    inline size_t depth() const;
+    inline void clear() noexcept;
+    inline size_t depth() const noexcept;
     inline bool is_value() const noexcept;
     inline bool is_operator() const noexcept;
     inline expression_tree& add_child(ctoken&& child_lexem);
@@ -124,6 +126,11 @@ public:
 };
 
 
+template <typename T_lexers, typename T_string>
+expression_tree_pointer<T_lexers, T_string>::~expression_tree_pointer() noexcept
+{
+    root.clear();
+}
 template <typename T_lexers, typename T_string>
 expression_tree<T_lexers, T_string>&
 expression_tree_pointer<T_lexers, T_string>::item()
@@ -171,49 +178,146 @@ void expression_tree_pointer<T_lexers, T_string>::add_and_become_child(ctoken&& 
 
 template <typename T_lexers, typename T_string>
 inline
-expression_tree<T_lexers, T_string>::~expression_tree() noexcept
+expression_tree<T_lexers, T_string>::~expression_tree() noexcept = default;
+// {
+//     if (false == children.empty())
+//     {
+//         queue<expression_tree<T_lexers, T_string>> items;
+//         items.push(std::move(*this));
+
+//         while (false == items.empty())
+//         {
+//             auto item = std::move(items.front());
+
+//             items.reserve(items.size() + item.children.size());
+//             for (auto&& child : item.children)
+//                 items.push(std::move(child));
+//             item.children.clear();
+
+//             items.pop();
+//         }
+//     }
+// }
+
+template <typename T_lexers, typename T_string>
+inline
+void expression_tree<T_lexers, T_string>::clear() noexcept
 {
-    if (false == children.empty())
+    std::vector<size_t> track;
+    size_t depth = 1;
+
+    while (depth)
     {
-        queue<expression_tree<T_lexers, T_string>> items;
-        items.push(std::move(*this));
+        expression_tree* p_iterator = this;
+        for (size_t index = 0; index != depth - 1; ++index)
+            p_iterator = &p_iterator->children[track[index]];
 
-        while (false == items.empty())
+        size_t next_child_index = size_t(-1);
+        if (false == p_iterator->children.empty())
         {
-            auto item = std::move(items.front());
+            size_t childindex;
+            if (track.size() < depth)
+            {
+                track.push_back(0);
+                childindex = 0;
+            }
+            else
+            {
+                ++track[depth - 1];
+                childindex = track[depth - 1];
+            }
 
-            for (auto&& child : item.children)
-                items.push(std::move(child));
-            item.children.clear();
+            if (childindex < p_iterator->children.size())
+                next_child_index = childindex;
+        }
 
-            items.pop();
+        if (size_t(-1) != next_child_index)
+        {
+            ++depth;
+            if (track.size() > depth - 1)
+                track.resize(depth - 1);
+        }
+        else
+        {
+            --depth;
+            p_iterator->children.clear();
         }
     }
 }
-
 template <typename T_lexers, typename T_string>
-size_t expression_tree<T_lexers, T_string>::depth() const
+inline
+size_t expression_tree<T_lexers, T_string>::depth() const noexcept
 {
-    size_t depth = size_t(-1);
-    queue<expression_tree<T_lexers, T_string> const*> items;
+    size_t max_depth = 1;
+    std::vector<size_t> track;
+    size_t depth = 1;
 
-    items.push(this);
-
-    while (false == items.empty())
+    while (depth)
     {
-        auto begin_index = items.begin_index();
-        auto end_index = items.end_index();
-        for (auto index = begin_index; index != end_index; ++index)
+        expression_tree const* p_iterator = this;
+        for (size_t index = 0; index != depth - 1; ++index)
+            p_iterator = &p_iterator->children[track[index]];
+
+        size_t next_child_index = size_t(-1);
+        if (false == p_iterator->children.empty())
         {
-            auto pitem = items[index];
-            for (auto& child : pitem->children)
-                items.push(&child);
-            items.pop();
+            size_t childindex;
+            if (track.size() < depth)
+            {
+                track.push_back(0);
+                childindex = 0;
+            }
+            else
+            {
+                ++track[depth - 1];
+                childindex = track[depth - 1];
+            }
+
+            if (childindex < p_iterator->children.size())
+                next_child_index = childindex;
         }
-        ++depth;
+
+        if (size_t(-1) != next_child_index)
+        {
+            ++depth;
+
+            if (max_depth < depth)
+                max_depth = depth;
+
+            if (track.size() > depth - 1)
+                track.resize(depth - 1);
+        }
+        else
+        {
+            --depth;
+        }
     }
 
-    return depth;
+    {
+        size_t depth_other = size_t(-1);
+        queue<expression_tree<T_lexers, T_string> const*> items;
+
+        items.push(this);
+
+        while (false == items.empty())
+        {
+            auto begin_index = items.begin_index();
+            auto end_index = items.end_index();
+            for (auto index = begin_index; index != end_index; ++index)
+            {
+                auto pitem = items[index];
+                for (auto& child : pitem->children)
+                    items.push(&child);
+                items.pop();
+            }
+            ++depth_other;
+        }
+
+        if (depth_other != max_depth - 1)
+            std::terminate();
+    }
+
+    return max_depth - 1;
 }
 
 template <typename T_lexers, typename T_string>
