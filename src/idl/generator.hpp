@@ -5,8 +5,18 @@
 #include <string>
 #include <unordered_map>
 
-using expression_tree = beltpp::expression_tree<lexers, std::string>;
-using expression_tree_pointer = beltpp::expression_tree_pointer<lexers, std::string>;
+class idl_parser_types
+{
+public:
+    using T_rtt_type = uint8_t;
+    using T_priority_type = uint8_t;
+    using T_size_type = uint8_t;
+    using T_property_type = uint8_t;
+    using T_string_type = std::string;
+};
+
+using expression_tree = beltpp::expression_tree<lexers<idl_parser_types>, idl_parser_types>;
+using expression_tree_pointer = beltpp::expression_tree_pointer<lexers<idl_parser_types>, idl_parser_types>;
 
 class state_holder
 {

@@ -26,6 +26,7 @@ set(SRC_FILES
     itransaction.hpp
     json.hpp
     log.hpp
+    math_expression.hpp
     message_global.hpp
     meta.hpp
     packet.hpp

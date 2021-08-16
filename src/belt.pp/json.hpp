@@ -6,177 +6,172 @@
 #include <memory>
 #include <sstream>
 #include <cstdint>
+#include <cstdlib>
+#include <cassert>
 
 namespace beltpp
 {
 namespace json
 {
-using lexers = beltpp::typelist::type_list<
-class operator_comma,
-class scope_brace,
-class scope_bracket,
-class operator_colon,
-class value_string,
-class value_number,
-class value_bool,
-class value_null,
-class discard
->;
 
-template <typename T=void>
-class operator_set { public: static const std::string value; };
-template <typename T>
-std::string const operator_set<T>::value = ",:";
+template <typename T_types>
+class operator_comma;
+template <typename T_types>
+class scope_brace;
+template <typename T_types>
+class scope_bracket;
+template <typename T_types>
+class operator_colon;
+template <typename T_types>
+class value_string;
+template <typename T_types>
+class value_number;
+template <typename T_types>
+class value_bool;
+template <typename T_types>
+class value_null;
+template <typename T_types>
+class discard;
 
+template <typename T_types>
+class lexers
+{
+public:
+    using types = T_types;
+    using list = beltpp::typelist::type_list<
+        operator_comma<T_types>,
+        scope_brace<T_types>,
+        scope_bracket<T_types>,
+        operator_colon<T_types>,
+        value_string<T_types>,
+        value_number<T_types>,
+        value_bool<T_types>,
+        value_null<T_types>,
+        discard<T_types>
+        >;
+};
+
+template <typename T_types>
 class operator_comma :
-        public beltpp::operator_lexer_base<operator_comma, lexers>
+        public beltpp::detail::operator_lexer_base<operator_comma<T_types>, lexers<T_types>>
 {
 public:
-    size_t right = 1;
-    size_t left_min = 1;
-    size_t left_max = size_t(-1);
-    size_t property = 1;
-    enum { grow_priority = 1 };
-
-    beltpp::e_three_state_result check(char ch)
-    {
-        //return beltpp::standard_operator_check<operator_set<>>(ch);
-        return ch == ',' ? beltpp::e_three_state_result::attempt
-                         : beltpp::e_three_state_result::error;
-    }
+    enum { priority = 1 };
 
     template <typename T_iterator>
-    bool final_check(T_iterator const& it_begin,
-                     T_iterator const& it_end) const
+    static inline
+    bool parse(T_iterator& it_begin,
+               T_iterator const& it_end,
+               bool& place_as_operator,
+               typename T_types::T_size_type& right,
+               typename T_types::T_property_type& property)
     {
-        //return std::string(it_begin, it_end) == ",";
-        T_iterator other = it_begin;
-        ++other;
-        return (it_begin != it_end &&
-                other == it_end &&
-                *it_begin == ',');
+        if (*it_begin != ',')
+            return false;
+
+        ++it_begin;
+        place_as_operator = true;
+        right = 1;
+        property = 1;
+        return true;
     }
 };
 
+template <typename T_types>
 class operator_colon :
-        public beltpp::operator_lexer_base<operator_colon, lexers>
+        public beltpp::detail::operator_lexer_base<operator_colon<T_types>, lexers<T_types>>
 {
 public:
-    size_t right = 1;
-    size_t left_min = 1;
-    size_t left_max = 1;
-    size_t property = 2;
-    enum { grow_priority = 1 };
-
-    beltpp::e_three_state_result check(char ch)
-    {
-        //return beltpp::standard_operator_check<operator_set<>>(ch);
-        return ch == ':' ? beltpp::e_three_state_result::attempt
-                         : beltpp::e_three_state_result::error;
-    }
-
+    enum { priority = 2 };
+    
     template <typename T_iterator>
-    bool final_check(T_iterator const& it_begin,
-                     T_iterator const& it_end) const
+    static inline
+    bool parse(T_iterator& it_begin,
+               T_iterator const& it_end,
+               bool& place_as_operator,
+               typename T_types::T_size_type& right,
+               typename T_types::T_property_type& property)
     {
-        //return std::string(it_begin, it_end) == ":";
-        T_iterator other = it_begin;
-        ++other;
-        return (it_begin != it_end &&
-                other == it_end &&
-                *it_begin == ':');
+        if (*it_begin != ':')
+            return false;
+
+        ++it_begin;
+        place_as_operator = true;
+        right = 1;
+        property = 0;
+        return true;
     }
 };
 
-class scope_brace : public beltpp::operator_lexer_base<scope_brace, lexers>
+template <typename T_types>
+class scope_brace : public beltpp::detail::operator_lexer_base<scope_brace<T_types>, lexers<T_types>>
 {
 public:
-    size_t right = size_t(-1);
-    size_t left_max = 0;
-    size_t left_min = 0;
-    size_t property = 8;
-    enum { grow_priority = 1 };
-
-    beltpp::e_three_state_result check(char ch)
-    {
-        if (ch == '{')
-        {
-            right = size_t(-1);
-            left_min = 0;
-            left_max = 0;
-            property = 8;
-            return beltpp::e_three_state_result::success;
-        }
-        if (ch == '}')
-        {
-            right = 0;
-            left_min = 0;
-            left_max = 1;
-            property = 4;
-            return beltpp::e_three_state_result::success;
-        }
-        return beltpp::e_three_state_result::error;
-    }
-
+    enum { priority = 3 };
+    
     template <typename T_iterator>
-    bool final_check(T_iterator const& it_begin,
-                     T_iterator const& it_end) const
+    static inline
+    bool parse(T_iterator& it_begin,
+               T_iterator const& it_end,
+               bool& place_as_operator,
+               typename T_types::T_size_type& right,
+               typename T_types::T_property_type& property)
     {
-        /*std::string value(it_begin, it_end);
-        if (value == "{" || value == "}")
-            return true;
-        return false;*/
-        T_iterator other = it_begin;
-        ++other;
-        return (it_begin != it_end &&
-                other == it_end &&
-                (*it_begin == '{' || *it_begin == '}'));
+        if (*it_begin != '{' && *it_begin != '}')
+            return false;
+
+        if (*it_begin == '{')
+        {
+            place_as_operator = false;
+            right = 1;
+            property = 4;
+        }
+        else
+        {
+            place_as_operator = true;
+            right = 0;
+            property = 8;
+        }
+
+        ++it_begin;
+
+        return true;
     }
 };
 
-class scope_bracket : public beltpp::operator_lexer_base<scope_bracket, lexers>
+template <typename T_types>
+class scope_bracket : public beltpp::detail::operator_lexer_base<scope_bracket<T_types>, lexers<T_types>>
 {
 public:
-    size_t right = size_t(-1);
-    size_t left_max = 0;
-    size_t left_min = 0;
-    size_t property = 8;
-    enum { grow_priority = 1 };
-
-    beltpp::e_three_state_result check(char ch)
-    {
-        if (ch == '[')
-        {
-            right = size_t(-1);
-            left_min = 0;
-            left_max = 0;
-            property = 8;
-            return beltpp::e_three_state_result::success;
-        }
-        if (ch == ']')
-        {
-            right = 0;
-            left_min = 0;
-            left_max = 1;
-            property = 4;
-            return beltpp::e_three_state_result::success;
-        }
-        return beltpp::e_three_state_result::error;
-    }
+    enum { priority = 4 };
 
     template <typename T_iterator>
-    bool final_check(T_iterator const& it_begin,
-                     T_iterator const& it_end) const
+    static inline
+    bool parse(T_iterator& it_begin,
+               T_iterator const& it_end,
+               bool& place_as_operator,
+               typename T_types::T_size_type& right,
+               typename T_types::T_property_type& property)
     {
-        /*std::string value(it_begin, it_end);
-        if (value == "[" || value == "]")
-            return true;
-        return false;*/
-        T_iterator other = it_begin;
-        ++other;
-        return (it_begin != it_end &&
-                other == it_end &&
-                (*it_begin == '[' || *it_begin == ']'));
+        if (*it_begin != '[' && *it_begin != ']')
+            return false;
+
+        if (*it_begin == '[')
+        {
+            place_as_operator = false;
+            right = 1;
+            property = 4;
+        }
+        else
+        {
+            place_as_operator = true;
+            right = 0;
+            property = 8;
+        }
+
+        ++it_begin;
+
+        return true;
     }
 };
 
@@ -243,88 +238,70 @@ inline size_t utf32_to_utf8(uint32_t cp, char (&buffer)[4]) noexcept
 }
 }
 
+template <typename T_types>
 class value_string :
-        public beltpp::value_lexer_base<value_string, lexers>
+        public beltpp::detail::value_lexer_base<value_string<T_types>, lexers<T_types>>
 {
-    size_t escape_sequence_index = 0;
-    size_t escape_sequence_remaining = 0;
-    size_t index = size_t(-1);
+    uint8_t escape_sequence_index = 0;
+    uint8_t escape_sequence_remaining = 0;
+    bool start = true;
     bool final_check_status = false;
 public:
-    beltpp::e_three_state_result check(unsigned char ch)
-    {
-        ++index;
-        if (0 == index)
-        {
-            if (ch == '\"')
-                return beltpp::e_three_state_result::attempt;
-            if (ch != '\"')
-                return beltpp::e_three_state_result::error;
-        }
-        if (0 == escape_sequence_remaining && ch == '\\')
-        {
-            ++escape_sequence_remaining;
-            escape_sequence_index = 1;
-            return beltpp::e_three_state_result::attempt;
-        }
-        if (0 < escape_sequence_remaining &&
-            1 == escape_sequence_index)
-        {
-            if ('\"' == ch || '\\' == ch ||
-                '/' == ch || 'b' == ch ||
-                'f' == ch || 'n' == ch ||
-                'r' == ch || 't' == ch)
-            {
-                escape_sequence_index = 0;
-                escape_sequence_remaining = 0;
-                return beltpp::e_three_state_result::attempt;
-            }
-            else if ('u' == ch)
-            {
-                ++escape_sequence_index;
-                escape_sequence_remaining = 4;
-                return beltpp::e_three_state_result::attempt;
-            }
-            else    //  unsupported escape sequence
-                return beltpp::e_three_state_result::error;
-        }
-        if (0 < escape_sequence_remaining)
-        {
-            assert(2 <= escape_sequence_index);
-            assert(6 > escape_sequence_index);
-
-            if (('0' <= ch && ch <= '9') ||
-                ('a' <= tolower(ch) && tolower(ch) <= 'f'))
-            {
-                --escape_sequence_remaining;
-                ++escape_sequence_index;
-                if (0 == escape_sequence_remaining)
-                    escape_sequence_index = 0;
-                return beltpp::e_three_state_result::attempt;
-            }
-            else    //  unsupported escape sequence
-                return beltpp::e_three_state_result::error;
-        }
-
-        assert(0 == escape_sequence_remaining);
-        assert(0 == escape_sequence_index);
-
-        if ('\"' == ch)
-        {
-            final_check_status = true;
-            return beltpp::e_three_state_result::success;
-        }
-        if ('\x20' > ch)    //  unsupported charachter
-            return beltpp::e_three_state_result::error;
-
-        return beltpp::e_three_state_result::attempt;
-    }
 
     template <typename T_iterator>
-    bool final_check(T_iterator const&/* it_begin*/,
-                     T_iterator const&/* it_end*/) const
+    static inline
+    bool parse(T_iterator& it_begin,
+               T_iterator const& it_end)
     {
-        return final_check_status;
+        if (*it_begin != '\"')
+            return false;
+
+        auto it_copy = it_begin;
+        ++it_copy;
+
+        while (it_copy != it_end)
+        {
+            if ('\"' == *it_copy)
+            {
+                ++it_copy;
+                it_begin = it_copy;
+                return true;
+            }
+
+            if ('\x20' > static_cast<unsigned char>(*it_copy))
+                return false;
+
+            if ('\\' != *it_copy)
+                ++it_copy;
+            else
+            {
+                ++it_copy;
+                if (it_copy != it_end)
+                {
+                    if ('\"' == *it_copy || '\\' == *it_copy ||
+                        '/' == *it_copy || 'b' == *it_copy ||
+                        'f' == *it_copy || 'n' == *it_copy ||
+                        'r' == *it_copy || 't' == *it_copy)
+                        ++it_copy;
+                    else if ('u' == *it_copy)
+                    {
+                        ++it_copy;
+
+                        for (size_t index = 0; index != 4 && it_copy != it_end; ++index, ++it_copy)
+                        {
+                            if ((*it_copy < '0' || '9' < *it_copy) &&
+                                (*it_copy < 'a' || 'f' < *it_copy) &&
+                                (*it_copy < 'A' || 'F' < *it_copy))
+                                return false;
+                        }
+                    }
+                    else
+                        return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     static std::string encode(std::string const& utf8_value)
@@ -392,8 +369,8 @@ public:
         auto it_end = utf8_encoded.end();
 
         //  these two keep the state to parse escape sequences
-        size_t escape_sequence_index = 0;
-        size_t escape_sequence_remaining = 0;
+        uint8_t escape_sequence_index = 0;
+        uint8_t escape_sequence_remaining = 0;
 
         uint32_t code_point_encoded = uint32_t(-1);
         uint32_t surrogate_pair_high = uint32_t(-1);
@@ -556,174 +533,200 @@ public:
     }
 };
 
+template <typename T_types>
 class value_number :
-        public beltpp::value_lexer_base<value_number, lexers>
+        public beltpp::detail::value_lexer_base<value_number<T_types>, lexers<T_types>>
 {
-    std::string value;
-private:
-    bool _check(std::string const& v) const
-    {
-        size_t pos = 0;
-        beltpp::stod(v, pos);
-
-        if (pos == v.length())
-            return true;
-
-        beltpp::stoi64(v, pos);
-
-        if (pos == v.length())
-            return true;
-
-        beltpp::stoui64(v, pos);
-
-        if (pos == v.length())
-            return true;
-
-        return false;
-    }
 public:
-    beltpp::e_three_state_result check(char ch)
+    template <bool stream_mode = true, typename T_iterator>
+    static inline
+    bool parse(T_iterator& it_begin,
+               T_iterator const& it_end)
     {
-        value += ch;
-        if (_check(value) || _check(value + '0'))
-            return beltpp::e_three_state_result::attempt;
-        else
-            return beltpp::e_three_state_result::error;
-    }
-
-    template <typename T_iterator>
-    bool final_check(T_iterator const& it_begin,
-                     T_iterator const& it_end) const
-    {
-        return _check(std::string(it_begin, it_end));
+        return beltpp::check_number(it_begin, it_end);
     }
 };
 
-class value_bool : public beltpp::value_lexer_base<value_bool, lexers>
+template <typename T_types>
+class value_bool : public beltpp::detail::value_lexer_base<value_bool<T_types>, lexers<T_types>>
 {
 public:
-    beltpp::e_three_state_result check(char ch)
-    {
-        if (ch >= 'a' && ch <= 'z')
-            return beltpp::e_three_state_result::attempt;
-        return beltpp::e_three_state_result::error;
-    }
 
     template <typename T_iterator>
-    bool final_check(T_iterator const& it_begin,
-                     T_iterator const& it_end) const
+    static inline
+    bool parse(T_iterator& it_begin,
+               T_iterator const& it_end)
     {
-        std::string value(it_begin, it_end);
-        if (value == "true" || value == "false")
-            return true;
-        return false;
+        return beltpp::check(it_begin, it_end, "true") || beltpp::check(it_begin, it_end, "false");
     }
 };
 
-class value_null : public beltpp::value_lexer_base<value_null, lexers>
+template <typename T_types>
+class value_null : public beltpp::detail::value_lexer_base<value_null<T_types>, lexers<T_types>>
 {
 public:
-    beltpp::e_three_state_result check(char ch)
-    {
-        if (ch >= 'a' && ch <= 'z')
-            return beltpp::e_three_state_result::attempt;
-        return beltpp::e_three_state_result::error;
-    }
 
     template <typename T_iterator>
-    bool final_check(T_iterator const& it_begin,
-                     T_iterator const& it_end) const
+    static inline
+    bool parse(T_iterator& it_begin,
+               T_iterator const& it_end)
     {
-        return std::string(it_begin, it_end) == "null";
+        return beltpp::check(it_begin, it_end, "null");
     }
 };
 
+//template <typename T_types>
+//class discard :
+//        public beltpp::discard_lexer_base<discard<T_types>,
+//                                            lexers<T_types>,
+//                                            beltpp::standard_white_space_set<void>>
+//{};
+template <typename T_types>
 class discard :
-        public beltpp::discard_lexer_base<discard,
-                                            lexers,
-                                            beltpp::standard_white_space_set<void>>
-{};
+        public beltpp::detail::discard_lexer_base_flexible<discard<T_types>,
+                                                           lexers<T_types>>
+{
+public:
+    template <typename T_iterator>
+    static inline
+    bool parse(T_iterator& it_begin,
+               T_iterator const& it_end)
+    {
+        bool code = false;
+        while (it_begin != it_end &&
+               (' ' == *it_begin || '\t' == *it_begin ||
+                '\r' == *it_begin || '\n' == *it_begin))
+        {
+            ++it_begin;
+            code = true;
+        }
 
-using expression_tree = beltpp::expression_tree<lexers, std::string>;
-using expression_tree_pointer = beltpp::expression_tree_pointer<lexers, std::string>;
+        return code;
+    }
+};
+
+class json_parser_types
+{
+public:
+    using T_rtt_type = uint8_t;
+    using T_priority_type = uint8_t;
+    using T_size_type = uint32_t;
+    using T_property_type = uint8_t;
+};
+
+using expression_tree = beltpp::expression_tree<lexers<json_parser_types>>;
 
 template <typename T_iterator>
 beltpp::e_three_state_result
-parse_stream(expression_tree_pointer& ptr_expression,
+parse_stream(expression_tree& expression,
              T_iterator& it_begin,
              T_iterator const& it_end,
-             size_t const junk_limit,
-             size_t const depth_limit,
-             expression_tree* &proot)
+             size_t const not_yet_parsed_size_limit,
+             size_t const depth_limit)
 {
-    beltpp::e_three_state_result code = beltpp::e_three_state_result::attempt;
-    beltpp::e_three_state_result parser_code = beltpp::e_three_state_result::attempt;
+    assert(it_end != it_begin);
+    
+    bool advanced = false;
 
-    auto const it_backup = it_begin;
-    auto it_begin_keep = it_begin;
+    T_iterator it_begin_track;
     while (true)
     {
-        parser_code = beltpp::parse(ptr_expression, it_begin, it_end);
-        if (beltpp::e_three_state_result::success != parser_code)
-            break;
-
-        if (it_begin == it_begin_keep)
-            break;
-        else
-            it_begin_keep = it_begin;
-    }
-    //  parser can return attempt
-    //  but it will not necessarily mean an error
-    //  probably the stream will be filled later, and parser will succeed
-
-    bool is_value = false;
-    proot = beltpp::root(ptr_expression, is_value);
-
-    if (it_backup == it_begin ||
-        false == is_value)
-    {   //  parser was not able to advance the iterator at all
-        //  but it's not always able to tell if there is junk
-        //  or part of correct buffer
-
-        //  or iterator was advanced, but the content such as white space
-        //  was discarded or something parsed but didn't form a full object,
-        //  and further it was not possible
-        //  to advance the iterator
-
-        //  so let's check the remaining lenght and limit it
-
-        auto temp = it_begin;
-        size_t count = 0;
-        while (temp != it_end)
-        {   //  poor man's distance, will fix later
-            ++count;
-            ++temp;
-        }
-
-        if (count > junk_limit ||
-            beltpp::e_three_state_result::error == parser_code)
+        it_begin_track = it_begin;
+        if (false == beltpp::parse(expression,
+                                   it_begin,
+                                   it_end,
+                                   not_yet_parsed_size_limit,
+                                   depth_limit,
+                                   size_t(-1)))
         {
             it_begin = it_end;
-            code = beltpp::e_three_state_result::error;
+            return beltpp::e_three_state_result::error;
         }
-        else
-            code = beltpp::e_three_state_result::attempt;
-    }
-    else
-    {   //  iterator was advanced as much as possible
-        //  and we have a fully parsed object
+        
+        if (it_begin_track == it_begin)
+            break;
 
-        if (proot->depth() > depth_limit)
-            code = beltpp::e_three_state_result::error;
-        else
-        {
-            ptr_expression.stack.resize(1);
-
-            code = beltpp::e_three_state_result::success;
-        }
+        advanced = true;
     }
 
-    return code;
+    if (false == advanced || false == expression.complete())
+        //  parser was not able to advance the iterator at all or
+        //  the iterator was advanced, but didn't form a full object
+        return beltpp::e_three_state_result::attempt;
+    
+    //  iterator was advanced as much as possible
+    //  and we have a fully parsed object
+    expression.node_address.resize(1);
+
+    return beltpp::e_three_state_result::success;
+    
+    // beltpp::e_three_state_result code = beltpp::e_three_state_result::attempt;
+    // beltpp::e_three_state_result parser_code = beltpp::e_three_state_result::attempt;
+
+    // auto const it_backup = it_begin;
+    // auto it_begin_keep = it_begin;
+    // while (true)
+    // {
+    //     parser_code = beltpp::parse(expression,
+    //                                 it_begin,
+    //                                 it_end,
+    //                                 not_yet_parsed_size_limit,
+    //                                 depth_limit,
+    //                                 size_t(-1));
+    //     if (beltpp::e_three_state_result::success != parser_code)
+    //         break;
+
+    //     if (it_begin == it_begin_keep)
+    //         break;
+    //     else
+    //         it_begin_keep = it_begin;
+    // }
+    // //  parser can return attempt
+    // //  but it will not necessarily mean an error
+    // //  probably the stream will be filled later, and parser will succeed
+
+    // if (it_backup == it_begin ||
+    //     false == expression.complete())
+    // {   //  parser was not able to advance the iterator at all
+    //     //  but it's not always able to tell if there is junk
+    //     //  or part of correct buffer
+
+    //     //  alternatively the iterator was advanced, but the content such as white space
+    //     //  was discarded or something parsed but didn't form a full object,
+    //     //  and further it was not possible
+    //     //  to advance the iterator
+
+    //     //  so let's check the remaining length and limit it
+
+    //     auto temp = it_begin;
+    //     size_t count = 0;
+    //     while (temp != it_end)
+    //     {   //  poor man's distance, will fix later
+    //         ++count;
+    //         ++temp;
+    //     }
+
+    //     if (count > junk_limit ||
+    //         beltpp::e_three_state_result::error == parser_code)
+    //     {
+    //         it_begin = it_end;
+    //         code = beltpp::e_three_state_result::error;
+    //     }
+    //     else
+    //         code = beltpp::e_three_state_result::attempt;
+    // }
+    // else
+    // {   //  iterator was advanced as much as possible
+    //     //  and we have a fully parsed object
+    //     expression.node_address.resize(1);
+
+    //     if (expression.depth() > depth_limit)
+    //         code = beltpp::e_three_state_result::error;
+    //     else
+    //         code = beltpp::e_three_state_result::success;
+    // }
+
+    // return code;
 }
 
 }// end of json

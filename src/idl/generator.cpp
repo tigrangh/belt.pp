@@ -79,16 +79,16 @@ string construct_type_name(expression_tree const* member_type,
                            g_type_info& type_detail,
                            unordered_set<string>& type_names)
 {
-    if (member_type->lexem.rtt == identifier::rtt)
+    if (member_type->lexem.rtt == identifier<idl_parser_types>::rtt)
         return convert_type(member_type->lexem.value,
                             state,
                             type_detail,
                             type_names);
-    else if (member_type->lexem.rtt == keyword_array::rtt &&
+    else if (member_type->lexem.rtt == keyword_array<idl_parser_types>::rtt &&
              member_type->children.size() == 1)
     {
         string type_name;
-        if (member_type->children.front().lexem.rtt == identifier::rtt)
+        if (member_type->children.front().lexem.rtt == identifier<idl_parser_types>::rtt)
             type_name = convert_type(member_type->children.front().lexem.value,
                                      state, type_detail, type_names);
         else
@@ -97,11 +97,11 @@ string construct_type_name(expression_tree const* member_type,
 
         return "std::vector<" + type_name + ">";
     }
-    else if (member_type->lexem.rtt == keyword_optional::rtt &&
+    else if (member_type->lexem.rtt == keyword_optional<idl_parser_types>::rtt &&
              member_type->children.size() == 1)
     {
         string type_name;
-        if (member_type->children.front().lexem.rtt == identifier::rtt)
+        if (member_type->children.front().lexem.rtt == identifier<idl_parser_types>::rtt)
             type_name = convert_type(member_type->children.front().lexem.value,
                                      state, type_detail, type_names);
         else
@@ -114,10 +114,10 @@ string construct_type_name(expression_tree const* member_type,
 
         return state.optional_type + "<" + type_name + ">";
     }
-    else if (member_type->lexem.rtt == keyword_variant::rtt &&
+    else if (member_type->lexem.rtt == keyword_variant<idl_parser_types>::rtt &&
              member_type->children.size() == 2 &&
-             member_type->children.front().lexem.rtt == identifier::rtt &&
-             member_type->children.back().lexem.rtt == scope_brace::rtt)
+             member_type->children.front().lexem.rtt == identifier<idl_parser_types>::rtt &&
+             member_type->children.back().lexem.rtt == scope_brace<idl_parser_types>::rtt)
     {
         string namespace_name = member_type->children.front().lexem.value;
         if (namespace_name != state.namespace_name)
@@ -131,7 +131,7 @@ string construct_type_name(expression_tree const* member_type,
         string variant_type_names;
         for (expression_tree const& child_type: member_type->children.back().children)
         {
-            if (child_type.lexem.rtt != identifier::rtt)
+            if (child_type.lexem.rtt != identifier<idl_parser_types>::rtt)
                 throw runtime_error("can't get variant type definition, wtf!");
 
             string variant_type_name = convert_type(child_type.lexem.value,
@@ -143,11 +143,11 @@ string construct_type_name(expression_tree const* member_type,
 
         return namespace_name + type_name + "<" + variant_type_names + ">";
     }
-    else if (member_type->lexem.rtt == keyword_set::rtt &&
+    else if (member_type->lexem.rtt == keyword_set<idl_parser_types>::rtt &&
              member_type->children.size() == 1)
     {
         string type_name;
-        if (member_type->children.front().lexem.rtt == identifier::rtt)
+        if (member_type->children.front().lexem.rtt == identifier<idl_parser_types>::rtt)
             type_name = convert_type(member_type->children.front().lexem.value,
                                      state, type_detail, type_names);
         else
@@ -156,10 +156,10 @@ string construct_type_name(expression_tree const* member_type,
 
         return "std::unordered_set<" + type_name + ">";
     }
-    else if (member_type->lexem.rtt == keyword_hash::rtt &&
+    else if (member_type->lexem.rtt == keyword_hash<idl_parser_types>::rtt &&
              member_type->children.size() == 2 &&
-             member_type->children.front().lexem.rtt == identifier::rtt &&
-             member_type->children.back().lexem.rtt == identifier::rtt)
+             member_type->children.front().lexem.rtt == identifier<idl_parser_types>::rtt &&
+             member_type->children.back().lexem.rtt == identifier<idl_parser_types>::rtt)
     {
         g_type_info type_detail_key, type_detail_value;
         string key_type_name =
@@ -194,10 +194,10 @@ generated_code analyze(state_holder& state,
     unordered_multimap<string, string> dependencies;
     vector<string> json_schema;
 
-    if (pexpression->lexem.rtt != keyword_module::rtt ||
+    if (pexpression->lexem.rtt != keyword_module<idl_parser_types>::rtt ||
         pexpression->children.size() != 2 ||
-        pexpression->children.front().lexem.rtt != identifier::rtt ||
-        pexpression->children.back().lexem.rtt != scope_brace::rtt ||
+        pexpression->children.front().lexem.rtt != identifier<idl_parser_types>::rtt ||
+        pexpression->children.back().lexem.rtt != scope_brace<idl_parser_types>::rtt ||
         pexpression->children.back().children.empty())
         throw runtime_error("wtf");
     else
@@ -206,11 +206,11 @@ generated_code analyze(state_holder& state,
         state.namespace_name = module_name;
         for (auto const& item : pexpression->children.back().children)
         {
-            if (item.lexem.rtt == keyword_class::rtt)
+            if (item.lexem.rtt == keyword_class<idl_parser_types>::rtt)
             {
                 if (item.children.size() != 2 ||
-                    item.children.front().lexem.rtt != identifier::rtt ||
-                    item.children.back().lexem.rtt != scope_brace::rtt)
+                    item.children.front().lexem.rtt != identifier<idl_parser_types>::rtt ||
+                    item.children.back().lexem.rtt != scope_brace<idl_parser_types>::rtt)
                     throw runtime_error("class syntax is wrong");
 
                 string type_name = item.children.front().lexem.value;
@@ -229,11 +229,11 @@ generated_code analyze(state_holder& state,
                 name_to_code.insert(std::make_pair(type_name, std::move(code)));
                 ++rtt;
             }
-            else if (item.lexem.rtt == keyword_enum::rtt)
+            else if (item.lexem.rtt == keyword_enum<idl_parser_types>::rtt)
             {
                 if (item.children.size() != 2 ||
-                    item.children.front().lexem.rtt != identifier::rtt ||
-                    item.children.back().lexem.rtt != scope_brace::rtt)
+                    item.children.front().lexem.rtt != identifier<idl_parser_types>::rtt ||
+                    item.children.back().lexem.rtt != scope_brace<idl_parser_types>::rtt)
                     throw runtime_error("enum syntax is wrong");
 
                 string enum_name = item.children.front().lexem.value;
@@ -445,7 +445,7 @@ generated_code analyze_struct(state_holder& state,
         ++it;
         auto const& member_name = *it;
 
-        if (member_name.lexem.rtt != identifier::rtt)
+        if (member_name.lexem.rtt != identifier<idl_parser_types>::rtt)
             throw runtime_error("inside class syntax error, wtf, still " + type_name);
 
         members.push_back(std::make_pair(&member_name, &member_type));
@@ -479,7 +479,7 @@ generated_code analyze_struct(state_holder& state,
 
         auto const& member_name = member_pair.first->lexem;
         auto const& member_type = member_pair.second;
-        if (member_name.rtt != identifier::rtt)
+        if (member_name.rtt != identifier<idl_parser_types>::rtt)
             throw runtime_error("use \"variable type\" syntax please");
 
         g_type_info type_detail;
@@ -497,11 +497,11 @@ generated_code analyze_struct(state_holder& state,
 
         map_member_name_type.insert(std::make_pair(member_name.value, member_type_name));
 
-        if (member_pair.second->lexem.rtt == keyword_array::rtt ||
-            member_pair.second->lexem.rtt == keyword_optional::rtt ||
-            member_pair.second->lexem.rtt == keyword_set::rtt)
+        if (member_pair.second->lexem.rtt == keyword_array<idl_parser_types>::rtt ||
+            member_pair.second->lexem.rtt == keyword_optional<idl_parser_types>::rtt ||
+            member_pair.second->lexem.rtt == keyword_set<idl_parser_types>::rtt)
             class_members += "\n            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + " " + member_type->children.front().lexem.value + "\"}";
-        else if (member_pair.second->lexem.rtt == keyword_hash::rtt)
+        else if (member_pair.second->lexem.rtt == keyword_hash<idl_parser_types>::rtt)
             class_members += "\n            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + " " + member_type->children.front().lexem.value + " " + member_type->children.back().lexem.value + "\"}";
         else
             class_members += "\n            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + "\"}";
