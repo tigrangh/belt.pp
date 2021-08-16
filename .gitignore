@@ -2,3 +2,4 @@
 src/test_experiments/message.gen.hpp
 build
 install
+CMakeLists.txt.user
