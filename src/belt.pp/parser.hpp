@@ -28,15 +28,17 @@ template <typename T_lexers>
 class expression_tree
 {
 public:
+    //  getting rid of this, and instead reallocating before each push_back() call
+    //  makes clang happier for performance. gcc optimizes away this wrapper
     class memory_wrapper
     {
         std::vector<detail::expression_data<T_lexers>> memory;
     public:
-        detail::expression_data<T_lexers>& operator[](size_t index)  noexcept { return memory[index]; }
-        detail::expression_data<T_lexers> const& operator[](size_t index) const noexcept { return memory[index]; }
-        size_t size() const noexcept { return memory.size(); }
-        bool empty() const noexcept { return memory.empty(); }
-        void push_back(detail::expression_data<T_lexers>&& item)
+        inline detail::expression_data<T_lexers>& operator[](size_t index)  noexcept { return memory[index]; }
+        inline detail::expression_data<T_lexers> const& operator[](size_t index) const noexcept { return memory[index]; }
+        inline size_t size() const noexcept { return memory.size(); }
+        inline bool empty() const noexcept { return memory.empty(); }
+        inline void push_back(detail::expression_data<T_lexers>&& item)
         {
             if (memory.capacity() == memory.size())
                 memory.reserve(memory.size() * 4);
