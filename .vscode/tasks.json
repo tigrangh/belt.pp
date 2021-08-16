@@ -1,0 +1,63 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "options": {
+    },
+    "tasks": [
+        {
+            "label": "mkdir",
+            "type": "shell",
+            "command": "mkdir",
+            "args": [
+                "-p",
+                "${config:install_dir}/build/${workspaceFolderBasename}${config:delimiter}${config:compiler_name}${config:delimiter}${config:build_type}"
+            ],
+            "group": "build"
+        },
+        {
+            "label": "clean",
+            "type": "shell",
+            "command": "rm",
+            "args": [
+                "-rf",
+                "${config:install_dir}/build/${workspaceFolderBasename}${config:delimiter}${config:compiler_name}${config:delimiter}${config:build_type}"
+            ],
+            "group": "build"
+        },
+        {
+            "label": "init",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-DCMAKE_BUILD_TYPE=${config:build_type}",
+                "-DCMAKE_INSTALL_PREFIX=${config:install_dir}",
+                "${workspaceRoot}"
+            ],
+            "options": {
+                "cwd": "${config:install_dir}/build/${workspaceFolderBasename}${config:delimiter}${config:compiler_name}${config:delimiter}${config:build_type}",
+                "env": {
+                    "CXX": "${config:compiler_name}"
+                }
+            },
+            "group": "build"
+        },
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "install",
+                "-j",
+                "8"
+            ],
+            "options": {
+                "cwd": "${config:install_dir}/build/${workspaceFolderBasename}${config:delimiter}${config:compiler_name}${config:delimiter}${config:build_type}"
+            },
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        }
+    ]
+}

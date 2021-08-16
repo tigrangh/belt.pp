@@ -359,7 +359,7 @@ int main()
 
     std::ifstream fl;
     std::istreambuf_iterator<char> begin, end;
-    load_file("/storage/media/data/prog.projects/publiq.pp/src/belt.pp/src/test_parser/block.31353", fl, begin, end);
+    load_file("/storage/media/data/prog.projects/belt.pp/src/test_parser/block.31353", fl, begin, end);
     
     string json_data(begin, end);
 
