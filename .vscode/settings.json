@@ -1,5 +1,5 @@
 {
-    "install_dir": "/storage/media/data/prog.projects/install.belt.pp",
+    "install_dir": "/storage/media/data/prog.projects/belt.pp/install",
     "build_type": "Release",
     "compiler_name": "clang++",
     "delimiter": "."
