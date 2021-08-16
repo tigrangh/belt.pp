@@ -6,7 +6,6 @@
 
 namespace beltpp
 {
-using vector_buffer = std::vector<char>;
 using fptr_saver = packet::fptr_saver;
 /*
  * internals
@@ -18,8 +17,8 @@ class packet_internals
 {
 public:
     packet_internals()
-        : m_rtt(-1)
-        , m_ptr_message(nullptr, [](void*&){})
+        : m_rtt(size_t(-1))
+        , m_ptr_message(beltpp::void_unique_nullptr())
         , m_fsaver(nullptr)
     {}
     ~packet_internals() noexcept
@@ -59,10 +58,14 @@ packet& packet::operator = (packet&& other) noexcept
     return *this;
 }
 
+bool packet::empty() const noexcept
+{
+    return m_pimpl->m_rtt == size_t(-1);
+}
+
 size_t packet::type() const
 {
     return m_pimpl->m_rtt;
-    return 0;
 }
 
 void packet::clean()
@@ -70,11 +73,11 @@ void packet::clean()
     m_pimpl.reset(new detail::packet_internals());
 }
 
-std::vector<char> packet::save() const
+std::string packet::to_string() const
 {
     fptr_saver& fsaver = m_pimpl->m_fsaver;
     if (nullptr == fsaver)
-        throw std::runtime_error("packet::save() on empty message");
+        return std::string();
 
     return fsaver(m_pimpl->m_ptr_message.get());
 }

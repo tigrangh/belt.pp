@@ -2,23 +2,24 @@
 #include <memory>
 #include <fstream>
 #include <vector>
+#include <functional>
 #include <belt.pp/processor.hpp>
 
 using task_t = std::function<void()>;
 void reader(size_t iChunkSize,
             std::ifstream& fl_read,
             std::ofstream& fl_write,
-            beltpp::iprocessor<task_t>& processor_copier);
+            beltpp::iprocessor_old<task_t>& processor_copier);
 void writer(size_t iChunkSize,
             std::vector<char> const& buffer,
             std::ifstream& fl_read,
             std::ofstream& fl_write,
-            beltpp::iprocessor<task_t>& processor_copier);
+            beltpp::iprocessor_old<task_t>& processor_copier);
 
 void reader(size_t iChunkSize,
             std::ifstream& fl_read,
             std::ofstream& fl_write,
-            beltpp::iprocessor<task_t>& processor_copier)
+            beltpp::iprocessor_old<task_t>& processor_copier)
 {
     std::shared_ptr<std::vector<char>> ptr_buffer(new std::vector<char>(iChunkSize));
     fl_read.read(&ptr_buffer->operator[](0), iChunkSize);
@@ -45,7 +46,7 @@ void writer(size_t iChunkSize,
             std::vector<char> const& buffer,
             std::ifstream& fl_read,
             std::ofstream& fl_write,
-            beltpp::iprocessor<task_t>& processor_copier)
+            beltpp::iprocessor_old<task_t>& processor_copier)
 {
     if (buffer.size() >= iChunkSize)
         processor_copier.run([iChunkSize, &fl_read, &fl_write, &processor_copier]
@@ -66,9 +67,9 @@ int main(int argc, char** argv)
             return 1;
         }
 
-        beltpp::iprocessor<task_t>* ptr_copier(new beltpp::processor<task_t>(1));
+        beltpp::iprocessor_old<task_t>* ptr_copier(new beltpp::processor_old<task_t>(1));
 
-        beltpp::iprocessor<task_t>& processor_copier = *ptr_copier;
+        beltpp::iprocessor_old<task_t>& processor_copier = *ptr_copier;
 
         std::ifstream fl_read(argv[1], std::ios_base::binary);
         std::ofstream fl_write(argv[2], std::ios_base::binary);

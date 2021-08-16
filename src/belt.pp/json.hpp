@@ -3,8 +3,6 @@
 #include "global.hpp"
 #include "parser.hpp"
 
-#include "iterator_wrapper.hpp"
-
 #include <memory>
 #include <sstream>
 #include <cstdint>
@@ -36,20 +34,27 @@ class operator_comma :
 public:
     size_t right = 1;
     size_t left_min = 1;
-    size_t left_max = -1;
+    size_t left_max = size_t(-1);
     size_t property = 1;
     enum { grow_priority = 1 };
 
     beltpp::e_three_state_result check(char ch)
     {
-        return beltpp::standard_operator_check<operator_set<>>(ch);
+        //return beltpp::standard_operator_check<operator_set<>>(ch);
+        return ch == ',' ? beltpp::e_three_state_result::attempt
+                         : beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
     bool final_check(T_iterator const& it_begin,
                      T_iterator const& it_end) const
     {
-        return std::string(it_begin, it_end) == ",";
+        //return std::string(it_begin, it_end) == ",";
+        T_iterator other = it_begin;
+        ++other;
+        return (it_begin != it_end &&
+                other == it_end &&
+                *it_begin == ',');
     }
 };
 
@@ -65,21 +70,28 @@ public:
 
     beltpp::e_three_state_result check(char ch)
     {
-        return beltpp::standard_operator_check<operator_set<>>(ch);
+        //return beltpp::standard_operator_check<operator_set<>>(ch);
+        return ch == ':' ? beltpp::e_three_state_result::attempt
+                         : beltpp::e_three_state_result::error;
     }
 
     template <typename T_iterator>
     bool final_check(T_iterator const& it_begin,
                      T_iterator const& it_end) const
     {
-        return std::string(it_begin, it_end) == ":";
+        //return std::string(it_begin, it_end) == ":";
+        T_iterator other = it_begin;
+        ++other;
+        return (it_begin != it_end &&
+                other == it_end &&
+                *it_begin == ':');
     }
 };
 
 class scope_brace : public beltpp::operator_lexer_base<scope_brace, lexers>
 {
 public:
-    size_t right = -1;
+    size_t right = size_t(-1);
     size_t left_max = 0;
     size_t left_min = 0;
     size_t property = 8;
@@ -89,7 +101,7 @@ public:
     {
         if (ch == '{')
         {
-            right = -1;
+            right = size_t(-1);
             left_min = 0;
             left_max = 0;
             property = 8;
@@ -110,17 +122,22 @@ public:
     bool final_check(T_iterator const& it_begin,
                      T_iterator const& it_end) const
     {
-        std::string value(it_begin, it_end);
+        /*std::string value(it_begin, it_end);
         if (value == "{" || value == "}")
             return true;
-        return false;
+        return false;*/
+        T_iterator other = it_begin;
+        ++other;
+        return (it_begin != it_end &&
+                other == it_end &&
+                (*it_begin == '{' || *it_begin == '}'));
     }
 };
 
 class scope_bracket : public beltpp::operator_lexer_base<scope_bracket, lexers>
 {
 public:
-    size_t right = -1;
+    size_t right = size_t(-1);
     size_t left_max = 0;
     size_t left_min = 0;
     size_t property = 8;
@@ -130,7 +147,7 @@ public:
     {
         if (ch == '[')
         {
-            right = -1;
+            right = size_t(-1);
             left_min = 0;
             left_max = 0;
             property = 8;
@@ -151,16 +168,22 @@ public:
     bool final_check(T_iterator const& it_begin,
                      T_iterator const& it_end) const
     {
-        std::string value(it_begin, it_end);
+        /*std::string value(it_begin, it_end);
         if (value == "[" || value == "]")
             return true;
-        return false;
+        return false;*/
+        T_iterator other = it_begin;
+        ++other;
+        return (it_begin != it_end &&
+                other == it_end &&
+                (*it_begin == '[' || *it_begin == ']'));
     }
 };
 
 namespace detail
 {
 enum class utf16_range {bmp, high, low};
+using uchar = unsigned char;
 inline utf16_range utf16_check(uint16_t code)
 {
     if (0xD800 <= code && code <= 0xDBFF)
@@ -189,23 +212,23 @@ inline size_t utf32_to_utf8(uint32_t cp, char (&buffer)[4]) noexcept
     }
     if (cp <= 0x7FF)
     {
-        buffer[0] = 0xC0 | (cp >> 6);           //  110xxxxx
-        buffer[1] = 0x80 | (cp & 0x3F);         //  10xxxxxx
+        buffer[0] = char(0xC0 | (cp >> 6));     //  110xxxxx
+        buffer[1] = char(0x80 | (cp & 0x3F));   //  10xxxxxx
         return 2;
     }
     if (cp <= 0xFFFF)
     {
-        buffer[0] = 0xE0 | (cp >> 12);          //  1110xxxx
-        buffer[1] = 0x80 | ((cp >> 6) & 0x3F);  //  10xxxxxx
-        buffer[2] = 0x80 | (cp & 0x3F);         //  10xxxxxx
+        buffer[0] = char(0xE0 | (cp >> 12));          //  1110xxxx
+        buffer[1] = char(0x80 | ((cp >> 6) & 0x3F));  //  10xxxxxx
+        buffer[2] = char(0x80 | (cp & 0x3F));         //  10xxxxxx
         return 3;
     }
     if (cp <= 0x10FFFF)
     {
-        buffer[0] = 0xF0 | (cp >> 18);          //  11110xxx
-        buffer[1] = 0x80 | ((cp >> 12) & 0x3F); //  10xxxxxx
-        buffer[2] = 0x80 | ((cp >> 6) & 0x3F);  //  10xxxxxx
-        buffer[3] = 0x80 | (cp & 0x3F);         //  10xxxxxx
+        buffer[0] = char(0xF0 | (cp >> 18));          //  11110xxx
+        buffer[1] = char(0x80 | ((cp >> 12) & 0x3F)); //  10xxxxxx
+        buffer[2] = char(0x80 | ((cp >> 6) & 0x3F));  //  10xxxxxx
+        buffer[3] = char(0x80 | (cp & 0x3F));         //  10xxxxxx
         return 4;
     }
 
@@ -215,7 +238,8 @@ inline size_t utf32_to_utf8(uint32_t cp, char (&buffer)[4]) noexcept
     //  so reaching here is not possible
     std::terminate();
 
-    return 0;
+    //  unreachable code
+    //return 0;
 }
 }
 
@@ -224,7 +248,8 @@ class value_string :
 {
     size_t escape_sequence_index = 0;
     size_t escape_sequence_remaining = 0;
-    size_t index = -1;
+    size_t index = size_t(-1);
+    bool final_check_status = false;
 public:
     beltpp::e_three_state_result check(unsigned char ch)
     {
@@ -285,11 +310,21 @@ public:
         assert(0 == escape_sequence_index);
 
         if ('\"' == ch)
+        {
+            final_check_status = true;
             return beltpp::e_three_state_result::success;
+        }
         if ('\x20' > ch)    //  unsupported charachter
             return beltpp::e_three_state_result::error;
 
         return beltpp::e_three_state_result::attempt;
+    }
+
+    template <typename T_iterator>
+    bool final_check(T_iterator const&/* it_begin*/,
+                     T_iterator const&/* it_end*/) const
+    {
+        return final_check_status;
     }
 
     static std::string encode(std::string const& utf8_value)
@@ -351,7 +386,7 @@ public:
                        std::string& utf8_value)
     {
         bool code = true;
-        std::ostringstream out;
+        utf8_value.reserve(utf8_encoded.size());
 
         auto it_begin = utf8_encoded.begin();
         auto it_end = utf8_encoded.end();
@@ -360,14 +395,14 @@ public:
         size_t escape_sequence_index = 0;
         size_t escape_sequence_remaining = 0;
 
-        uint32_t code_point_encoded = -1;
-        uint32_t surrogate_pair_high = -1;
+        uint32_t code_point_encoded = uint32_t(-1);
+        uint32_t surrogate_pair_high = uint32_t(-1);
 
         bool proper_ending = false;
 
         for (auto it = it_begin; code && it != it_end; ++it)
         {
-            unsigned char ch = *it;
+            char ch = *it;
             std::string item;
 
             if (it_begin == it)
@@ -420,9 +455,9 @@ public:
                 {
                     uint32_t ch_value = 0;
                     if ('0' <= ch && ch <= '9')
-                        ch_value = ch - '0';
+                        ch_value = uint32_t(ch - '0');
                     else if ('a' <= tolower(ch) && tolower(ch) <= 'f')
-                        ch_value = 10 + tolower(ch) - 'a';
+                        ch_value = uint32_t(10 + tolower(ch) - 'a');
 
                     if (2 == escape_sequence_index)
                         code_point_encoded = ch_value;
@@ -449,7 +484,7 @@ public:
                 else
                     proper_ending = true;
             }
-            else if ('\x20' > ch)    //  unsupported charachter
+            else if ('\x20' > detail::uchar(ch))    //  unsupported charachter
                 code = false;
             else
                 item += ch;
@@ -464,26 +499,26 @@ public:
 
                 if (uint32_t(-1) != surrogate_pair_high &&
                     uint32_t(-1) != code_point_encoded &&
-                    detail::utf16_check(code_point_encoded) ==
+                    detail::utf16_check(uint16_t(code_point_encoded)) ==
                         detail::utf16_range::low)
                 {
                     code_point_encoded =
                             detail::utf16_surrogate_pair_to_code_point(
-                                surrogate_pair_high, code_point_encoded);
-                    surrogate_pair_high = -1;
+                                uint16_t(surrogate_pair_high), uint16_t(code_point_encoded));
+                    surrogate_pair_high = uint32_t(-1);
                 }
                 else if (uint32_t(-1) != surrogate_pair_high)
                     code = false;
                 //  cases below this have (-1 == surrogate_pair_high)
                 else if (uint32_t(-1) != code_point_encoded &&
-                         detail::utf16_check(code_point_encoded) ==
+                         detail::utf16_check(uint16_t(code_point_encoded)) ==
                              detail::utf16_range::high)
                 {
                     surrogate_pair_high = code_point_encoded;
-                    code_point_encoded = -1;
+                    code_point_encoded = uint32_t(-1);
                 }
                 else if (uint32_t(-1) != code_point_encoded &&
-                         detail::utf16_check(code_point_encoded) ==
+                         detail::utf16_check(uint16_t(code_point_encoded)) ==
                              detail::utf16_range::low)
                     code = false;
 
@@ -495,7 +530,7 @@ public:
                     for (size_t index = 0; index < utf8size; ++index)
                         item += buffer[index];
 
-                    code_point_encoded = -1;
+                    code_point_encoded = uint32_t(-1);
                 }
 
                 if (code)
@@ -503,7 +538,7 @@ public:
                     assert(uint32_t(-1) == code_point_encoded);
                     assert((false == item.empty() && uint32_t(-1) == surrogate_pair_high) ||
                            (item.empty() && uint32_t(-1) != surrogate_pair_high));
-                    out << item;
+                    utf8_value += item;
                 }
             }
         }
@@ -514,8 +549,8 @@ public:
             0 != escape_sequence_remaining)
             code = false;
 
-        if (code)
-            utf8_value = out.str();
+        if (false == code)
+            utf8_value.clear();
 
         return code;
     }
@@ -550,9 +585,7 @@ public:
     beltpp::e_three_state_result check(char ch)
     {
         value += ch;
-        if ("." == value || "-" == value || "-." == value)
-            return beltpp::e_three_state_result::attempt;
-        else if (_check(value))
+        if (_check(value) || _check(value + '0'))
             return beltpp::e_three_state_result::attempt;
         else
             return beltpp::e_three_state_result::error;
@@ -612,33 +645,39 @@ class discard :
 {};
 
 using expression_tree = beltpp::expression_tree<lexers, std::string>;
-using ptr_expression_tree = std::unique_ptr<expression_tree>;
+using expression_tree_pointer = beltpp::expression_tree_pointer<lexers, std::string>;
 
 template <typename T_iterator>
 beltpp::e_three_state_result
-parse_stream(ptr_expression_tree& ptr_expression,
+parse_stream(expression_tree_pointer& ptr_expression,
              T_iterator& it_begin,
-             T_iterator it_end,
+             T_iterator const& it_end,
              size_t const junk_limit,
+             size_t const depth_limit,
              expression_tree* &proot)
 {
     beltpp::e_three_state_result code = beltpp::e_three_state_result::attempt;
+    beltpp::e_three_state_result parser_code = beltpp::e_three_state_result::attempt;
 
     auto const it_backup = it_begin;
     auto it_begin_keep = it_begin;
-    while (beltpp::parse(ptr_expression, it_begin, it_end))
+    while (true)
     {
+        parser_code = beltpp::parse(ptr_expression, it_begin, it_end);
+        if (beltpp::e_three_state_result::success != parser_code)
+            break;
+
         if (it_begin == it_begin_keep)
             break;
         else
             it_begin_keep = it_begin;
     }
-    //  parser can give false or not advance the iterator
+    //  parser can return attempt
     //  but it will not necessarily mean an error
     //  probably the stream will be filled later, and parser will succeed
 
     bool is_value = false;
-    proot = beltpp::root(ptr_expression.get(), is_value);
+    proot = beltpp::root(ptr_expression, is_value);
 
     if (it_backup == it_begin ||
         false == is_value)
@@ -661,7 +700,8 @@ parse_stream(ptr_expression_tree& ptr_expression,
             ++temp;
         }
 
-        if (count > junk_limit)
+        if (count > junk_limit ||
+            beltpp::e_three_state_result::error == parser_code)
         {
             it_begin = it_end;
             code = beltpp::e_three_state_result::error;
@@ -673,10 +713,14 @@ parse_stream(ptr_expression_tree& ptr_expression,
     {   //  iterator was advanced as much as possible
         //  and we have a fully parsed object
 
-        ptr_expression.release();
-        ptr_expression.reset(proot);
+        if (proot->depth() > depth_limit)
+            code = beltpp::e_three_state_result::error;
+        else
+        {
+            ptr_expression.stack.resize(1);
 
-        code = beltpp::e_three_state_result::success;
+            code = beltpp::e_three_state_result::success;
+        }
     }
 
     return code;

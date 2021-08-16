@@ -1,0 +1,5 @@
+module TestExperiments
+{
+    class Hello {}
+}
+////6

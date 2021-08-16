@@ -7,27 +7,23 @@
 #include <belt.pp/delegate.hpp>
 #include <belt.pp/processor.hpp>
 #include <belt.pp/packet.hpp>
-#include <belt.pp/messages.hpp>
+#include <belt.pp/ievent.hpp>
 #include <belt.pp/socket.hpp>
 #include <belt.pp/json.hpp>
 
-using sf = beltpp::socket_family_t<
-beltpp::message_error::rtt,
-beltpp::message_join::rtt,
-beltpp::message_drop::rtt,
-&beltpp::new_void_unique_ptr<beltpp::message_error>,
-&beltpp::new_void_unique_ptr<beltpp::message_join>,
-&beltpp::new_void_unique_ptr<beltpp::message_drop>,
-&beltpp::message_error::saver,
-&beltpp::message_join::saver,
-&beltpp::message_drop::saver,
-&beltpp::message_list_load
->;
+#include "message.hpp"
 
-#define VERSION 2
+using namespace TestExperiments;
+
+using sf = beltpp::socket_family_t<&message_list_load>;
+
+#define VERSION 11
 
 int main(int argc, char** argv)
 {
+    B_UNUSED(argc);
+    B_UNUSED(argv);
+
     try
     {
 #if (VERSION == 1)
@@ -105,7 +101,8 @@ int main(int argc, char** argv)
 #elif (VERSION == 10)
         auto sv = beltpp::ip_address::e_type::ipv4;
 
-        beltpp::socket sk = beltpp::getsocket<sf>();
+        beltpp::event_handler eh;
+        beltpp::socket sk = beltpp::getsocket<sf>(eh);
         if (argc == 1)
             sk.open({"127.0.0.1", 3333, "127.0.0.1", 4444, sv});
         else
@@ -139,96 +136,119 @@ int main(int argc, char** argv)
             }
         }
 #else
-        else if (1 == argc)
-        {
-            beltpp::socket sk;
-            beltpp::isocket& isk = sk;
-            //
-            for (int i = 0; i < 10; ++i)
-                sk.listen("", 3550 + i, beltpp::socket::socketv::ipv4);
+        const int listen_count = 10;
+        beltpp::event_handler_ptr eh = beltpp::libsocket::construct_event_handler();
+        beltpp::socket_ptr ptr_sk = beltpp::libsocket::getsocket<sf>(*eh);
+        beltpp::socket& sk = *ptr_sk;
+        eh->add(sk);
 
-            //sk.listen("::1", 3557, beltpp::socket::socketv::ipv6);
-            //sk.open("192.168.0.18", 3030, "", 3557, beltpp::socket::socketv::ipv4);
-            //sk.open("", 3030, "", 3557, beltpp::socket::socketv::ipv6);
-            //sk.open("", 3030, "", 3030, beltpp::socket::socketv::ipv4);
+        if (1 == argc) //server mode
+        {
+            //__debugbreak();
+
+
+            
+            for (int i = 0; i < listen_count; ++i)
+            {
+                beltpp::ip_address listen_addr("127.0.0.1", short(3550 + i));
+                listen_addr.ip_type = beltpp::ip_address::e_type::ipv4;
+                sk.listen(listen_addr);
+            }
+
             std::cout << sk.dump() << std::endl;
 
-            beltpp::message msg;
-            beltpp::imessage& imsg = msg;
             beltpp::socket::peer_id channel_id;
             size_t index = 0;
 
             while (true)
             {
-                ++index;
-                isk.read(channel_id, imsg);
+                std::unordered_set<beltpp::event_item const*> set_items;
+                
+                eh->wait(set_items);
 
-                std::string str_type;
-                switch (imsg.get_type())
+                beltpp::socket::packets packets;
+                if (set_items.find(&sk) != set_items.end())
+                    packets = sk.receive(channel_id);
+
+                for (auto const& packet : packets)
                 {
-                case beltpp::imessage::message_type::joined:
-                    str_type = "joined";
-                    break;
-                case beltpp::imessage::message_type::dropped:
-                    str_type = "dropped";
-                    break;
-                default:
-                    str_type = "unknown";
+                    std::string str_type;
+                    switch (packet.type())
+                    {
+                    case beltpp::stream_join::rtt:
+                        str_type = "joined";
+                        break;
+                    case beltpp::stream_drop::rtt:
+                        str_type = "dropped";
+                        break;
+                    default:
+                        str_type = "unknown";
+                    }
+
+                    if (0 != ++index % 1000)
+                        continue;
+
+                    std::cout << str_type
+                              << " [msg code - "
+                              << static_cast<int>(packet.type())
+                              << "]"
+                              << " [channel_id - "
+                              << channel_id
+                              << "]"
+                              << std::endl;
+
+                    //std::cout << sk.dump() << std::endl;
                 }
-
-                if (0 != index % 1000)
-                    continue;
-
-                std::cout << str_type
-                          << " [msg code - "
-                          << static_cast<int>(imsg.get_type())
-                          << "]"
-                          << " [channel_id - "
-                          << channel_id
-                          << "]"
-                          << std::endl;
-                //std::cout << sk.dump() << std::endl;
             }
         }
-        else
+        else // client mode
         {
-            beltpp::socket sk;
+            //__debugbreak();
+
             std::vector<beltpp::socket::peer_id> arr_channel_id;
-            arr_channel_id.resize(1);
-            for (size_t i = 0; i < arr_channel_id.size(); ++i)
+            arr_channel_id.resize(100);
+
+            for (size_t i = 0; i < 20000; ++i)
             {
-                arr_channel_id[i] = sk.open("", 0, "127.0.0.1", 3557, beltpp::socket::socketv::ipv4);
-            }
+                short index = short(i % arr_channel_id.size());
 
-            size_t index = 0;
-            beltpp::message msg;
-            msg.set(beltpp::message::message_type::drop);
-            for (size_t i = 0; i < 100000; ++i)
-            {
-                index = index % arr_channel_id.size();
+                beltpp::ip_address open_address("", 0, "127.0.0.1", 3550 + (i % listen_count), beltpp::ip_address::e_type::ipv4);
+                sk.open(open_address);
 
-                sk.write(arr_channel_id[index], msg);
-
-                //while (true)
+                std::unordered_set<beltpp::event_item const*> set_items;
+                while (true)
                 {
-                    //try
-                    //{
-                        arr_channel_id[index] = sk.open("", 0, "127.0.0.1", 3550 + i % 10, beltpp::socket::socketv::ipv4);
-                    //    break;
-                    //}
-                    //catch(...){}
+                    beltpp::socket::peer_id channel_id;
+                    
+                    beltpp::stream::packets pcs;
+                    if (beltpp::event_handler::wait_result::event & eh->wait(set_items))
+                        pcs = sk.receive(channel_id);
+
+                    if (channel_id.empty())
+                        continue;
+
+                    for (auto const& pc : pcs)
+                    {
+                        if (pc.type() == beltpp::stream_join::rtt)
+                        {
+                            std::cout << i << std::endl;
+                            if (i >= arr_channel_id.size())
+                                sk.send(arr_channel_id[index], beltpp::packet(beltpp::stream_drop()));
+
+                            arr_channel_id[index] = channel_id;
+                        }
+                    }
+                    break;
                 }
 
-                ++index;
-
-                //std::this_thread::sleep_for(std::chrono::seconds(1));
+                //std::cout << sk.dump() << std::endl;
             }
         }
 #endif
     }
     catch(std::exception const& ex)
     {
-        std::cout << ex.what() << std::endl;
+        std::cout << std::endl << "exception: " << ex.what() << std::endl;
     }
     catch(...)
     {

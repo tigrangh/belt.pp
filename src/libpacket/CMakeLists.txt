@@ -1,7 +1,7 @@
 add_definitions(-DPACKET_LIBRARY)
 
-# define the shared library
-add_library(packet SHARED
+# define the library
+add_library(packet
     global.hpp
     packet.cpp
     packet.hpp)
@@ -12,10 +12,11 @@ target_link_libraries(packet PUBLIC belt.pp)
 # what to do on make install
 install(TARGETS packet
         EXPORT belt.pp.package
-        LIBRARY DESTINATION lib/belt.pp
-        ARCHIVE DESTINATION lib/belt.pp/archive)
+        RUNTIME DESTINATION ${BELTPP_INSTALL_DESTINATION_RUNTIME}
+        LIBRARY DESTINATION ${BELTPP_INSTALL_DESTINATION_LIBRARY}
+        ARCHIVE DESTINATION ${BELTPP_INSTALL_DESTINATION_ARCHIVE})
 
 install(FILES
     global.hpp
     packet.hpp
-    DESTINATION include/belt.pp/libpacket)
+    DESTINATION ${BELTPP_INSTALL_DESTINATION_INCLUDE}/libpacket)

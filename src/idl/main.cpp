@@ -6,6 +6,7 @@
 #include <string>
 #include <memory>
 #include <exception>
+#include <stdexcept>
 #include <streambuf>
 #include <cassert>
 
@@ -16,8 +17,6 @@ using std::runtime_error;
 using std::ofstream;
 using std::ifstream;
 using std::vector;
-
-using ptr_expression_tree = std::unique_ptr<expression_tree>;
 
 string replace(string const& source,
                string const& lookup,
@@ -51,7 +50,7 @@ string replace_all(string const& source,
 int main(int argc, char* argv[])
 {
     string definition;
-    ptr_expression_tree ptr_expression;
+    expression_tree_pointer ptr_expression;
     try
     {
         if (argc >= 2)
@@ -60,7 +59,7 @@ int main(int argc, char* argv[])
             if (file_definition)
             {
                 file_definition.seekg(0, std::ios::end);
-                definition.reserve(file_definition.tellg());
+                definition.reserve(size_t(file_definition.tellg()));
                 file_definition.seekg(0, std::ios::beg);
 
                 definition.assign((std::istreambuf_iterator<char>(file_definition)),
@@ -71,18 +70,27 @@ int main(int argc, char* argv[])
 
         if (definition.empty())
         {
-            definition = "module beltpp {"
-                         "type message_join {}"
-                         "type message_drop {}"
-                         "type message_error {}"
-                         "type message_timer_out {}"
-                         "}";
+            definition =
+                    R"text(
+                    module beltpp
+                    {
+                        class test
+                        {
+                            Array Array Int hello
+                        }
+                        class message_join {}
+                        class message_drop {}
+                        class message_error {}
+                        class message_timer_out {}
+                    }
+                    )text";
         }
 
         auto it_begin = definition.begin();
         auto it_end = definition.end();
         auto it_begin_keep = it_begin;
-        while (beltpp::parse(ptr_expression, it_begin, it_end))
+        while (beltpp::e_three_state_result::success ==
+               beltpp::parse(ptr_expression, it_begin, it_end))
         {
             if (it_begin == it_begin_keep)
                 break;
@@ -94,10 +102,11 @@ int main(int argc, char* argv[])
         }
 
         bool is_value = false;
-        auto proot = beltpp::root(ptr_expression.get(), is_value);
+        auto proot = beltpp::root(ptr_expression, is_value);
+        B_UNUSED(proot);
 
-        ptr_expression.release();
-        ptr_expression.reset(proot);
+        if (false == ptr_expression.stack.empty())
+            ptr_expression.stack.resize(1);
 
         if (false == is_value)
             throw runtime_error("missing expression, apparently");
@@ -106,29 +115,141 @@ int main(int argc, char* argv[])
             throw runtime_error("syntax error, maybe: " +
                                 string(it_begin, it_end));
 
-        if (ptr_expression->depth() > 30)
+        if (ptr_expression.item().depth() > 30)
             throw runtime_error("expected tree max depth 30 is exceeded");
 
         state_holder state;
+
+        if (argc >= 6)
+            state.optional_type = argv[5];
+
         //cout << beltpp::dump(ptr_expression.get()) << endl;
-        string file_contents = resources::file_template;
-        string generated = analyze(state, ptr_expression.get());
-        file_contents = replace_all(file_contents, "{namespace_name}", state.namespace_name);
-        file_contents = replace(file_contents, "{expand_message_classes}", generated);
+        string file_contents_declarations = resources::file_declarations;
+        string file_contents_template_definitions = resources::file_template_definitions;
+        string file_contents_definitions = resources::file_definitions;
+
+        string optional_serializer_declarations;
+        string optional_serializer_definitions;
+
+        generated_code generated = analyze(state, &ptr_expression.item());
+        file_contents_declarations = replace_all(file_contents_declarations,
+                                                 "{namespace_name}",
+                                                 state.namespace_name);
+        file_contents_template_definitions = replace_all(file_contents_template_definitions,
+                                                         "{namespace_name}",
+                                                         state.namespace_name);
+        file_contents_definitions = replace_all(file_contents_definitions,
+                                                "{namespace_name}",
+                                                state.namespace_name);
+
+        if (false == state.optional_type.empty())
+        {
+            optional_serializer_declarations = resources::optional_serializer_declarations;
+            optional_serializer_definitions = resources::optional_serializer_definitions;
+
+            optional_serializer_declarations = replace_all(optional_serializer_declarations,
+                                                           "{optional}",
+                                                           state.optional_type);
+            optional_serializer_definitions = replace_all(optional_serializer_definitions,
+                                                           "{optional}",
+                                                           state.optional_type);
+
+        }
+
+        file_contents_definitions = replace_all(file_contents_definitions,
+                                                "{expand_optional_serializer_declarations}",
+                                                optional_serializer_declarations);
+        file_contents_definitions = replace_all(file_contents_definitions,
+                                                "{expand_optional_serializer_definitions}",
+                                                optional_serializer_definitions);
+
+        file_contents_declarations = replace(file_contents_declarations,
+                                             "{expand_message_classes_declarations}",
+                                             generated.declarations);
+        file_contents_template_definitions = replace(file_contents_template_definitions,
+                                                     "{expand_message_classes_template_definitions}",
+                                                     generated.template_definitions);
+        file_contents_definitions = replace(file_contents_definitions,
+                                            "{expand_message_classes_definitions}",
+                                            generated.definitions);
 
         bool generation_success = false;
+        bool splitting = false, exporting = false;
+
+        string option_exporting;
+        if (argc >= 5)
+        {
+            option_exporting = argv[4];
+
+            if (option_exporting != "noexporting")
+                exporting = true;
+        }
+
+        string option_splitting;
+        if (argc >= 4)
+        {
+            option_splitting = argv[3];
+
+            if (option_splitting != "nosplitting")
+                splitting = true;
+        }
+
+        if (false == splitting)
+            exporting = false;
+
+        string keyword;
+        if (exporting)
+            keyword = option_exporting + " ";
+
+        if (splitting)
+        {
+            file_contents_declarations = replace_all(file_contents_declarations, "inline ", "");
+            file_contents_declarations = replace_all(file_contents_declarations, "inline\n", "");
+            file_contents_template_definitions = replace_all(file_contents_template_definitions, "inline ", "");
+            file_contents_template_definitions = replace_all(file_contents_template_definitions, "inline\n", "");
+        }
+
+        file_contents_declarations = replace_all(file_contents_declarations, "{export} ", keyword);
+        file_contents_template_definitions = replace_all(file_contents_template_definitions, "{export} ", keyword);
+
         if (argc >= 3)
         {
-            ofstream file_generate(argv[2]);
-            if (file_generate)
+            string file_name = argv[2];
+            if (false == splitting)
             {
-                file_generate << file_contents;
-                file_generate.close();
-                generation_success = true;
+                ofstream file_generate(file_name + ".hpp");
+                if (file_generate)
+                {
+                    file_generate << file_contents_declarations
+                                  << file_contents_template_definitions
+                                  << file_contents_definitions;
+                    file_generate.close();
+                    generation_success = true;
+                }
+            }
+            else
+            {
+                ofstream file_declarations(file_name + ".hpp");
+                ofstream file_template_definitions(file_name + ".tmpl.hpp");
+                ofstream file_definitions(file_name + ".cpp.hpp");
+                if (file_declarations &&
+                    file_template_definitions &&
+                    file_definitions)
+                {
+                    file_declarations << file_contents_declarations;
+                    file_template_definitions << file_contents_template_definitions;
+                    file_definitions << file_contents_definitions;
+
+                    file_declarations.close();
+                    file_template_definitions.close();
+                    file_definitions.close();
+
+                    generation_success = true;
+                }
             }
         }
         if (false == generation_success)
-            cout << file_contents;
+            cout << file_contents_declarations << file_contents_definitions;
 
         //cout << "depth is " << ptr_expression->depth() << std::endl;
     }
@@ -136,10 +257,10 @@ int main(int argc, char* argv[])
     {
         cout << "exception: " << ex.what() << endl;
 
-        if (ptr_expression)
+        if (false == ptr_expression.is_empty())
         {
             cout << "=====\n";
-            cout << beltpp::dump(ptr_expression.get()) << endl;
+            cout << beltpp::dump(ptr_expression.item()) << endl;
         }
 
         return 2;

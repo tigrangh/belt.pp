@@ -11,20 +11,22 @@ target_include_directories(belt.pp INTERFACE
 # what to do on make install
 install(TARGETS belt.pp
         EXPORT belt.pp.package
-        DESTINATION lib/belt.pp)
+        DESTINATION ${BELTPP_INSTALL_DESTINATION_LIBRARY})
 
 set(SRC_FILES
     delegate.hpp
+    direct_stream.hpp
     global.hpp
-    event.hpp
+    http.hpp
+    idl_parser.hpp
+    ievent.hpp
     ilog.hpp
     iprocessor.hpp
     isocket.hpp
-    iterator_wrapper.hpp
+    itransaction.hpp
     json.hpp
     log.hpp
     message_global.hpp
-    messages.hpp
     meta.hpp
     packet.hpp
     parser.hpp
@@ -32,11 +34,14 @@ set(SRC_FILES
     queue.hpp
     scope_helper.hpp
     socket.hpp
+    stream.hpp
+    timer.hpp
+    tls.hpp
     utility.hpp)
 
 install(FILES
     ${SRC_FILES}
-    DESTINATION include/belt.pp/belt.pp)
+    DESTINATION ${BELTPP_INSTALL_DESTINATION_INCLUDE}/belt.pp)
 
 #
 # add custom target simply for IDE to show the files

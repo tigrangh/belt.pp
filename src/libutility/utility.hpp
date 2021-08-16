@@ -13,4 +13,6 @@ std::string UTILITYSHARED_EXPORT gm_time_t_to_gm_string(time_t t);
 std::string UTILITYSHARED_EXPORT gm_time_t_to_lc_string(time_t t);
 bool UTILITYSHARED_EXPORT gm_string_to_gm_time_t(std::string const& strt, time_t& t);
 bool UTILITYSHARED_EXPORT lc_string_to_gm_time_t(std::string const& strt, time_t& t);
+double UTILITYSHARED_EXPORT random_in_range(double from, double to);
+bool UTILITYSHARED_EXPORT chance_one_of(uint32_t count);
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <exception>
+#include <stdexcept>
 #include <type_traits>
 
 namespace beltpp

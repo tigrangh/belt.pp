@@ -3,7 +3,6 @@ add_executable(idl
     generator.cpp
     generator.hpp
     main.cpp
-    parser.hpp
     resources.cpp
     resources.hpp)
 
@@ -13,4 +12,6 @@ target_link_libraries(idl PUBLIC belt.pp)
 # what to do on make install
 install(TARGETS idl
         EXPORT belt.pp.package
-        RUNTIME DESTINATION bin/belt.pp)
+        RUNTIME DESTINATION ${BELTPP_INSTALL_DESTINATION_RUNTIME}
+        LIBRARY DESTINATION ${BELTPP_INSTALL_DESTINATION_LIBRARY}
+        ARCHIVE DESTINATION ${BELTPP_INSTALL_DESTINATION_ARCHIVE})

@@ -24,7 +24,7 @@ void test_async_processor(size_t count,
     time_point tp_wait;
     time_point tp_destruct;
     {
-        beltpp::processor<task_t> proc(threads);
+        beltpp::processor_old<task_t> proc(threads);
 
         beltpp::ctask ttob;
         ttob.i = unitWeight;
@@ -49,14 +49,14 @@ void test_async_processor(size_t count,
         tp_wait = steady_clock::now();
         steady_clock::duration elapsed = tp_wait - tp_start;
         chrono::milliseconds ms_elapsed = chrono::duration_cast<chrono::milliseconds>(elapsed);
-        mswait = ms_elapsed.count();
+        mswait = long(ms_elapsed.count());
     }
 
     tp_destruct = steady_clock::now();
     {
         steady_clock::duration elapsed = tp_destruct - tp_wait;
         chrono::milliseconds ms_elapsed = chrono::duration_cast<chrono::milliseconds>(elapsed);
-        msdestruct = ms_elapsed.count();
+        msdestruct = long(ms_elapsed.count());
     }
 }
 /*  testing with 40 attempts    */
@@ -72,7 +72,7 @@ void test_async_processor(size_t count,
 int main()
 {
     int const sleep = -1;
-    size_t count = 1e7;
+    size_t count = size_t(1e7);
     long ms_wait, ms_destruct;
 
     for (size_t threads = 1; threads <= 1; ++threads)

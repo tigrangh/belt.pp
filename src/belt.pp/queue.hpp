@@ -4,6 +4,8 @@
 #include <cassert>
 #include <memory>
 #include <iterator>
+#include <exception>
+#include <stdexcept>
 
 namespace beltpp
 {
@@ -143,6 +145,19 @@ public:
         ++m_i_size;
     }
 
+    inline void push(T&& task)
+    {
+        reserve();
+
+        size_t i_end = m_i_start + m_i_size;
+        if (i_end >= m_vec_queue.size())
+            i_end -= m_vec_queue.size();
+        assert(i_end < m_vec_queue.size());
+
+        m_vec_queue[i_end] = std::move(task);
+        ++m_i_size;
+    }
+
     inline void pop() noexcept
     {
         assert(m_i_size);
@@ -191,14 +206,17 @@ public:
         return m_vec_queue[m_i_start];
     }
 
-    inline void reserve()
+    inline void reserve(size_t min_size = 64)
     {
         if (m_i_size == m_vec_queue.size())
         {
             size_t newsize = m_i_size;
             if (0 == newsize)
-                newsize = 16;
-            newsize *= 2;
+                newsize = min_size;
+            do
+            {
+                newsize *= 2;
+            } while (newsize < min_size);
 
             beltpp::queue<T> newqueue(newsize, end_index(), m_i_size);
             assert(newqueue.end_index() == end_index());
@@ -206,7 +224,7 @@ public:
 
             for (size_t index = begin_index(); index != end_index(); ++index)
             {
-                newqueue[index] = operator[](index);
+                newqueue[index] = std::move(operator[](index));
             }
 
             *this = std::move(newqueue);
@@ -266,14 +284,14 @@ private:
     //  iterator classes
     //
 public:
-    template <bool CONST>
+    template <bool _CONST>
     class iterator_template :
             public std::iterator<std::bidirectional_iterator_tag, T>
     {
         using parent_ptr =
-            typename detail::iterator_helper<T, CONST>::parent_ptr;
-        using ref = typename detail::iterator_helper<T, CONST>::ref;
-        using ptr = typename detail::iterator_helper<T, CONST>::ptr;
+            typename detail::iterator_helper<T, _CONST>::parent_ptr;
+        using ref = typename detail::iterator_helper<T, _CONST>::ref;
+        using ptr = typename detail::iterator_helper<T, _CONST>::ptr;
 
         friend class queue<T>;
     private:

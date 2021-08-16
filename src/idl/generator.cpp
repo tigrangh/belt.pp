@@ -2,14 +2,15 @@
 
 #include <cassert>
 #include <vector>
-#include <unordered_map>
 #include <unordered_set>
 #include <exception>
+#include <stdexcept>
 #include <utility>
 
 using std::string;
 using std::vector;
 using std::unordered_map;
+using std::unordered_multimap;
 using std::unordered_set;
 using std::pair;
 using std::runtime_error;
@@ -31,22 +32,29 @@ state_holder::state_holder()
                 {"Float64", "double"},
                 {"TimePoint", "ctime"},
                 {"Object", "::beltpp::packet"},
-                {"Extension", "::beltpp::packet"}}
+                {"Extension", "::beltpp::packet"},
+                {"Variant", "variant_type"}}
 {
 }
 
 namespace
 {
-enum type_info {type_empty = 0x0,
-                type_simple = 0x1,
-                type_object=0x2,
-                type_extension=0x4,
-                type_simple_object = type_simple | type_object,
-                type_simple_extension = type_simple | type_extension,
-                type_object_extension = type_object | type_extension,
-                type_simple_object_extension = type_simple | type_object_extension};
+enum g_type_info
+{
+    type_empty = 0x0,
+    type_simple = 0x1,
+    type_object = 0x2,
+    type_extension = 0x4,
+    type_simple_object = type_simple | type_object,
+    type_simple_extension = type_simple | type_extension,
+    type_object_extension = type_object | type_extension,
+    type_simple_object_extension = type_simple | type_object_extension
+};
 
-string convert_type(string const& type_name, state_holder& state, type_info& type_detail)
+string convert_type(string const& type_name,
+                    state_holder& state,
+                    g_type_info& type_detail,
+                    unordered_set<string>& type_names)
 {
     type_detail = type_empty;
     if ("Object" == type_name)
@@ -59,37 +67,109 @@ string convert_type(string const& type_name, state_holder& state, type_info& typ
     auto it_type_name = state.map_types.find(type_name);
     if (it_type_name != state.map_types.end())
         return it_type_name->second;
+
+    if (type_detail == type_simple)
+        type_names.insert(type_name);
+
     return type_name;
 }
 
-string construct_type_name (expression_tree const* member_type,
-                            state_holder& state,
-                            type_info& type_detail)
+string construct_type_name(expression_tree const* member_type,
+                           state_holder& state,
+                           g_type_info& type_detail,
+                           unordered_set<string>& type_names)
 {
     if (member_type->lexem.rtt == identifier::rtt)
-        return convert_type(member_type->lexem.value, state, type_detail);
+        return convert_type(member_type->lexem.value,
+                            state,
+                            type_detail,
+                            type_names);
     else if (member_type->lexem.rtt == keyword_array::rtt &&
-             member_type->children.size() == 1 &&
-             member_type->children.front()->lexem.rtt == identifier::rtt)
+             member_type->children.size() == 1)
     {
-        string type_name = convert_type(member_type->children.front()->lexem.value,
-                                        state, type_detail);
+        string type_name;
+        if (member_type->children.front().lexem.rtt == identifier::rtt)
+            type_name = convert_type(member_type->children.front().lexem.value,
+                                     state, type_detail, type_names);
+        else
+            type_name = construct_type_name(&member_type->children.front(),
+                                            state, type_detail, type_names);
+
         return "std::vector<" + type_name + ">";
+    }
+    else if (member_type->lexem.rtt == keyword_optional::rtt &&
+             member_type->children.size() == 1)
+    {
+        string type_name;
+        if (member_type->children.front().lexem.rtt == identifier::rtt)
+            type_name = convert_type(member_type->children.front().lexem.value,
+                                     state, type_detail, type_names);
+        else
+            type_name = construct_type_name(&member_type->children.front(),
+                                            state, type_detail, type_names);
+
+        if (state.optional_type.empty())
+            //throw runtime_error("can't get optional type definition, wtf!");
+            return "optional<" + type_name + ">";
+
+        return state.optional_type + "<" + type_name + ">";
+    }
+    else if (member_type->lexem.rtt == keyword_variant::rtt &&
+             member_type->children.size() == 2 &&
+             member_type->children.front().lexem.rtt == identifier::rtt &&
+             member_type->children.back().lexem.rtt == scope_brace::rtt)
+    {
+        string namespace_name = member_type->children.front().lexem.value;
+        if (namespace_name != state.namespace_name)
+            namespace_name = "::" + namespace_name + "::";
+        else
+            namespace_name.clear();
+
+        string type_name = convert_type(member_type->lexem.value,
+                                        state, type_detail, type_names);
+
+        string variant_type_names;
+        for (expression_tree const& child_type: member_type->children.back().children)
+        {
+            if (child_type.lexem.rtt != identifier::rtt)
+                throw runtime_error("can't get variant type definition, wtf!");
+
+            string variant_type_name = convert_type(child_type.lexem.value,
+                                                    state, type_detail, type_names);
+            if (false == variant_type_names.empty())
+                variant_type_names += ", ";
+            variant_type_names += namespace_name + variant_type_name + "::rtt";
+        }
+
+        return namespace_name + type_name + "<" + variant_type_names + ">";
+    }
+    else if (member_type->lexem.rtt == keyword_set::rtt &&
+             member_type->children.size() == 1)
+    {
+        string type_name;
+        if (member_type->children.front().lexem.rtt == identifier::rtt)
+            type_name = convert_type(member_type->children.front().lexem.value,
+                                     state, type_detail, type_names);
+        else
+            type_name = construct_type_name(&member_type->children.front(),
+                                            state, type_detail, type_names);
+
+        return "std::unordered_set<" + type_name + ">";
     }
     else if (member_type->lexem.rtt == keyword_hash::rtt &&
              member_type->children.size() == 2 &&
-             member_type->children.front()->lexem.rtt == identifier::rtt &&
-             member_type->children.back()->lexem.rtt == identifier::rtt)
+             member_type->children.front().lexem.rtt == identifier::rtt &&
+             member_type->children.back().lexem.rtt == identifier::rtt)
     {
-        type_info type_detail_key, type_detail_value;
+        g_type_info type_detail_key, type_detail_value;
         string key_type_name =
-                construct_type_name(member_type->children.front(),
-                                    state, type_detail_key);
+                construct_type_name(&member_type->children.front(),
+                                    state, type_detail_key, type_names);
         string value_type_name =
-                construct_type_name(member_type->children.back(),
-                                    state, type_detail_value);
+                construct_type_name(&member_type->children.back(),
+                                    state, type_detail_value, type_names);
 
-        type_detail = static_cast<type_info>(type_detail_key | type_detail_value);
+        type_detail = static_cast<g_type_info>(type_detail_key | type_detail_value);
 
         if ((type_detail & type_object) &&
             (type_detail & type_extension))
@@ -101,136 +181,214 @@ string construct_type_name (expression_tree const* member_type,
         throw runtime_error("can't get type definition, wtf!");
 }
 }
-string analyze(state_holder& state,
-               expression_tree const* pexpression)
+
+generated_code analyze(state_holder& state,
+                       expression_tree const* pexpression)
 {
     size_t rtt = 0;
-    string result;
+    generated_code result;
     assert(pexpression);
 
-    unordered_map<size_t, string> class_names, type_names;
+    vector<string> class_names;
+    unordered_map<string, generated_code> name_to_code;
+    unordered_multimap<string, string> dependencies;
+    vector<string> json_schema;
 
     if (pexpression->lexem.rtt != keyword_module::rtt ||
         pexpression->children.size() != 2 ||
-        pexpression->children.front()->lexem.rtt != identifier::rtt ||
-        pexpression->children.back()->lexem.rtt != scope_brace::rtt ||
-        pexpression->children.back()->children.empty())
+        pexpression->children.front().lexem.rtt != identifier::rtt ||
+        pexpression->children.back().lexem.rtt != scope_brace::rtt ||
+        pexpression->children.back().children.empty())
         throw runtime_error("wtf");
     else
     {
-        string module_name = pexpression->children.front()->lexem.value;
+        string module_name = pexpression->children.front().lexem.value;
         state.namespace_name = module_name;
-
-        for (auto item : pexpression->children.back()->children)
+        for (auto const& item : pexpression->children.back().children)
         {
-            if (item->lexem.rtt == keyword_type::rtt ||
-                item->lexem.rtt == keyword_class::rtt)
+            if (item.lexem.rtt == keyword_class::rtt)
             {
-                bool serializable = (item->lexem.rtt == keyword_class::rtt);
+                if (item.children.size() != 2 ||
+                    item.children.front().lexem.rtt != identifier::rtt ||
+                    item.children.back().lexem.rtt != scope_brace::rtt)
+                    throw runtime_error("class syntax is wrong");
 
-                if (item->children.size() != 2 ||
-                    item->children.front()->lexem.rtt != identifier::rtt ||
-                    item->children.back()->lexem.rtt != scope_brace::rtt)
-                    throw runtime_error("type syntax is wrong");
+                string type_name = item.children.front().lexem.value;
+                std::string class_members;
+                generated_code code = analyze_struct(state,
+                                                     &item.children.back(),
+                                                     rtt,
+                                                     type_name,
+                                                     dependencies,
+                                                     class_members);
 
-                string type_name = item->children.front()->lexem.value;
 
-                result += analyze_struct(state,
-                                         item->children.back(),
-                                         rtt,
-                                         type_name,
-                                         serializable);
+                json_schema.push_back(class_members);
 
-                if (serializable)
-                    class_names.insert(std::make_pair(rtt, type_name));
-                else
-                    type_names.insert(std::make_pair(rtt, type_name));
+                class_names.push_back(type_name);
+                name_to_code.insert(std::make_pair(type_name, std::move(code)));
                 ++rtt;
+            }
+            else if (item.lexem.rtt == keyword_enum::rtt)
+            {
+                if (item.children.size() != 2 ||
+                    item.children.front().lexem.rtt != identifier::rtt ||
+                    item.children.back().lexem.rtt != scope_brace::rtt)
+                    throw runtime_error("enum syntax is wrong");
+
+                string enum_name = item.children.front().lexem.value;
+                std::string enum_members;
+                generated_code code = analyze_enum(state,
+                                                   &item.children.back(),
+                                                   enum_name,
+                                                   enum_members);
+                json_schema.push_back(enum_members);
+
+                result.declarations += code.declarations;
+                result.template_definitions += code.template_definitions;
+                result.definitions += code.definitions;
             }
         }
     }
 
-    if (class_names.empty() && type_names.empty())
+    if (class_names.empty())
         throw runtime_error("wtf, nothing to do");
 
-    size_t max_rtt = 0;
-    for (auto const& class_item : class_names)
+    //  clean up dependencies from unknown names
+    //  leave class_names only
+    auto it_dependencies = dependencies.begin();
+    while (it_dependencies != dependencies.end())
     {
-        if (max_rtt < class_item.first)
-            max_rtt = class_item.first;
-    }
-    for (auto const& type_item : type_names)
-    {
-        if (max_rtt < type_item.first)
-            max_rtt = type_item.first;
+        if (name_to_code.find(it_dependencies->second) == name_to_code.end())
+            it_dependencies = dependencies.erase(it_dependencies);
+        else
+            ++it_dependencies;
     }
 
-    result += R"foo(
+    //  now order classes codes, so that each will
+    //  meet it's dependency requirements
+    while (false == name_to_code.empty())
+    {
+        bool no_progress = true;
+
+        auto it_code = name_to_code.begin();
+        while (it_code != name_to_code.end())
+        {
+            string const type_name = it_code->first;
+            if (dependencies.find(type_name) == dependencies.end())
+            {
+                result.declarations += it_code->second.declarations;
+                result.template_definitions += it_code->second.template_definitions;
+                result.definitions += it_code->second.definitions;
+                it_code = name_to_code.erase(it_code);
+                no_progress = false;
+
+                it_dependencies = dependencies.begin();
+                while (it_dependencies != dependencies.end())
+                {
+                    if (it_dependencies->second == type_name)
+                        it_dependencies = dependencies.erase(it_dependencies);
+                    else
+                        ++it_dependencies;
+                }
+            }
+            else
+                ++it_code;
+        }
+        if (no_progress)
+            throw std::runtime_error("most probably there is a cyclic dependency"
+                                     " in the model definition");
+    }
+
+    result.definitions += "namespace " + state.namespace_name;
+    result.definitions += R"foo(
+{
 namespace detail
 {
-template <typename = void>
-class storage
+template <typename T_message_type>
+bool analyze_json_template(void* pvalue,
+                           ::beltpp::json::expression_tree* pexp,
+                           ::beltpp::message_loader_utility const& utl)
 {
-public:
-    using fptr_saver = ::beltpp::detail::fptr_saver;
-    using fptr_analyze_json = bool (*)(void*, beltpp::json::expression_tree*, ::beltpp::message_loader_utility const&);
-    using fptr_new_void_unique_ptr = ::beltpp::void_unique_ptr (*)();
-    using fptr_new_void_unique_ptr_copy = ::beltpp::void_unique_ptr (*)(void const*);
+  T_message_type* pmsgcode =
+          static_cast<T_message_type*>(pvalue);
+  return analyze_json(*pmsgcode, pexp, utl);
+}
 
-    class storage_item
-    {
-    public:
-        fptr_saver fp_saver;
-        fptr_analyze_json fp_analyze_json;
-        fptr_new_void_unique_ptr fp_new_void_unique_ptr;
-        fptr_new_void_unique_ptr_copy fp_new_void_unique_ptr_copy;
-    };
-
-    template <typename T_message_type>
-    static bool analyze_json_template(void* pvalue,
-                                      ::beltpp::json::expression_tree* pexp,
-                                      ::beltpp::message_loader_utility const& utl)
-    {
-        T_message_type* pmsgcode =
-                static_cast<T_message_type*>(pvalue);
-        return analyze_json(*pmsgcode, pexp, utl);
-    }
-    static std::vector<storage_item> const s_arr_fptr;
-};
-template <typename T>
-std::vector<typename storage<T>::storage_item> const storage<T>::s_arr_fptr =
+std::vector<serialization_item> meta_serializers()
 {
+    return
+    {
 )foo";
-    for (size_t index = 0; index < max_rtt + 1; ++index)
+    for (size_t index = 0; index < rtt; ++index)
     {
-        auto it = class_names.find(index);
-        if (it == class_names.end())
-            result += "    {nullptr, nullptr, nullptr, nullptr}";
-        else
-        {
-            auto const& class_name = it->second;
-            result += "    {\n";
-            result += "        &" + class_name + "::saver,\n";
-            result += "        &storage<>::analyze_json_template<" + class_name + ">,\n";
-            result += "        (storage<>::fptr_new_void_unique_ptr)&::beltpp::new_void_unique_ptr<" + class_name + ">,\n";
-            result += "        (storage<>::fptr_new_void_unique_ptr_copy)&::beltpp::new_void_unique_ptr_copy<" + class_name + ">\n";
-            result += "    }";
-        }
-        if (index != max_rtt)
-            result += ",\n";
-    }
-    result += R"foo(
-};
+        auto const& class_name = class_names[index];
+        result.definitions += "    {\n";
+        result.definitions += "        &" + class_name + "::pvoid_saver,\n";
+        result.definitions += "        &analyze_json_template<" + class_name + ">,\n";
+        result.definitions += "        serialization_item::fptr_new_void_unique_ptr(&::beltpp::new_void_unique_ptr<" + class_name + ">),\n";
+        result.definitions += "        serialization_item::fptr_new_void_unique_ptr_copy(&::beltpp::new_void_unique_ptr_copy<" + class_name + ">)\n";
+        result.definitions += "    }";
 
+        if (index != rtt - 1)
+            result.definitions += ",\n";
+    }
+    result.definitions += R"foo(
+    };
+}
+
+std::vector<std::string> meta_models()
+{
+    return
+    {
+)foo";
+
+    for (size_t index = 0; index < rtt; ++index)
+    {
+        result.definitions += "        \"" + class_names[index] + "\"";
+
+        if (index != rtt - 1)
+            result.definitions += ",\n";
+    }
+    result.definitions += R"foo(
+    };
+}
+
+std::string meta_json_schema()
+{
+    return )foo";
+    result.definitions += "R\"foo(\n";
+    result.definitions += "{\n\n";
+
+    for (size_t index = 0; index < json_schema.size(); ++index)
+    {
+        if (index != json_schema.size() - 1 &&
+            index % 10 == 9)
+            result.definitions += ")foo\" R\"foo(\n\n";
+
+        result.definitions += json_schema[index];
+
+        if (index != json_schema.size() - 1)
+            result.definitions += ",\n\n";
+        else
+            result.definitions += "\n";
+    }
+
+    result.definitions += "\n}\n";
+    result.definitions += ")foo\";\n";
+
+    result.definitions += R"foo(
+}
 bool analyze_json_object(beltpp::json::expression_tree* pexp,
                          beltpp::detail::pmsg_all& return_value,
                          ::beltpp::message_loader_utility const& utl)
 {
     bool code = false;
 
-    if (storage<>::s_arr_fptr.size() > return_value.rtt)
+    auto arr_fptr = meta_serializers();
+    if (arr_fptr.size() > return_value.rtt)
     {
-        auto const& item = storage<>::s_arr_fptr[return_value.rtt];
+        auto const& item = arr_fptr[return_value.rtt];
 
         if (item.fp_analyze_json && item.fp_new_void_unique_ptr &&
             item.fp_new_void_unique_ptr_copy && item.fp_saver)
@@ -246,7 +404,10 @@ bool analyze_json_object(beltpp::json::expression_tree* pexp,
 
     return code;
 }
-})foo";
+}  // end of namespace detail
+)foo";
+
+    result.definitions += "}  // end of namespace " + state.namespace_name + "\n\n";
 
     return result;
 }
@@ -259,25 +420,16 @@ inline bool set_contains(T const& value, unordered_set<T> const& set)
     return true;
 }
 
-string analyze_struct(state_holder& state,
-                      expression_tree const* pexpression,
-                      size_t rtt,
-                      string const& type_name,
-                      bool serializable)
+generated_code analyze_struct(state_holder& state,
+                              expression_tree const* pexpression,
+                              size_t rtt,
+                              string const& type_name,
+                              unordered_multimap<string, string>& dependencies,
+                              string& class_members)
 {
     if (state.namespace_name.empty())
         throw runtime_error("please specify package name");
-    string result;
     assert(pexpression);
-
-    result += "class " + type_name + ";\n";
-    result += "namespace detail\n";
-    result += "{\n";
-    result += "std::string saver(" + type_name + " const& self);\n";
-    result += "}\n";
-
-    result += "class " + type_name + "\n";
-    result += "{\npublic:\n";
 
     vector<pair<expression_tree const*, expression_tree const*>> members;
 
@@ -289,33 +441,54 @@ string analyze_struct(state_holder& state,
          it != pexpression->children.end();
          ++index, ++it)
     {
-        auto const* member_type = *it;
+        auto const& member_type = *it;
         ++it;
-        auto const* member_name = *it;
+        auto const& member_name = *it;
 
-        if (member_name->lexem.rtt != identifier::rtt)
+        if (member_name.lexem.rtt != identifier::rtt)
             throw runtime_error("inside class syntax error, wtf, still " + type_name);
 
-        members.push_back(std::make_pair(member_name, member_type));
+        members.push_back(std::make_pair(&member_name, &member_type));
     }
 
-    result += "    enum {rtt = " + std::to_string(rtt) + "};\n";
+    generated_code result;
+
+    result.definitions += "namespace " + state.namespace_name + "\n{\n";
+    result.declarations += "namespace " + state.namespace_name + "\n{\n";
+
+    result.declarations += "class {export} " + type_name + "\n";
+    result.declarations += "{\npublic:\n";
+
+    result.declarations += "    enum {rtt = " + std::to_string(rtt) + "};\n";
 
     unordered_set<string> set_object_name;
     unordered_set<string> set_extension_name;
 
     unordered_map<string, string> map_member_name_type;
 
-    for (auto member_pair : members)
+    unordered_set<string> member_type_names;
+
+    class_members += "    \"" + type_name + "\": {\n";
+    class_members += "        \"type\": \"object\",\n";
+    class_members += "        \"rtt\": " + std::to_string(rtt) + ",\n";
+    class_members += "        \"properties\": {";
+
+    for (size_t index = 0; index < members.size(); ++index)
     {
+        auto const& member_pair = members[index];
+
         auto const& member_name = member_pair.first->lexem;
         auto const& member_type = member_pair.second;
         if (member_name.rtt != identifier::rtt)
             throw runtime_error("use \"variable type\" syntax please");
 
-        type_info type_detail;
-        string member_type_name = construct_type_name(member_type, state, type_detail);
-        result += "    " + member_type_name + " " + member_name.value + ";\n";
+        g_type_info type_detail;
+        string member_type_name = construct_type_name(member_type,
+                                                      state,
+                                                      type_detail,
+                                                      member_type_names);
+
+        result.declarations += "    " + member_type_name + " " + member_name.value + ";\n";
 
         if (type_detail & type_object)
             set_object_name.insert(member_name.value);
@@ -323,48 +496,85 @@ string analyze_struct(state_holder& state,
             set_extension_name.insert(member_name.value);
 
         map_member_name_type.insert(std::make_pair(member_name.value, member_type_name));
+
+        if (member_pair.second->lexem.rtt == keyword_array::rtt ||
+            member_pair.second->lexem.rtt == keyword_optional::rtt ||
+            member_pair.second->lexem.rtt == keyword_set::rtt)
+            class_members += "\n            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + " " + member_type->children.front().lexem.value + "\"}";
+        else if (member_pair.second->lexem.rtt == keyword_hash::rtt)
+            class_members += "\n            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + " " + member_type->children.front().lexem.value + " " + member_type->children.back().lexem.value + "\"}";
+        else
+            class_members += "\n            \"" + member_name.value + "\": { \"type\": \"" + member_pair.second->lexem.value + "\"}";
+
+        if (index == members.size() - 1)
+            class_members += "\n        ";
+        else
+            class_members += ",";
     }
 
-    auto member_type_by_name = [&map_member_name_type](string const& name)
-    {
-        return map_member_name_type[name];
-    };
+    class_members += "}\n";
+    class_members += "    }";
 
-    {
+    for (string const& dependency_type_name : member_type_names)
+        dependencies.insert(std::make_pair(type_name, dependency_type_name));
+
+    {   //  default constructor
+    if (false == members.empty())
+        result.declarations += "    inline " + type_name + "();\n";
+
     bool first = true;
     for (auto member_pair : members)
     {
         auto const& member_name = member_pair.first->lexem;
 
         if (first)
-            result += "    " + type_name + "()\n"
-                    "      : " + member_name.value + "()\n";
+            result.definitions += type_name + "::" + type_name + "()\n"
+                    "  : " + member_name.value + "()\n";
         else
-            result += "      , " + member_name.value + "()\n";
+            result.definitions += "  , " + member_name.value + "()\n";
 
         first = false;
     }
     if (false == members.empty())
-        result += "    {}\n";
+        result.definitions += "{}\n";
     }
 
+    {   //  copy/move constructors
+    if (false == members.empty())
     {
+        result.declarations += "    inline " + type_name + "(" + type_name + " const& other);\n";
+        result.declarations += "    inline " + type_name + "(" + type_name + "&& other) noexcept;\n";
+    }
+
+    string copy_constructor, move_constructor;
+
     bool first = true;
     for (auto member_pair : members)
     {
         auto const& member_name = member_pair.first->lexem;
 
         string copy_expr = member_name.value + "(other." + member_name.value + ")\n";
+        string move_expr = member_name.value + "(std::move(other." + member_name.value + "))\n";
 
         if (set_contains(member_name.value, set_object_name) ||
             set_contains(member_name.value, set_extension_name))
+        {
             copy_expr = member_name.value + "()\n";
+            move_expr = member_name.value + "()\n";
+        }
 
         if (first)
-            result += "    " + type_name + "(" + type_name + " const& other)\n"
-                    "      : " + copy_expr;
+        {
+            copy_constructor = type_name + "::" + type_name + "(" + type_name + " const& other)\n"
+                    "  : " + copy_expr;
+            move_constructor = type_name + "::" + type_name + "(" + type_name + "&& other) noexcept\n"
+                    "  : " + move_expr;
+        }
         else
-            result += "      , " + copy_expr;
+        {
+            copy_constructor += "  , " + copy_expr;
+            move_constructor += "  , " + move_expr;
+        }
 
         first = false;
     }
@@ -372,244 +582,272 @@ string analyze_struct(state_holder& state,
     {
         if (set_object_name.empty() &&
             set_extension_name.empty())
-            result += "    {}\n";
+        {
+            copy_constructor += "{}\n";
+            move_constructor += "{}\n";
+        }
         else
         {
-            result += "    {\n";
+            copy_constructor += "{\n";
+            move_constructor += "{\n";
             for (auto const& item : set_object_name)
-                result += "        detail::assign_packet(" + item + ", other." + item + ");\n";
+            {
+                copy_constructor += "    detail::assign_packet(" + item + ", other." + item + ");\n";
+                move_constructor += "    detail::assign_packet(" + item + ", std::move(other." + item + "));\n";
+            }
             for (auto const& item : set_extension_name)
-                result += "        detail::assign_extension(" + item + ", other." + item + ");\n";
-            result += "    }\n";
+            {
+                copy_constructor += "    detail::assign_extension(" + item + ", other." + item + ");\n";
+                move_constructor += "    detail::assign_extension(" + item + ", std::move(other." + item + "));\n";
+            }
+            copy_constructor += "}\n";
+            move_constructor += "}\n";
         }
     }
+
+    result.definitions += copy_constructor + move_constructor;
     }
 
     if (false == members.empty())
     {
-        result += "    template <typename T>\n";
-        result += "    explicit " + type_name + "(T const& other)\n";
-        result += "    {\n";
-        for (auto member_pair : members)
-        {
-            auto const& member_name = member_pair.first->lexem;
-            auto const& mn = member_name.value;
-            auto const mt = member_type_by_name(mn);
-            if (set_contains(member_name.value, set_object_name))
-                result += "        detail::assign_packet(" + member_name.value + ", other." + member_name.value + ");\n";
-            else if (set_contains(member_name.value, set_extension_name))
-                result += "        detail::assign_extension(" + member_name.value + ", other." + member_name.value + ");\n";
-            else
-                result += "        ::beltpp::assign(" + mn + ", other." + mn + ");\n";
-        }
-        result += "    }\n";
+        result.declarations += "    template <typename T>\n";
+        result.declarations += "    BELT_LOCAL explicit " + type_name + "(T&& other);\n";
 
-        result += "    " + type_name + "& operator = (" + type_name + " const& other)\n";
-        result += "    {\n";
-        for (auto member_pair : members)
-        {
-            auto const& member_name = member_pair.first->lexem;
-            if (set_contains(member_name.value, set_object_name))
-                result += "        detail::assign_packet(" + member_name.value + ", other." + member_name.value + ");\n";
-            else if (set_contains(member_name.value, set_extension_name))
-                result += "        detail::assign_extension(" + member_name.value + ", other." + member_name.value + ");\n";
-            else
-                result += "        ::beltpp::assign(" + member_name.value + ", other." + member_name.value + ");\n";
-        }
-        result += "        return *this;\n";
-        result += "    }\n";
+        result.declarations += "    inline " + type_name + "& operator = (" + type_name + " const& other);\n";
 
-        result += "    " + type_name + "& operator = (" + type_name + "&& other)\n";
-        result += "    {\n";
-        for (auto member_pair : members)
-        {
-            auto const& member_name = member_pair.first->lexem;
-            if (set_contains(member_name.value, set_object_name))
-                result += "        detail::assign_packet(" + member_name.value + ", std::move(other." + member_name.value + "));\n";
-            else if (set_contains(member_name.value, set_extension_name))
-                result += "        detail::assign_extension(" + member_name.value + ", std::move(other." + member_name.value + "));\n";
-            else
-                result += "        ::beltpp::assign(" + member_name.value + ", std::move(other." + member_name.value + "));\n";
-        }
-        result += "        return *this;\n";
-        result += "    }\n";
+        result.definitions += type_name + "& " + type_name + "::operator = (" + type_name + " const& other)\n";
+        result.definitions += "{\n";
+        result.definitions += "    ::beltpp::assign(*this, other);\n";
+        result.definitions += "    return *this;\n";
+        result.definitions += "}\n";
 
-        result += "    template <typename T>\n";
-        result += "    " + type_name + "& operator = (T const& other)\n";
-        result += "    {\n";
-        for (auto member_pair : members)
-        {
-            auto const& member_name = member_pair.first->lexem;
-            auto const& mn = member_name.value;
-            auto const mt = member_type_by_name(mn);
-            if (set_contains(member_name.value, set_object_name))
-                result += "        detail::assign_packet(" + member_name.value + ", other." + member_name.value + ");\n";
-            else if (set_contains(member_name.value, set_extension_name))
-                result += "        detail::assign_extension(" + member_name.value + ", other." + member_name.value + ");\n";
-            else
-                result += "        ::beltpp::assign(" + mn + ", other." + mn + ");\n";
-        }
-        result += "        return *this;\n";
-        result += "    }\n";
+        result.declarations += "    inline " + type_name + "& operator = (" + type_name + "&& other) noexcept;\n";
+
+        result.definitions += type_name + "& " + type_name + "::operator = (" + type_name + "&& other) noexcept\n";
+        result.definitions += "{\n";
+        result.definitions += "    ::beltpp::assign(*this, std::move(other));\n";
+        result.definitions += "    return *this;\n";
+        result.definitions += "}\n";
+
+        result.declarations += "    template <typename T>\n";
+        result.declarations += "    BELT_LOCAL " + type_name + "& operator = (T&& other);\n";
     }
 
-    result += "    bool operator == (" + type_name + " const& other) const\n";
-    result += "    {\n";
+    string const placeholder_other = members.empty() ? string() : " other";
+
+    result.declarations += "    inline bool operator == (" + type_name + " const&" + placeholder_other + ") const;\n";
+    result.definitions += "bool " + type_name + "::operator == (" + type_name + " const&" + placeholder_other + ") const\n";
+    result.definitions += "{\n";
     for (auto member_pair : members)
     {
     auto const& member_name = member_pair.first->lexem;
     if (set_object_name.find(member_name.value) != set_object_name.end() ||
         set_extension_name.find(member_name.value) != set_extension_name.end())
-        result += "        if (detail::saver(" + member_name.value + ") != detail::saver(other." + member_name.value + "))\n";
+        result.definitions += "    if (detail::saver(" + member_name.value + ") != detail::saver(other." + member_name.value + "))\n";
     else
-        result += "        if (" + member_name.value + " != other." + member_name.value + ")\n";
-    result += "            return false;\n";
+        result.definitions += "    if (" + member_name.value + " != other." + member_name.value + ")\n";
+    result.definitions += "        return false;\n";
     }
-    result += "        return true;\n";
-    result += "    }\n";
+    result.definitions += "    return true;\n";
+    result.definitions += "}\n";
 
-    result += "    bool operator != (" + type_name + " const& other) const\n";
-    result += "    {\n";
-    result += "        return false == (operator == (other));\n";
-    result += "    }\n";
+    result.declarations += "    inline bool operator != (" + type_name + " const& other) const;\n";
 
-    result += "    bool operator < (" + type_name + " const& other) const\n";
-    result += "    {\n";
+    result.definitions += "bool " + type_name + "::operator != (" + type_name + " const& other) const\n";
+    result.definitions += "{\n";
+    result.definitions += "    return false == (operator == (other));\n";
+    result.definitions += "}\n";
+
+    result.declarations += "    inline bool operator < (" + type_name + " const&" + placeholder_other + ") const;\n";
+    result.definitions += "bool " + type_name + "::operator < (" + type_name + " const&" + placeholder_other + ") const\n";
+    result.definitions += "{\n";
     for (auto member_pair : members)
     {
     auto const& member_name = member_pair.first->lexem;
-    result += "        if (false == detail::less(" + member_name.value + ", other." + member_name.value + "))\n";
-    result += "            return false;\n";
+    result.definitions += "    if (false == detail::less(" + member_name.value + ", other." + member_name.value + "))\n";
+    result.definitions += "        return false;\n";
     }
     if (false == members.empty())
-    result += "        return true;\n";
+    result.definitions += "    return true;\n";
     else
-    result += "        return false;\n";
-    result += "    }\n";
+    result.definitions += "    return false;\n";
+    result.definitions += "}\n";
 
-    result += "    bool operator > (" + type_name + " const& other) const\n";
-    result += "    {\n";
-    result += "        return other < *this;\n";
-    result += "    }\n";
+    result.declarations += "    inline bool operator > (" + type_name + " const& other) const;\n";
+    result.definitions += "bool " + type_name + "::operator > (" + type_name + " const& other) const\n";
+    result.definitions += "{\n";
+    result.definitions += "    return other < *this;\n";
+    result.definitions += "}\n";
 
-    result += "    bool operator >= (" + type_name + " const& other) const\n";
-    result += "    {\n";
-    result += "        return false == (*this < other);\n";
-    result += "    }\n";
+    result.declarations += "    inline bool operator >= (" + type_name + " const& other) const;\n";
+    result.definitions += "bool " + type_name + "::operator >= (" + type_name + " const& other) const\n";
+    result.definitions += "{\n";
+    result.definitions += "    return false == (*this < other);\n";
+    result.definitions += "}\n";
 
-    result += "    bool operator <= (" + type_name + " const& other) const\n";
-    result += "    {\n";
-    result += "        return false == (*this > other);\n";
-    result += "    }\n";
+    result.declarations += "    inline bool operator <= (" + type_name + " const& other) const;\n";
+    result.definitions += "bool " + type_name + "::operator <= (" + type_name + " const& other) const\n";
+    result.definitions += "{\n";
+    result.definitions += "    return false == (*this > other);\n";
+    result.definitions += "}\n";
 
-    result += "    static std::vector<char> saver(void* p)\n";
-    result += "    {\n";
-    if (serializable)
-    {
-    result += "        " + type_name + "* pmc = static_cast<" + type_name + "*>(p);\n";
-    result += "        std::vector<char> result;\n";
-    result += "        std::string str_value = detail::saver(*pmc);\n";
-    result += "        std::copy(str_value.begin(), str_value.end(), std::back_inserter(result));\n";
-    result += "        return result;\n";
-    }
-    else
-    {
-    result += "        return std::vector<char>();\n";
-    }
-    result += "    }\n";
+    result.declarations += "    inline static std::string pvoid_saver(void* p);\n";
+    result.definitions += "std::string " + type_name + "::pvoid_saver(void* p)\n";
+    result.definitions += "{\n";
+    result.definitions += "    " + type_name + "* pmc = static_cast<" + type_name + "*>(p);\n";
+    result.definitions += "    return detail::saver(*pmc);\n";
+    result.definitions += "}\n";
 
-    if (serializable)
-    {
-    result += "    static std::string string_saver(" + type_name + " const& ob)\n";
-    result += "    {\n";
-    result += "        return detail::saver(ob);\n";
-    result += "    }\n";
-    result += "    static void string_loader(" + type_name + "& ob, std::string const& encoded)\n";
-    result += "    {\n";
-    result += "        if (false == detail::loader(ob, encoded, nullptr))\n";
-    result += "            throw std::runtime_error(\"cannot parse " + type_name + " data\");\n";
-    result += "    }\n";
-    }
+    result.declarations += "    inline std::string to_string() const;\n";
+    result.definitions += "std::string " + type_name + "::to_string() const\n";
+    result.definitions += "{\n";
+    result.definitions += "    return detail::saver(*this);\n";
+    result.definitions += "}\n";
 
-    result += "};  // end of class\n";
+    result.declarations += "    inline void from_string(std::string const& encoded, void* putl = nullptr);\n";
+    result.definitions += "void " + type_name + "::from_string(std::string const& encoded, void* putl/* = nullptr*/)\n";
+    result.definitions += "{\n";
+    result.definitions += "    if (false == detail::loader(*this, encoded, putl))\n";
+    result.definitions += "        throw std::runtime_error(\"cannot parse " + type_name + " data\");\n";
+    result.definitions += "}\n";
 
-    result += "}   // end of namespace " + state.namespace_name + "\n";
+    result.declarations += "};\n";  //  end of class
+
+    result.declarations += "namespace detail\n";
+    result.declarations += "{\n";
+    result.declarations += "inline std::string saver(" + type_name + " const& self);\n";
+    result.declarations += "}\n";
+
+    result.declarations += "} // end of namespace " + state.namespace_name + "\n\n";
+
+    result.declarations += "namespace std\n";
+    result.declarations += "{\n";
+    result.declarations += "//  provide a simple hash, required by std::unordered_map\n";
+    result.declarations += "template <>\n";
+    result.declarations += "struct hash<" + state.namespace_name + "::" + type_name + ">\n";
+    result.declarations += "{\n";
+    result.declarations += "    inline size_t operator()(" + state.namespace_name + "::" + type_name + " const& value) const noexcept;\n";
+    result.declarations += "};\n";
+    result.declarations += "}   //  end of namespace std\n";
+    result.declarations += "\n";
 
     if (false == members.empty())
     {
-        result += "namespace beltpp\n";
-        result += "{\n";
-        result += "template <typename T>\n";
-        result += "void assign(" + state.namespace_name + "::" + type_name + "& self, T const& other)\n";
-        result += "{\n";
+        result.template_definitions += "namespace beltpp\n";
+        result.template_definitions += "{\n";
+        result.template_definitions += "template <typename T>\n";
+        result.template_definitions += "void assign(" + state.namespace_name + "::" + type_name + "& self, T const& other)\n";
+        result.template_definitions += "{\n";
         for (auto member_pair : members)
         {
         auto const& member_name = member_pair.first->lexem;
         if (set_contains(member_name.value, set_object_name))
-            result += "    " + state.namespace_name + "::detail::assign_packet(self." + member_name.value + ", other." + member_name.value + ");\n";
+            result.template_definitions += "    " + state.namespace_name + "::detail::assign_packet(self." + member_name.value + ", other." + member_name.value + ");\n";
         else if (set_contains(member_name.value, set_extension_name))
-            result += "    " + state.namespace_name + "::detail::assign_extension(self." + member_name.value + ", other." + member_name.value + ");\n";
+            result.template_definitions += "    " + state.namespace_name + "::detail::assign_extension(self." + member_name.value + ", other." + member_name.value + ");\n";
         else
-        result += "    ::beltpp::assign(self." + member_name.value + ", other." + member_name.value + ");\n";
+        result.template_definitions += "    ::beltpp::assign(self." + member_name.value + ", other." + member_name.value + ");\n";
         }
-        result += "}\n";
+        result.template_definitions += "}\n";
 
-        result += "template <typename T, typename = typename std::enable_if<!std::is_same<T, " +
-                    state.namespace_name + "::" + type_name + ">::value, void>::type>\n";
-        result += "void assign(T& self, " + state.namespace_name + "::" + type_name + " const& other)\n";
-        result += "{\n";
+        result.template_definitions += "template <typename T,\n";
+        result.template_definitions += "          typename = typename std::enable_if<0 == " + state.namespace_name + "::detail::has_integer_rtt<T>::value>::type>\n";
+        result.template_definitions += "void assign(T& self, " + state.namespace_name + "::" + type_name + " const& other)\n";
+        result.template_definitions += "{\n";
         for (auto member_pair : members)
         {
         auto const& member_name = member_pair.first->lexem;
         if (set_contains(member_name.value, set_object_name))
-            result += "    " + state.namespace_name + "::detail::assign_packet(self." + member_name.value + ", other." + member_name.value + ");\n";
+            result.template_definitions += "    " + state.namespace_name + "::detail::assign_packet(self." + member_name.value + ", other." + member_name.value + ");\n";
         else if (set_contains(member_name.value, set_extension_name))
-            result += "    " + state.namespace_name + "::detail::assign_extension(self." + member_name.value + ", other." + member_name.value + ");\n";
+            result.template_definitions += "    " + state.namespace_name + "::detail::assign_extension(self." + member_name.value + ", other." + member_name.value + ");\n";
         else
-        result += "    ::beltpp::assign(self." + member_name.value + ", other." + member_name.value + ");\n";
+        result.template_definitions += "    ::beltpp::assign(self." + member_name.value + ", other." + member_name.value + ");\n";
         }
-        result += "}\n";
+        result.template_definitions += "}\n";
 
-        result += "template <typename T>\n";
-        result += "void assign(T& self, " + state.namespace_name + "::" + type_name + "&& other)\n";
-        result += "{\n";
+        result.template_definitions += "template <typename T,\n";
+        result.template_definitions += "          typename = typename std::enable_if<!std::is_reference<T>::value>::type>\n";
+        result.template_definitions += "void assign(" + state.namespace_name + "::" + type_name + "& self, T&& other)\n";
+        result.template_definitions += "{\n";
         for (auto member_pair : members)
         {
         auto const& member_name = member_pair.first->lexem;
         if (set_contains(member_name.value, set_object_name))
-            result += "    " + state.namespace_name + "::detail::assign_packet(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
+            result.template_definitions += "    " + state.namespace_name + "::detail::assign_packet(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
         else if (set_contains(member_name.value, set_extension_name))
-            result += "    " + state.namespace_name + "::detail::assign_extension(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
+            result.template_definitions += "    " + state.namespace_name + "::detail::assign_extension(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
         else
-        result += "    ::beltpp::assign(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
+        result.template_definitions += "    ::beltpp::assign(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
         }
-        result += "}\n";
-        result += "}   // end of namespace beltpp\n";
+        result.template_definitions += "}\n";
+
+        result.template_definitions += "template <typename T,\n";
+        result.template_definitions += "          typename = typename std::enable_if<!std::is_reference<T>::value && 0 == " + state.namespace_name + "::detail::has_integer_rtt<T>::value>::type>\n";
+        result.template_definitions += "void assign(T& self, " + state.namespace_name + "::" + type_name + "&& other)\n";
+        result.template_definitions += "{\n";
+        for (auto member_pair : members)
+        {
+        auto const& member_name = member_pair.first->lexem;
+        if (set_contains(member_name.value, set_object_name))
+            result.template_definitions += "    " + state.namespace_name + "::detail::assign_packet(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
+        else if (set_contains(member_name.value, set_extension_name))
+            result.template_definitions += "    " + state.namespace_name + "::detail::assign_extension(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
+        else
+        result.template_definitions += "    ::beltpp::assign(self." + member_name.value + ", std::move(other." + member_name.value + "));\n";
+        }
+        result.template_definitions += "}\n";
+
+        result.template_definitions += "}  //  end of namespace beltpp\n";
     }
-    if (serializable)
+
+    result.template_definitions += "namespace " + state.namespace_name + "\n";
+    result.template_definitions += "{\n";
+
+    if (false == members.empty())
     {
-    result += "namespace " + state.namespace_name + "\n";
-    result += "{\n";
-    result += "namespace detail\n";
-    result += "{\n";
-    result += "inline\n";
-    result += "bool analyze_json(" + type_name + "& msgcode,\n";
-    result += "                  beltpp::json::expression_tree* pexp,\n";
-    result += "                  ::beltpp::message_loader_utility const& utl)\n";
-    result += "{\n";
-    result += "    bool code = true;\n";
-    result += "    std::unordered_map<std::string, beltpp::json::expression_tree*> members;\n";
-    result += "    size_t rtt = -1;\n";
-    result += "    if (false == analyze_json_common(rtt, pexp, members) ||\n";
-    result += "        rtt != " + type_name + "::rtt)\n";
-    result += "        code = false;\n";
-    result += "    else\n";
-    result += "    {\n";
+        result.template_definitions += "template <typename T>\n";
+        result.template_definitions += type_name + "::" + type_name + "(T&& other)\n";
+        result.template_definitions += "{\n";
+        result.template_definitions += "    ::beltpp::assign(*this, std::forward<T>(other));\n";
+        result.template_definitions += "}\n";
+
+        result.template_definitions += "template <typename T>\n";
+        result.template_definitions += type_name + "& " + type_name + "::operator = (T&& other)\n";
+        result.template_definitions += "{\n";
+        result.template_definitions += "    ::beltpp::assign(*this, std::forward<T>(other));\n";
+        result.template_definitions += "    return *this;\n";
+        result.template_definitions += "}\n";
+    }
+
+    result.template_definitions += "}   //  end of namespace " + state.namespace_name + "\n";
+
+    string const message_placeholder = members.empty() ? string() : " message";
+    string const utl_placeholder = members.empty() ? string() : " utl";
+    string const self_placeholder = members.empty() ? string() : " self";
+
+    result.definitions += "namespace detail\n";
+    result.definitions += "{\n";
+    result.definitions += "inline\n";
+    result.definitions += "bool analyze_json(" + type_name + "&" + message_placeholder + ",\n";
+    result.definitions += "                  beltpp::json::expression_tree* pexp,\n";
+    result.definitions += "                  ::beltpp::message_loader_utility const&" + utl_placeholder + ")\n";
+    result.definitions += "{\n";
+    result.definitions += "    bool code = true;\n";
+    result.definitions += "    std::unordered_map<std::string, beltpp::json::expression_tree*> members;\n";
+    result.definitions += "    size_t rtt = size_t(-1);\n";
+    result.definitions += "    if (false == analyze_json_common(rtt, pexp, members) ||\n";
+    result.definitions += "        rtt != " + type_name + "::rtt)\n";
+    result.definitions += "        code = false;\n";
+
+    result.definitions += "    \n";
     for (auto member_pair : members)
     {
     auto const& member_name = member_pair.first->lexem;
-    result += "        if (code)\n";
-    result += "        {\n";
+    auto const& member_type = member_pair.second->lexem;
+
+    result.definitions += "    if (code)\n";
+    result.definitions += "    {\n";
     string utl_var_name = "utl";
     bool is_extension = false;
     if (set_extension_name.find(member_name.value) != set_extension_name.end())
@@ -617,69 +855,205 @@ string analyze_struct(state_holder& state,
     if (is_extension)
     {
     utl_var_name = "utl2";
-    result += "            auto utl2 = utl;\n";
-    result += "            if (utl2.m_arr_fp_message_list_load_helper.empty() ||\n";
-    result += "                nullptr == utl2.m_arr_fp_message_list_load_helper.front())\n";
-    result += "                code = false;\n";
-    result += "            else\n";
-    result += "            {\n";
-    result += "            utl2.m_fp_message_list_load_helper = utl2.m_arr_fp_message_list_load_helper.front();\n";
-    result += "            utl2.m_arr_fp_message_list_load_helper.pop_front();\n";
+    result.definitions += "        auto utl2 = utl;\n";
+    result.definitions += "        if (utl2.m_arr_fp_message_list_load_helper.empty() ||\n";
+    result.definitions += "            nullptr == utl2.m_arr_fp_message_list_load_helper.front())\n";
+    result.definitions += "            code = false;\n";
+    result.definitions += "        else\n";
+    result.definitions += "        {\n";
+    result.definitions += "        utl2.m_fp_message_list_load_helper = utl2.m_arr_fp_message_list_load_helper.front();\n";
+    result.definitions += "        utl2.m_arr_fp_message_list_load_helper.pop_front();\n";
     }
-    result += "            auto it_find = members.find(\"\\\"" + member_name.value + "\\\"\");\n";
-    result += "            if (it_find == members.end())\n";
-    result += "                code = false;\n";
-    result += "            else\n";
-    result += "            {\n";
-    result += "                beltpp::json::expression_tree* item = it_find->second;\n";
-    result += "                assert(item);\n";
-    result += "                code = analyze_json(msgcode." + member_name.value + ", item, " + utl_var_name + ");\n";
-    result += "            }\n";
+    if (member_type.value == "Optional")
+    {
+    result.definitions += "        auto it_find = members.find(\"\\\"" + member_name.value + "\\\"\");\n";
+    result.definitions += "        if (it_find != members.end())\n";
+    }
+    else
+    {
+    result.definitions += "        auto it_find = members.find(\"\\\"" + member_name.value + "\\\"\");\n";
+    result.definitions += "        if (it_find == members.end())\n";
+    result.definitions += "            code = false;\n";
+    result.definitions += "        else\n";
+    }
+    result.definitions += "        {\n";
+    result.definitions += "            beltpp::json::expression_tree* item = it_find->second;\n";
+    result.definitions += "            assert(item);\n";
+    result.definitions += "            code = analyze_json(message." + member_name.value + ", item, " + utl_var_name + ");\n";
+    result.definitions += "        }\n";
     if (is_extension)
     {
-    result += "            }\n";
+    result.definitions += "        }\n";
     }
-    result += "        }\n";
+    result.definitions += "    }\n";
     }
-    result += "    }\n";
-    result += "    return code;\n";
-    result += "}\n";
+    result.definitions += "    return code;\n";
+    result.definitions += "}\n";
 
-    result += "inline\n";
-    result += "std::string saver(" + type_name + " const& self)\n";
-    result += "{\n";
-    result += "    std::string result;\n";
-    result += "    result += \"{\";\n";
-    result += "    result += \"\\\"rtt\\\":\" + saver(" + type_name + "::rtt);\n";
+    result.definitions += "std::string saver(" + type_name + " const&" + self_placeholder + ")\n";
+    result.definitions += "{\n";
+    result.definitions += "    std::string result;\n";
+    result.definitions += "    result += \"{\\\"rtt\\\":\" + saver(" + type_name + "::rtt);\n";
+    
+    if (false == members.empty())
+        result.definitions += "    std::string temp;\n";
+    
     for (auto member_pair : members)
     {
     auto const& member_name = member_pair.first->lexem;
-    result += "    result += \",\\\"" + member_name.value + "\\\":\" + saver(self." + member_name.value + ");\n";
-    }
-    result += "    result += \"}\";\n";
-    result += "    return result;\n";
-    result += "}\n";
-    result += "}   //  end of namespace detail\n";
-    result += "\n";
+    auto const& member_type = member_pair.second->lexem;
 
-    result += "}   //  end of namespace " + state.namespace_name + "\n";
-    }   //  if serializable
-    result += "namespace std\n";
-    result += "{\n";
-    result += "//  provide a simple hash, required by std::unordered_map\n";
-    result += "template <>\n";
-    result += "struct hash<" + state.namespace_name + "::" + type_name + ">\n";
-    result += "{\n";
-    result += "    size_t operator()(" + state.namespace_name + "::" + type_name + " const& value) const noexcept\n";
-    result += "    {\n";
-    result += "        std::hash<string> hasher;\n";
-    result += "        return hasher(" + state.namespace_name + "::detail::saver(value));\n";
-    result += "    }\n";
-    result += "};\n";
-    result += "}   //end of namespace std\n";
-    result += "\n";
-    result += "namespace " + state.namespace_name + "\n";
-    result += "{\n";
+    result.definitions += "    temp = saver(self." + member_name.value + ");\n";
+    if (member_type.value == "Optional")
+    {
+        result.definitions += "    if (false == temp.empty())\n";
+        result.definitions += "    {\n";
+    }
+    result.definitions += "    result += \",\\\"" + member_name.value + "\\\":\" + std::move(temp);\n";
+    if (member_type.value == "Optional")
+    {
+        result.definitions += "    }\n";
+    }
+    }
+    result.definitions += "    result += \"}\";\n";
+    result.definitions += "    return result;\n";
+    result.definitions += "}\n";
+    result.definitions += "}   //  end of namespace detail\n";
+    result.definitions += "\n";
+    result.definitions += "} // end of namespace " + state.namespace_name + "\n\n";
+
+    result.definitions += "//  provide a simple hash, required by std::unordered_map\n";
+    result.definitions += "size_t std::hash<" + state.namespace_name + "::" + type_name + ">::operator()(" + state.namespace_name + "::" + type_name + " const& value) const noexcept\n";
+    result.definitions += "{\n";
+    result.definitions += "    std::hash<string> hasher;\n";
+    result.definitions += "    return hasher(" + state.namespace_name + "::detail::saver(value));\n";
+    result.definitions += "}\n";
+    result.definitions += "\n";
+
+    return result;
+}
+
+generated_code analyze_enum(state_holder& state,
+                            expression_tree const* pexpression,
+                            string const& enum_name,
+                            string& enum_members)
+{
+    if (state.namespace_name.empty())
+        throw runtime_error("please specify package name");
+
+    generated_code result;
+
+    if (pexpression->children.empty())
+        throw runtime_error("inside enum syntax error, wtf - " + enum_name);
+
+    result.declarations += "namespace " + state.namespace_name + "\n{\n";
+    result.definitions += "namespace " + state.namespace_name + "\n{\n";
+
+    result.declarations += "enum class " + enum_name + "\n";
+
+    bool first = true;
+
+    size_t remain_count = pexpression->children.size();
+    enum_members += "    \"" + enum_name + "\": {\n";
+    enum_members += "        \"type\": \"enum\",\n";
+    enum_members += "        \"values\": [\n";
+
+    for (auto const& item : pexpression->children)
+    {
+        enum_members += "            \"" + item.lexem.value + "\"";
+        remain_count--;
+        if (remain_count > 0)
+            enum_members += ",\n";
+        else
+            enum_members += "\n";
+
+        if (first)
+            result.declarations += "{";
+        else
+            result.declarations += ",";
+        result.declarations += "\n    " + item.lexem.value;
+
+        first = false;
+    }
+
+    enum_members += "        ]\n";
+    enum_members += "    }";
+
+    result.declarations += "\n};\n";
+
+    result.declarations += "inline {export} void from_string(std::string const& string_value, " + enum_name + "& value);\n";
+
+    result.definitions += "void from_string(std::string const& string_value,\n";
+    result.definitions += "                 " + enum_name + "& value)\n";
+    result.definitions += "{\n";
+    for (auto const& item : pexpression->children)
+    {
+        result.definitions += "    if (\"" + item.lexem.value + "\" == string_value)\n";
+        result.definitions += "    {\n";
+        result.definitions += "        value = " + enum_name + "::" + item.lexem.value + ";\n";
+        result.definitions += "        return;\n";
+        result.definitions += "    }\n";
+    }
+    result.definitions += "    throw std::runtime_error(string_value + \": is not recognized by enum " + enum_name + " {";
+    first = true;
+    for (auto const& item : pexpression->children)
+    {
+        if (false == first)
+            result.definitions += ", ";
+        result.definitions += item.lexem.value;
+        first = false;
+    }
+    result.definitions += "}\");\n";
+    result.definitions += "}\n";    //  end of void from_string
+
+    result.definitions += "namespace detail\n";
+    result.definitions += "{\n";
+    result.definitions += "inline\n";
+    result.definitions += "bool analyze_json(" + enum_name + "& value,\n";
+    result.definitions += "                  beltpp::json::expression_tree* pexp,\n";
+    result.definitions += "                  ::beltpp::message_loader_utility const& utl)\n";
+    result.definitions += "{\n";
+    result.definitions += "    std::string string_value;\n";
+    result.definitions += "    if (false == analyze_json(string_value, pexp, utl))\n";
+    result.definitions += "        return false;\n";
+
+    for (auto const& item : pexpression->children)
+    {
+        result.definitions += "    if (\"" + item.lexem.value + "\" == string_value)\n";
+        result.definitions += "    {\n";
+        result.definitions += "        value = " + enum_name + "::" + item.lexem.value + ";\n";
+        result.definitions += "        return true;\n";
+        result.definitions += "    }\n";
+    }
+    result.definitions += "    return false;\n";
+    result.definitions += "}\n";
+
+    result.definitions += "inline\n";
+    result.definitions += "std::string saver(" + enum_name + " const& value)\n";
+    result.definitions += "{\n";
+    result.definitions += "    switch (value)\n";
+    result.definitions += "    {\n";
+    for (auto const& item : pexpression->children)
+    {
+        result.definitions += "    case " + enum_name + "::" + item.lexem.value + ":\n";
+        result.definitions += "        return saver(std::string(\"" + item.lexem.value + "\"));\n";
+    }
+    result.definitions += "    }\n";
+    result.definitions += "    //  msvc thinks this is an execution path that needs to be covered\n";
+    result.definitions += "    assert(false);\n";
+    result.definitions += "    throw std::runtime_error(\"case that must never happen\");\n";
+    result.definitions += "}\n";
+    result.definitions += "}   //  end of namespace detail\n";
+
+    result.declarations += "inline {export} std::string to_string(const " + enum_name + "& value);\n";
+
+    result.definitions += "std::string to_string(const " + enum_name + "& value)\n";
+    result.definitions += "{\n";
+    result.definitions += "    return detail::saver(value);\n";
+    result.definitions += "}\n";    //  end of to_string
+
+    result.declarations += "} // end of namespace " + state.namespace_name + "\n\n";
+    result.definitions += "} // end of namespace " + state.namespace_name + "\n\n";
 
     return result;
 }

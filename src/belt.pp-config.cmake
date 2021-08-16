@@ -1,2 +1,2 @@
 get_filename_component(SELF_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
-include(${SELF_DIR}/${CMAKE_BUILD_TYPE}/belt.pp.package.cmake)
+include(${SELF_DIR}/belt.pp.package.cmake)

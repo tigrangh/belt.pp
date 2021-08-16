@@ -2,6 +2,7 @@
 #include <thread>
 #include <chrono>
 #include <memory>
+#include <functional>
 
 #include <belt.pp/processor.hpp>
 
@@ -10,9 +11,9 @@ struct bobo
 {
     size_t index;
     size_t count;
-    beltpp::iprocessor<task_t>* processor_producer;
-    beltpp::iprocessor<task_t>* processor_consumer;
-    beltpp::iprocessor<task_t>* processor_finisher;
+    beltpp::iprocessor_old<task_t>* processor_producer;
+    beltpp::iprocessor_old<task_t>* processor_consumer;
+    beltpp::iprocessor_old<task_t>* processor_finisher;
 };
 void producer(bobo object);
 void consumer(bobo object);
@@ -50,6 +51,9 @@ void consumer(bobo object)
  */
 int main(int argc, char** argv)
 {
+    B_UNUSED(argc);
+    B_UNUSED(argv);
+
     namespace chrono = std::chrono;
     using steady_clock = chrono::steady_clock;
     using time_point = steady_clock::time_point;
@@ -58,18 +62,18 @@ int main(int argc, char** argv)
 
     try
     {
-        using iprocessorptr = std::unique_ptr<beltpp::iprocessor<task_t>>;
+        using iprocessorptr = std::unique_ptr<beltpp::iprocessor_old<task_t>>;
 
-        iprocessorptr ptr_producer(new beltpp::processor<task_t>(1));
-        iprocessorptr ptr_consumer(new beltpp::processor<task_t>(1));
-        iprocessorptr ptr_finisher(new beltpp::processor<task_t>(1));
+        iprocessorptr ptr_producer(new beltpp::processor_old<task_t>(1));
+        iprocessorptr ptr_consumer(new beltpp::processor_old<task_t>(1));
+        iprocessorptr ptr_finisher(new beltpp::processor_old<task_t>(1));
 
-        /*beltpp::iprocessor<task_t>& processor_producer = *ptr_producer;
-        beltpp::iprocessor<task_t>& processor_consumer = *ptr_consumer;
-        beltpp::iprocessor<task_t>& processor_finisher = *ptr_finisher;*/
+        /*beltpp::iprocessor_old<task_t>& processor_producer = *ptr_producer;
+        beltpp::iprocessor_old<task_t>& processor_consumer = *ptr_consumer;
+        beltpp::iprocessor_old<task_t>& processor_finisher = *ptr_finisher;*/
 
         bobo object;
-        object.count = 1e7;
+        object.count = size_t(1e7);
         object.index = 0;
         object.processor_consumer = ptr_consumer.get();
         object.processor_producer = ptr_producer.get();
@@ -97,7 +101,7 @@ int main(int argc, char** argv)
     tp_wait = steady_clock::now();
     steady_clock::duration elapsed = tp_wait - tp_start;
     chrono::milliseconds ms_elapsed = chrono::duration_cast<chrono::milliseconds>(elapsed);
-    long mswait = ms_elapsed.count();
+    long mswait = long(ms_elapsed.count());
 
     std::cout << mswait << std::endl;
 

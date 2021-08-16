@@ -4,47 +4,86 @@
 
 namespace beltpp
 {
-class scope_helper final
+class on_failure final
 {
 public:
-    scope_helper()
+    on_failure()
+        : m_cleanup()
     {}
 
-    scope_helper(std::function<void()> const& init,
-                 std::function<void()> const& cleanup)
-    {
-        if (init)
-            init();
+    on_failure(std::function<void()> const& cleanup)
+        : m_cleanup(cleanup)
+    {}
+    on_failure(std::function<void()>&& cleanup)
+        : m_cleanup(std::move(cleanup))
+    {}
 
-        m_cleanup = cleanup;
+    on_failure(on_failure const&) = delete;
+    on_failure(on_failure&& other)
+        : m_cleanup(std::move(other.m_cleanup))
+    {
+        other.dismiss();
     }
 
-    scope_helper(scope_helper const&) = delete;
-    scope_helper(scope_helper&& other)
-    {
-        m_cleanup = other.m_cleanup;
-        other.commit();
-    }
-
-    ~scope_helper()
+    ~on_failure()
     {
         if (m_cleanup)
             m_cleanup();
     }
 
-    void operator = (scope_helper const&) = delete;
-    void operator = (scope_helper&& other)
+    void operator = (on_failure const&) = delete;
+    void operator = (on_failure&& other)
     {
         if (m_cleanup)
             m_cleanup();
 
-        m_cleanup = other.m_cleanup;
-        other.commit();
+        m_cleanup = std::move(other.m_cleanup);
+        other.dismiss();
     }
 
-    void commit() noexcept
+    void dismiss() noexcept
     {
         m_cleanup = std::function<void()>();
+    }
+
+private:
+    std::function<void()> m_cleanup;
+};
+
+class finally final
+{
+public:
+    finally()
+    {}
+
+    finally(std::function<void()> const& cleanup)
+        : m_cleanup(cleanup)
+    {}
+    finally(std::function<void()>&& cleanup)
+        : m_cleanup(std::move(cleanup))
+    {}
+
+    finally(finally const&) = delete;
+    finally(finally&& other)
+        : m_cleanup(std::move(other.m_cleanup))
+    {
+        other.m_cleanup = std::function<void()>();
+    }
+
+    ~finally()
+    {
+        if (m_cleanup)
+            m_cleanup();
+    }
+
+    void operator = (finally const&) = delete;
+    void operator = (finally&& other)
+    {
+        if (m_cleanup)
+            m_cleanup();
+
+        m_cleanup = std::move(other.m_cleanup);
+        other.m_cleanup = std::function<void()>();
     }
 
 private:
